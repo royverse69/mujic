@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.3-modular">
+    <meta name="application-version" content="12.0.4-modular">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -219,16 +219,8 @@
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="layoutDensity" aria-label="Layout Density"><option value="compact">Compact</option><option value="comfortable">Comfortable</option><option value="spacious">Spacious</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Lyrics Style</div><div class="settings-desc">Animation and visual style</div></div>
-                        <div class="settings-control-group">
-                            <div class="apple-select-wrapper">
-                                <select id="lyrics-style-select" class="settings-control" data-setting="lyricsStyle">
-                                    <option value="apple">Apple Music</option>
-                                    <option value="spotify">Spotify</option>
-                                    <option value="neon">Neon Highlight</option>
-                                </select>
-                            </div>
-                        </div>
+                        <div class="settings-text"><div class="settings-label">Low-End Device Mode</div><div class="settings-desc">Reduce blur, shadows and nonessential motion for smoother scrolling and lower battery use.</div></div>
+                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lowEndMode" aria-label="Enable low-end device mode"></div>
                     </div>
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Interface Style</div><div class="settings-desc">Overlay transparency</div></div>
@@ -398,6 +390,18 @@
                 <div class="settings-section">
                     <h2 class="section-title">Lyrics Display</h2>
                     <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Lyrics Style</div><div class="settings-desc">Animation and visual style</div></div>
+                        <div class="settings-control-group">
+                            <div class="apple-select-wrapper">
+                                <select id="lyrics-style-select" class="settings-control" data-setting="lyricsStyle">
+                                    <option value="apple">Apple Music</option>
+                                    <option value="spotify">Spotify</option>
+                                    <option value="neon">Neon Highlight</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Lyrics vertical position</div><div class="settings-desc">Choose where the lyrics list sits in the player.</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsPosition" aria-label="Lyrics vertical position"><option value="upper">Upper</option><option value="center">Center</option><option value="lower">Lower</option></select></div></div>
                     </div>
@@ -519,13 +523,13 @@
 
                 <div class="settings-section" id="settings-changelog-section">
                     <h2 class="section-title">Change &amp; Update Log</h2>
-                    <div id="changelog-content" class="changelog-content" aria-live="polite"><div class="settings-row"><div class="settings-text"><div class="settings-label">Loading updates…</div><div class="settings-desc">Release notes are read from changlog.json.</div></div></div></div>
-                    <div class="settings-row"><div class="settings-text"><div class="settings-label">Refresh update log</div><div class="settings-desc">Fetch the latest local changlog.json file.</div></div><div class="settings-control-group"><button class="btn" type="button" data-action="refresh-changelog">Refresh</button></div></div>
+                    <div id="changelog-content" class="changelog-content" aria-live="polite"><div class="settings-row"><div class="settings-text"><div class="settings-label">Loading updates…</div><div class="settings-desc">Recent improvements and fixes.</div></div></div></div>
+                    <div class="settings-row"><div class="settings-text"><div class="settings-label">Refresh update log</div><div class="settings-desc">Reload the latest release notes.</div></div><div class="settings-control-group"><button class="btn" type="button" data-action="refresh-changelog">Refresh</button></div></div>
                 </div>
 
                 <div style="text-align: center; padding: 16px 24px 32px 24px; color: var(--text-tertiary); font-size: 13px;">
-                    <div style="font-weight: 500;">Version 12.0.3</div>
-                    <div style="margin-top: 6px;">Made with ❤️ by Ashutosh Roy (Mackkar)</div>
+                    <div style="font-weight: 500;">Version 12.0.4</div>
+                    <div style="margin-top: 6px;">Made by Machhar · Ashutosh Roy (Mackkar)</div>
                 </div>
             </section>
         </main>
