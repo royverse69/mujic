@@ -1,0 +1,30 @@
+{
+  "app": "Mujic",
+  "version": "12.0.3",
+  "updatedAt": "2026-10-11",
+  "entries": [
+    {
+      "version": "12.0.3",
+      "date": "2026-10-11",
+      "title": "Waveform and lyrics layout refinement",
+      "changes": [
+        "Capped the seek-bar canvas to a compact height and reduced waveform amplitude, frequency and secondary oscillation.",
+        "The active waveform replaces the played-section baseline; the unplayed timeline remains visible as a separate thin line.",
+        "Waveform stays static while paused and clears when the player or effect is closed.",
+        "Added saved lyrics position, fine offset, text size, line spacing, width and active-line emphasis controls.",
+        "Reworked mobile lyrics mode to reserve space for playback controls and keep text scrollable and centered without clipping.",
+        "Added a Change & Update Log page that fetches release notes from changlog.json.",
+        "Versioned the service-worker cache so the updated interface and release notes can replace older cached assets."
+      ]
+    },
+    {
+      "version": "12.0.2",
+      "date": "2026-10-11",
+      "title": "Theme and settings refinements",
+      "changes": [
+        "Added grouped settings, personal appearance preferences and solid surface styling.",
+        "Added a server-side experimental Gemini song identification endpoint while keeping the key out of client JavaScript."
+      ]
+    }
+  ]
+}

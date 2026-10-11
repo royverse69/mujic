@@ -1,4 +1,99 @@
-# Mujic
+> **Current modular build: v12.0.3** — This version splits the app shell, styles and player/backend/UI code into linked files, and includes configurable playback effects (soft track transitions, optional silence skipping, level-aware loudness control, varispeed, progressive media-session seeking, pause-on-mute, wake lock), a low-CPU played-section Audio Waveform with Default/Wavy/Slim/Squiggly styles, lazy metadata parser loading, and a LyricsPlus fallback after local and established lyric sources. Hardware audio offload remains browser/OS managed; the PWA does not expose a fake toggle for it.
+
+# Mujic v12.0.3 — Modular Offline-First Music Player
+
+**Maintainer:** Ashutosh Roy (aka Mackkar) · [github.com/royverse69/mujic](https://github.com/royverse69/mujic)  
+**License:** MIT (see `LICENSE` in the repository)  
+**Primary goal:** a lightweight, ad-free, uncluttered local music player designed to stay useful on modest phones and computers.
+
+## v12.0.2 patch: local startup and runtime fixes
+
+- Fixed `Utils is not defined` in inline artwork fallback handlers by exposing a safe `window.Utils` namespace and guarding early image errors.
+- Fixed the Settings category initializer: it no longer calls `insertBefore` with a settings section that was already moved into a subpage.
+- Added `start-mujic.bat` for Windows local startup. Open the app via `http://localhost:3000`; do not open `index.html` directly.
+
+## v12 updates: settings, waveform and experimental AI metadata
+
+- Settings is now split into category pages: **UI & Customization**, **Player & Audio**, **Lyrics & AI**, **Library & Listening**, and **App & About**. The category navigation stays inside the existing Settings view, and its back button works with browser history.
+- **Audio Waveform** and **Seek bar effect style** now have explicit selected states. Choosing one of the four waveform shapes automatically selects the Audio Waveform mode; choosing Off disables seek-bar animation. The waveform is drawn only on the played section of the seek bar. Canvas frequency/time-domain buffers are reused and drawing is capped at 30 FPS to reduce low-end device CPU usage.
+- The playing track no longer paints a persistent row highlight or changes its title to the accent color; hover/press affordances remain for feedback.
+- Added more accent colors and independent dark surface palettes (OLED Black, Graphite, Midnight Blue, Warm Espresso and Forest). Preferences are stored locally.
+- Added optional **AI Song Identification (Experimental)** for ambiguous filenames/missing artists. When enabled, Mujic sends only text metadata (title, artist, album, filename and duration) to the same-origin server endpoint. It does **not** upload the audio file. A confident suggestion is saved to the local track metadata and used for LRCLIB, Render and LyricsPlus lookup. AI guesses can be wrong; normal lyric lookup continues if the AI endpoint is not configured or fails.
+
+### Configure the optional Gemini endpoint
+
+The browser app intentionally contains **no Gemini API key**. Front-end API keys can be extracted by anyone who downloads the source or inspects the app. The included `server.js` serves the static PWA and exposes a small same-origin `POST /api/identify-song` proxy. It reads `GEMINI_API_KEY` from a local `.env` file or the host's environment variables; it also accepts the optional `GEMINI_MODEL` and `PORT` settings. The personal local archive may include a git-ignored `.env` for convenience; never publish that archive or commit `.env`. The GitHub-safe archive intentionally excludes `.env` and needs a privately configured key if you want AI identification.
+
+1. Install Node.js 18.17 or newer.
+2. Copy `.env.example` to `.env` and set `GEMINI_API_KEY` to a **newly rotated** Gemini API key. Never commit `.env`.
+3. Start the local server with `npm start`, then open `http://localhost:3000`.
+4. In Settings → **Lyrics & AI**, enable **AI Song Identification (Experimental)**.
+
+For deployment, set `GEMINI_API_KEY` as a private environment variable in the server host's dashboard instead of uploading `.env`. The AI feature requires this Node server; on static-only GitHub Pages, the offline player and lyric fallbacks still work, but the AI identification endpoint will not be present unless deployed separately behind the same origin or configured with a protected proxy. Do not set a client-side key.
+
+The endpoint limits request-body size and rate, times out Gemini requests, caches successful identification suggestions server-side for seven days, and never sends the API key back to the browser. Audio remains local.
+
+## Local-only credentials note
+
+The personal local ZIP includes a git-ignored `.env` configured for the Gemini experiment. Keep that archive private. The included `.gitignore` excludes `.env` from normal Git CLI staging, and `server.js` blocks dotfiles from HTTP serving, but `.gitignore` does not protect a key if you upload the ZIP itself or force-add the file. Use the GitHub-safe ZIP for publishing and rotate the key before deploying. The Gemini key is read only by `server.js`; it is not sent into browser JavaScript.
+
+## Run locally
+
+Serve the repository through the included Node server. The experimental AI endpoint requires this server, and service workers / PWA installation require `localhost` or HTTPS. Do **not** double-click `index.html` or open it using `file://`; that causes manifest CORS errors and prevents `/api/identify-song` from working.
+
+```bash
+npm start
+# then open http://localhost:3000
+```
+
+On Windows, double-click `start-mujic.bat` to start the local server and open the app once it responds.
+
+## v12 source layout
+
+```text
+index.html                  app markup and PWA metadata
+css/app.css                 styles, responsive layout and theme tokens
+js/vendor-loader.js        on-demand metadata parser loader (import path only)
+js/core.js                 utilities, app state and artwork cache
+js/backend.js              IndexedDB persistence, settings and listening statistics
+js/lyrics.js               embedded/cache, LRCLIB, Render and LyricsPlus fallback providers
+js/dialogs.js              prompt/confirm dialog controller
+js/player.js               audio element, Web Audio filters/effects, queue and Media Session
+js/library.js               file import/metadata, library actions and playlist operations
+js/ui.js                    screen rendering, search, settings, sheets and delegated interactions
+js/app.js                   startup, restore/resume lifecycle and service-worker registration
+manifest.webmanifest       install metadata
+sw.js                       versioned offline application-shell cache
+icons/                      PWA icons
+```
+
+Scripts are kept as ordered classic deferred scripts rather than converted to ES modules so the existing shared-state/legacy app interactions remain intact. The metadata parser libraries are not fetched during app startup; they are requested only if the user imports music. Actual audio files, cover art, track metadata, playlists, preferences and lyrics cache are kept locally in IndexedDB. The service worker caches the application shell only; the user’s audio blobs are stored in IndexedDB and verified after import.
+
+## Performance and offline behavior
+
+- App startup never waits for LyricsPlus, LRCLIB, the Render lyrics service, or metadata parser CDN requests.
+- Playback starts after the audio blob is read; title/artwork/theme updates continue in the background.
+- Import verifies a saved audio blob before showing the track as available offline.
+- Listening events are append-only in IndexedDB; the history panel reads a bounded recent window for low memory use, while manual stats export includes the full stored event history.
+- Optional player effects are off by default where they may add CPU or DSP work. Loudness control uses Web Audio dynamics compression; silence skipping uses a throttled RMS check; soft transitions are a brief gain fade rather than overlapping two audio streams.
+- Supported audio formats depend on codecs implemented by the browser/device. The app cannot force a browser to decode an unsupported codec.
+- Lyrics order: embedded lyrics → local lyrics cache → LRCLIB exact/search → existing Render fallback → optional LyricsPlus v2 API. Online lyric providers are external fallback services; lyrics already embedded or cached remain available offline.
+- LyricsPlus repository: [ibratabian17/lyricsplus](https://github.com/ibratabian17/lyricsplus). Its API is a backend and requires internet access; public instances may have availability or CORS limits.
+
+## Player effects
+
+Settings includes opt-in **soft track transitions**, **skip long silence**, **loudness control**, **auto-skip unsupported tracks**, **prevent duplicate queue items**, **preserve pitch**, **keep screen awake** (Wake Lock API support varies), and a configurable media-session seek increment. Optional effects are deliberately not enabled at startup by default. `Crossfade` is a short volume fade around a track change; it does not overlap two songs, avoiding extra decoders and RAM use on low-end devices.
+
+## Data & privacy
+
+Mujic does not include ad networks, account sign-in, cloud music uploads, or analytics SDKs. Music and library data stay in local browser storage. External network access is only needed for optional web fonts, on-demand metadata parser download while importing, and lyrics-provider lookups while lyrics are requested. Playing local tracks itself does not require a network connection after the track has been imported and stored.
+
+## Validation
+
+The v12 package has been checked for JavaScript syntax, expected script ordering, PWA manifest validity, required cache-shell file presence, and ZIP integrity. Full physical-device/browser testing should still be performed on target Android/iOS browsers because supported codecs, Wake Lock, Media Session and third-party lyric CORS availability vary by browser.
+
+---
+
 
 > A lightweight, local-first, offline music player built for people who want their music library to stay on their device — fast, private, uncluttered, and free from ads.
 
@@ -806,16 +901,14 @@ Current selectable seek-bar modes include:
 
 - Off
 - Spectrum Bars
-- Soft Wave
+- Audio Waveform (Default, Wavy, Slim, Squiggly)
 - Pulse
 - Dots
 - Mirror Bars
 
-## Soft Wave
+## Audio Waveform
 
-The wave mode intentionally uses fewer points and stronger smoothing to create a larger wavelength and reduce the number of visible bumps.
-
-It uses a smoothed time-domain signal and cubic Bézier interpolation so adjacent samples form a continuous curve instead of independent jagged segments.
+The seek-bar waveform is limited to the played portion. The Wavy, Slim and Squiggly presets use a small number of smooth, cubic Bézier curve segments driven by smoothed low-frequency energy, while Default uses a calm progress line. The curve is deliberately low-cycle with stronger crests and troughs; it does not draw every raw FFT sample as a sharp bar. This reduces visual chatter and keeps work bounded on low-end devices.
 
 ## Animation-loop safety
 
@@ -2185,3 +2278,35 @@ That is the foundation of Mujic:
 <p align="center">
   Made with care by <strong>Ashutosh Roy aka Mackkar</strong> · <a href="https://github.com/royverse69/mujic">github.com/royverse69/mujic</a>
 </p>
+
+
+## v12.0.2 UI / waveform fixes
+
+- Removed the file:// launch popup. The PWA manifest is linked only on HTTP(S), avoiding manifest CORS errors when opening a local file. Service workers and PWA installation still require localhost or HTTPS.
+- Removed CSS and SVG gradients from the interface and generated artwork; surfaces and fallback artwork use solid colors.
+- Removed persistent playing-row accent/highlight styling and the seek-fill glow.
+- Added four seek-bar Audio Waveform styles (Default, Wavy, Slim, Squiggly). Curved styles use low-cycle smoothed curves, accent colors, and amplitude that responds to low-frequency energy. The drawing is clipped to the played portion of the seek bar.
+- Lyrics view closes after five seconds if all providers fail, preventing a stale unavailable panel from remaining open.
+- Added persisted Text Size and Layout Density options to Appearance settings.
+
+
+## v12.0.2 visual and settings refinement
+
+- Removed the local-file warning overlay. The manifest link is added only for HTTP(S) origins so `file://` does not attempt a blocked manifest request. For the PWA and same-origin Gemini endpoint, run the included server on localhost.
+- Removed gradient declarations from app CSS and generated fallback artwork; UI panels and generated placeholder art use solid fills.
+- Removed active playing-row highlight class styling entirely, along with seek-fill glow.
+- Reworked the four Audio Waveform previews as smooth SVG curves and the active waveform as a low-cycle, smoothed canvas curve clipped to the played section. Style selection activates Audio Waveform.
+- When all lyric sources return no lyrics, the unavailable lyrics panel closes after five seconds. The manual cache-check action replaces an earlier unavailable cached result when saved lyrics exist.
+- Added persisted Text Size (Compact/Standard/Large) and Layout Density (Compact/Comfortable/Spacious) preferences under Appearance.
+
+
+## v12.0.3 — Waveform and lyrics refinement
+
+- The seek-bar waveform canvas is capped to a compact, predictable height; wave amplitude and extra oscillation are reduced to prevent oversized peaks.
+- During visualization, the canvas draws the unplayed timeline itself so the ordinary baseline does not show through the played waveform.
+- The selected waveform remains visible while paused and is cleared when the full player/effect is closed.
+- Added persistent lyrics vertical position, fine vertical offset, typography size, line spacing, text width and active-line emphasis controls.
+- Reworked mobile lyrics layout to reserve a dedicated area above controls, allow scrolling and reduce clipping on short screens.
+- Added the **Change & Update Log** section that reads the release-notes file `changlog.json` from the app root.
+
+The filename is intentionally `changlog.json` to match the requested path. When serving the app, keep this file beside `index.html`; it is included in the service-worker app shell.
