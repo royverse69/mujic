@@ -41,7 +41,7 @@
             
             volume: 1, muted: false, playbackRate: 1, eq: 'off', eqPreset: 'flat', eqBands: [0,0,0,0,0], shuffle: false, repeat: 0, 
             
-            theme: 'system', accentPreset: 'dynamic', accentColor: '#ffffff', surfaceTheme: 'oled', textScale: 'normal', layoutDensity: 'comfortable', aiSongIdentification: false,
+            theme: 'system', accentPreset: 'dynamic', accentColor: '#ffffff', surfaceTheme: 'oled', textScale: 'normal', layoutDensity: 'comfortable', lowEndMode: false, aiSongIdentification: false,
             interfaceStyle: 'subtle', cornerRadius: 'rounded', motion: 'full', lyricsStyle: 'apple',
             lyricsPosition: 'center', lyricsVerticalOffset: 0, lyricsFontSize: 'normal', lyricsLineSpacing: 'normal', lyricsWidth: 'standard', lyricsEmphasis: 'soft',
             playerBackground: 'artwork', playerArtworkMode: 'full', visualizerMode:'off', resumePlayback: false,

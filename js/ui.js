@@ -19,7 +19,7 @@
                 const footer = Array.from(root.children).find(el => el !== title && !el.classList.contains('settings-section') && el.tagName === 'DIV');
                 const overview = document.createElement('div');
                 overview.id = 'settings-overview'; overview.className = 'settings-overview';
-                overview.innerHTML = `<div class="settings-overview-intro"><div class="settings-overview-kicker">PREFERENCES</div><div class="settings-overview-copy">Choose a category to change one part of Mujic without scrolling through the entire settings page.</div></div>`;
+                overview.innerHTML = `<div class="settings-overview-intro"><div class="settings-overview-kicker">PREFERENCES</div><div class="settings-overview-copy">Personalize your listening experience, playback, lyrics and library.</div></div>`;
                 const defs = [
                     {id:'appearance', title:'UI & Customization', description:'Themes, accent colours, surfaces, corners and motion', icon:'palette', headings:['Appearance']},
                     {id:'player', title:'Player & Audio', description:'Waveform, playback, equalizer and audio effects', icon:'graphic_eq', headings:['Player','Playback','Playback Effects']},
@@ -86,8 +86,24 @@
                     }).join('') : '<div class="changelog-empty">No release notes are available yet.</div>';
                     root.dataset.loaded = '1';
                 } catch (error) {
-                    root.innerHTML = `<div class="changelog-empty">Release notes could not be loaded. Make sure changlog.json is beside index.html and run Mujic through localhost/HTTPS.</div>`;
-                    root.dataset.loaded = '0';
+                    // Keep the update page useful when launched from file:// or while offline.
+                    const fallbackEntries = [
+                        { version: '12.0.4', date: '2026-10-11', title: 'Performance and settings polish', changes: [
+                            'Grouped preferences into focused settings pages and moved lyrics styling into Lyrics Display.',
+                            'Added Low-End Device Mode to reduce GPU-heavy blur, shadows and nonessential motion.',
+                            'Bundled release notes fallback so update history remains readable offline and in local preview.'
+                        ]},
+                        { version: '12.0.3', date: '2026-10-11', title: 'Waveform and lyrics refinement', changes: [
+                            'Reduced seek waveform height and movement, and limited drawing to the played section.',
+                            'Added persisted lyrics position, text size, line spacing, width and emphasis preferences.'
+                        ]},
+                        { version: '12.0.2', date: '2026-10-11', title: 'Settings and local startup fixes', changes: [
+                            'Fixed settings category initialization and inline artwork fallback handling.',
+                            'Kept Gemini credentials on the same-origin server instead of browser code.'
+                        ]}
+                    ];
+                    root.innerHTML = fallbackEntries.map(entry => `<article class="changelog-entry"><div class="changelog-entry-head"><strong>${Utils.escapeHTML(entry.title)}</strong><span>${Utils.escapeHTML(entry.date)}</span></div><div class="changelog-version">${Utils.escapeHTML(entry.version)}</div><ul>${entry.changes.map(item => `<li>${Utils.escapeHTML(item)}</li>`).join('')}</ul></article>`).join('');
+                    root.dataset.loaded = '1';
                 }
             },
             setAccent: (c) => {
@@ -792,7 +808,7 @@
                 const monthly = document.getElementById('settings-monthly-stats'); if(monthly) monthly.innerText=`${s.month.plays} plays • ${Stats.formatMinutes(s.month.seconds)}`;
             },
             exportData: async (kind) => {
-                const settingKeys = ['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','aiSongIdentification','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','sleepTimer','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled'];
+                const settingKeys = ['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','aiSongIdentification','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','sleepTimer','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled'];
                 const settings = {}; settingKeys.forEach(key => { if (State[key] !== undefined) settings[key] = State[key]; });
                 let payload;
                 if (kind === 'settings') {
@@ -865,6 +881,7 @@
             },
             applySettings: () => {
                 const root = document.documentElement;
+                document.body.classList.toggle('low-end-mode', !!State.lowEndMode);
                 document.body.classList.remove('theme-light');
                 if (State.theme === 'light') document.body.classList.add('theme-light');
                 else if (State.theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches) { document.body.classList.add('theme-light'); }

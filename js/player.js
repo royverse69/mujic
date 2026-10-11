@@ -384,7 +384,8 @@
                     AudioAdapter.visualizerRAF=0;
                     if(!AudioAdapter.visualizerShouldRun()){ AudioAdapter.stopVisualizerLoop(); return; }
                     // Draw at up to 30 FPS: smooth enough for a small seek-bar waveform without wasting CPU on low-end phones.
-                    if (!AudioAdapter.visualizerLastFrameAt || timestamp - AudioAdapter.visualizerLastFrameAt >= 32) {
+                    const frameInterval = State.lowEndMode ? 66 : 32;
+                    if (!AudioAdapter.visualizerLastFrameAt || timestamp - AudioAdapter.visualizerLastFrameAt >= frameInterval) {
                         AudioAdapter.visualizerLastFrameAt=timestamp;
                         AudioAdapter.renderScrubberVisualizerFrame();
                     }

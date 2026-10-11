@@ -917,3 +917,27 @@ body.layout-spacious .editorial-section { margin-bottom:56px; }
 @media (min-width:768px) {
   body.lyrics-mode.immersive-lyrics .player-lyrics-container { position:absolute !important; inset:0 !important; top:0 !important; bottom:0 !important; width:min(920px,100%) !important; height:100dvh !important; max-height:none !important; margin:0 auto !important; padding:12vh 30px !important; transform:translateY(calc(var(--lyrics-position-base, 0vh) + var(--lyrics-offset, 0vh))) !important; translate:none !important; }
 }
+
+
+/* Low-End Device Mode: preserve the layout while reducing costly paint and motion. */
+body.low-end-mode *,
+body.low-end-mode *::before,
+body.low-end-mode *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+  scroll-behavior: auto !important;
+}
+body.low-end-mode .glass-surface,
+body.low-end-mode .settings-section,
+body.low-end-mode .search-container,
+body.low-end-mode .bottom-sheet,
+body.low-end-mode .dialog-box,
+body.low-end-mode .eq-layout {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+body.low-end-mode .player-bg { filter: none !important; transform: none !important; opacity: .08 !important; }
+body.low-end-mode .art-wrapper img { transition: none !important; }
+body.low-end-mode .track-row, body.low-end-mode .art-card, body.low-end-mode .btn { transition: none !important; }
