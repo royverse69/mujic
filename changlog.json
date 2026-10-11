@@ -1,8 +1,19 @@
 {
   "app": "Mujic",
-  "version": "12.0.3",
+  "version": "12.0.4",
   "updatedAt": "2026-10-11",
   "entries": [
+    {
+      "version": "12.0.4",
+      "date": "2026-10-11",
+      "title": "Production polish and performance mode",
+      "changes": [
+        "Added Low-End Device Mode to reduce costly blur, shadows and nonessential motion, with a lower waveform frame rate.",
+        "Moved Lyrics Style into the dedicated Lyrics Display section and retained saved lyrics display preferences.",
+        "Added a built-in changelog fallback so release notes remain visible offline or when the changelog file cannot be fetched.",
+        "Replaced developer-facing setup messages with user-focused copy and updated the service-worker cache version."
+      ]
+    },
     {
       "version": "12.0.3",
       "date": "2026-10-11",

@@ -1,8 +1,8 @@
 {
   "name": "mujic-pwa",
-  "version": "12.0.3",
+  "version": "12.0.4",
   "private": true,
-  "description": "Mujic offline-first music player with compact seek waveform, responsive lyric controls and local release notes.",
+  "description": "Mujic offline-first music player with configurable low-end performance mode, lyrics customization, audio waveform, and release notes.",
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
