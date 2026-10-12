@@ -1,2312 +1,1571 @@
-> **Current modular build: v12.0.3** — This version splits the app shell, styles and player/backend/UI code into linked files, and includes configurable playback effects (soft track transitions, optional silence skipping, level-aware loudness control, varispeed, progressive media-session seeking, pause-on-mute, wake lock), a low-CPU played-section Audio Waveform with Default/Wavy/Slim/Squiggly styles, lazy metadata parser loading, and a LyricsPlus fallback after local and established lyric sources. Hardware audio offload remains browser/OS managed; the PWA does not expose a fake toggle for it.
+# Mujic v12.0.5 — Modular, Offline-First Music Player
 
-# Mujic v12.0.3 — Modular Offline-First Music Player
+> **Your library. Your device. Your controls.**
+>
+> Mujic is a lightweight, ad-free local music player built as an installable Progressive Web App (PWA). It is designed to remain useful on modest phones and computers, to keep an imported library on the user's device, and to avoid the clutter of feeds, accounts and subscription-oriented music apps.
 
-**Maintainer:** Ashutosh Roy (aka Mackkar) · [github.com/royverse69/mujic](https://github.com/royverse69/mujic)  
-**License:** MIT (see `LICENSE` in the repository)  
-**Primary goal:** a lightweight, ad-free, uncluttered local music player designed to stay useful on modest phones and computers.
+<p align="left">
+  <a href="./LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-111111.svg"></a>
+  <img alt="Version 12.0.5" src="https://img.shields.io/badge/version-12.0.5-111111.svg">
+  <img alt="PWA" src="https://img.shields.io/badge/PWA-installable-111111.svg">
+  <img alt="Offline first" src="https://img.shields.io/badge/design-offline--first-111111.svg">
+  <img alt="No ads in the player UI" src="https://img.shields.io/badge/player%20UI-no%20ads-111111.svg">
+</p>
 
-## v12.0.2 patch: local startup and runtime fixes
+**Maintainer / creator:** **Ashutosh Roy (aka Mackkar)**  
+**Repository:** [github.com/royverse69/mujic](https://github.com/royverse69/mujic)  
+**License:** MIT — see [`LICENSE`](./LICENSE)  
+**Current package version:** `12.0.5` — also recorded in [`VERSION`](./VERSION) and [`package.json`](./package.json)
 
-- Fixed `Utils is not defined` in inline artwork fallback handlers by exposing a safe `window.Utils` namespace and guarding early image errors.
-- Fixed the Settings category initializer: it no longer calls `insertBefore` with a settings section that was already moved into a subpage.
-- Added `start-mujic.bat` for Windows local startup. Open the app via `http://localhost:3000`; do not open `index.html` directly.
+---
 
-## v12 updates: settings, waveform and experimental AI metadata
+## Contents
 
-- Settings is now split into category pages: **UI & Customization**, **Player & Audio**, **Lyrics & AI**, **Library & Listening**, and **App & About**. The category navigation stays inside the existing Settings view, and its back button works with browser history.
-- **Audio Waveform** and **Seek bar effect style** now have explicit selected states. Choosing one of the four waveform shapes automatically selects the Audio Waveform mode; choosing Off disables seek-bar animation. The waveform is drawn only on the played section of the seek bar. Canvas frequency/time-domain buffers are reused and drawing is capped at 30 FPS to reduce low-end device CPU usage.
-- The playing track no longer paints a persistent row highlight or changes its title to the accent color; hover/press affordances remain for feedback.
-- Added more accent colors and independent dark surface palettes (OLED Black, Graphite, Midnight Blue, Warm Espresso and Forest). Preferences are stored locally.
-- Added optional **AI Song Identification (Experimental)** for ambiguous filenames/missing artists. When enabled, Mujic sends only text metadata (title, artist, album, filename and duration) to the same-origin server endpoint. It does **not** upload the audio file. A confident suggestion is saved to the local track metadata and used for LRCLIB, Render and LyricsPlus lookup. AI guesses can be wrong; normal lyric lookup continues if the AI endpoint is not configured or fails.
+- [1. Project overview](#1-project-overview)
+- [2. Product principles](#2-product-principles)
+- [3. Feature map](#3-feature-map)
+- [4. Architecture at a glance](#4-architecture-at-a-glance)
+- [5. Complete repository structure](#5-complete-repository-structure)
+- [6. Frontend and module responsibilities](#6-frontend-and-module-responsibilities)
+- [7. Startup and application lifecycle](#7-startup-and-application-lifecycle)
+- [8. Importing audio](#8-importing-audio)
+- [9. Metadata and artwork processing](#9-metadata-and-artwork-processing)
+- [10. Local library, artists and albums](#10-local-library-artists-and-albums)
+- [11. Playlists](#11-playlists)
+- [12. Search and Home](#12-search-and-home)
+- [13. Playback engine](#13-playback-engine)
+- [14. Queue, shuffle and repeat](#14-queue-shuffle-and-repeat)
+- [15. Mini-player and full player](#15-mini-player-and-full-player)
+- [16. Audio effects and equalizer](#16-audio-effects-and-equalizer)
+- [17. Audio Waveform / seek-bar effects](#17-audio-waveform--seek-bar-effects)
+- [18. Lyrics engine](#18-lyrics-engine)
+- [19. Experimental Gemini song identification](#19-experimental-gemini-song-identification)
+- [20. Listening history and statistics](#20-listening-history-and-statistics)
+- [21. Themes and personalisation](#21-themes-and-personalisation)
+- [22. Performance profile for low-end devices](#22-performance-profile-for-low-end-devices)
+- [23. IndexedDB storage model](#23-indexeddb-storage-model)
+- [24. Offline behaviour and service worker](#24-offline-behaviour-and-service-worker)
+- [25. PWA installation](#25-pwa-installation)
+- [26. Media Session, lock-screen controls and wake lock](#26-media-session-lock-screen-controls-and-wake-lock)
+- [27. Settings reference](#27-settings-reference)
+- [28. Data export, deletion and recovery](#28-data-export-deletion-and-recovery)
+- [29. External services and network behaviour](#29-external-services-and-network-behaviour)
+- [30. Privacy and security model](#30-privacy-and-security-model)
+- [31. Audio-format and browser compatibility](#31-audio-format-and-browser-compatibility)
+- [32. Run the project locally](#32-run-the-project-locally)
+- [33. Development workflow and checks](#33-development-workflow-and-checks)
+- [34. Troubleshooting](#34-troubleshooting)
+- [35. Extension points for contributors](#35-extension-points-for-contributors)
+- [36. Known limits and honest expectations](#36-known-limits-and-honest-expectations)
+- [37. Release notes](#37-release-notes)
+- [38. Contributing](#38-contributing)
+- [39. License and credits](#39-license-and-credits)
 
-### Configure the optional Gemini endpoint
+---
 
-The browser app intentionally contains **no Gemini API key**. Front-end API keys can be extracted by anyone who downloads the source or inspects the app. The included `server.js` serves the static PWA and exposes a small same-origin `POST /api/identify-song` proxy. It reads `GEMINI_API_KEY` from a local `.env` file or the host's environment variables; it also accepts the optional `GEMINI_MODEL` and `PORT` settings. The personal local archive may include a git-ignored `.env` for convenience; never publish that archive or commit `.env`. The GitHub-safe archive intentionally excludes `.env` and needs a privately configured key if you want AI identification.
+## 1. Project overview
 
-1. Install Node.js 18.17 or newer.
-2. Copy `.env.example` to `.env` and set `GEMINI_API_KEY` to a **newly rotated** Gemini API key. Never commit `.env`.
-3. Start the local server with `npm start`, then open `http://localhost:3000`.
-4. In Settings → **Lyrics & AI**, enable **AI Song Identification (Experimental)**.
+Mujic is a **local-first music library and playback application**. A user selects audio files from their own device; Mujic reads available metadata, persists the original audio as a browser `Blob`, and uses that locally stored object for playback. The browser is the execution environment, and IndexedDB is the persistent data layer.
 
-For deployment, set `GEMINI_API_KEY` as a private environment variable in the server host's dashboard instead of uploading `.env`. The AI feature requires this Node server; on static-only GitHub Pages, the offline player and lyric fallbacks still work, but the AI identification endpoint will not be present unless deployed separately behind the same origin or configured with a protected proxy. Do not set a client-side key.
+Mujic is not a cloud music catalogue and does not require an account. It does not upload imported audio to a Mujic-owned server. Playback of audio that has already been imported and successfully stored does not depend on a network connection. Internet access is an optional enhancement for items such as metadata parser downloads during import, online lyrics, optional Gemini identification and web fonts.
 
-The endpoint limits request-body size and rate, times out Gemini requests, caches successful identification suggestions server-side for seven days, and never sends the API key back to the browser. Audio remains local.
+### Project goals
 
-## Local-only credentials note
+- **Offline-first:** imported music and core library data are stored locally.
+- **Lightweight:** optional metadata parsers load only when the user imports files; visual effects are opt-in and can be reduced on constrained devices.
+- **Ad-free player interface:** no advertising SDK or ad placement is built into the player UI.
+- **Readable and navigable:** Home, Library, Search and Settings are separate views; Settings itself is grouped into focused categories.
+- **Customisable:** themes, accents, density, text scale, player presentation, lyrics presentation, waveform styles and audio processing are configurable.
+- **Recoverable:** preferences and listening statistics can be exported as JSON; track history and playlists are persisted locally.
+- **Open source:** the code is released under the MIT License.
 
-The personal local ZIP includes a git-ignored `.env` configured for the Gemini experiment. Keep that archive private. The included `.gitignore` excludes `.env` from normal Git CLI staging, and `server.js` blocks dotfiles from HTTP serving, but `.gitignore` does not protect a key if you upload the ZIP itself or force-add the file. Use the GitHub-safe ZIP for publishing and rotate the key before deploying. The Gemini key is read only by `server.js`; it is not sent into browser JavaScript.
+### What “backend” means in this repository
 
-## Run locally
+Mujic has **no app-owned Node/Express API server, login service, cloud database or music-upload backend**. The JavaScript modules run in the browser. `StorageAdapter` is the local persistence/data-access layer, `AudioAdapter` is the audio engine, and `LyricsFetcher` is the integration layer for external services. A static HTTP server is used only to serve the files and enable browser features such as the service worker.
 
-Serve the repository through the included Node server. The experimental AI endpoint requires this server, and service workers / PWA installation require `localhost` or HTTPS. Do **not** double-click `index.html` or open it using `file://`; that causes manifest CORS errors and prevents `/api/identify-song` from working.
+The application can call remote services for lyrics and optional AI identification. Those are network integrations, not a private server that stores the user's music. See [External services and network behaviour](#29-external-services-and-network-behaviour).
 
-```bash
-npm start
-# then open http://localhost:3000
-```
+---
 
-On Windows, double-click `start-mujic.bat` to start the local server and open the app once it responds.
+## 2. Product principles
 
-## v12 source layout
+### Local-first, not local-only
+
+The audio library is local, but some optional conveniences are online. In particular, lyrics are fetched on demand and cached after a successful response; the experimental Gemini feature is opt-in and requires a saved API key and internet access. A first-time lyrics request cannot magically retrieve an uncached remote lyric while offline.
+
+### Keep expensive work out of startup
+
+On launch, Mujic initialises storage, loads preferences and library metadata, restores the visible player if resume is enabled, and renders the main views. Metadata parsers are loaded only when needed for an import. Lyrics network lookups are deferred until lyrics are opened rather than being performed for every track change. Artwork cache warm-up happens in small idle-time batches.
+
+### Prefer graceful degradation
+
+If metadata parsers cannot be downloaded, the import flow can fall back to filename-derived title/artist information. If a lyrics provider times out, the next provider can be attempted. If Web Audio effects are unsupported, normal HTML media playback may still work, but equalizer/waveform/loudness features can be unavailable. If an audio codec is unsupported by the current browser, playback cannot be forced by the application.
+
+### Respect the device's performance budget
+
+The `Auto`, `Low-end device` and `Full visuals` profiles control costly visual work. Auto mode considers exposed device-memory and logical-core hints and the operating system's reduced-motion preference. Low-end mode lowers the waveform canvas resolution/frame rate and reduces artwork warm-up work. It does not alter the user's audio files or reduce their stored audio quality.
+
+---
+
+## 3. Feature map
+
+| Area | Features | How it works |
+|---|---|---|
+| Library | Import multiple audio files, metadata parsing, local sort, remove track | The browser file picker provides `File` objects; metadata is extracted; audio, metadata and artwork are written to IndexedDB. |
+| Playback | Play/pause, next/previous, seek, volume, mute, speed, resume | An `HTMLAudioElement` plays object URLs created from locally stored audio blobs. |
+| Queue | Up Next, reorder, move up/down, remove, play a queue item, add next, shuffle, repeat | `State.queue`, `State.playbackOrder` and `State.queueIndex` hold the queue and active position. |
+| Library views | Home, songs, albums, artists, playlists, search, context detail, favorites | UI renderers read the in-memory state backed by IndexedDB. |
+| Lyrics | Embedded lyrics, synced LRC, plain text, cache, LRCLIB, Render fallback, optional LyricsPlus | `LyricsFetcher` resolves providers on demand, validates likely matches and saves successful lyrics locally. |
+| AI identification | Up to four Gemini API keys, key testing, fallback rotation, experimental metadata matching | Browser sends text metadata to Google's Gemini API; no audio bytes are sent. |
+| EQ | Five bands, presets and custom band values | Web Audio BiquadFilters with adjustable gain. |
+| Player effects | Soft track fade, silence skipping, loudness control, pitch preservation/varispeed, skip-on-error | Optional logic in the audio engine. Some features require Web Audio support. |
+| Audio Waveform | Played-section waveform; Default, Wavy, Slim, Squiggly | A small canvas reads analyser data and clips rendering to the elapsed part of the seek bar. |
+| Appearance | Theme mode, accent presets/custom colour, surface palette, text size, layout density, blur style, corner radius, reduced motion | Saved preferences are mapped to CSS classes and custom properties. |
+| History and stats | Recent play history, today/week/month/all-time counts, listening time, most-played list | A play-history store records track-start events; aggregate daily play/listening metrics are saved with settings. |
+| Export | Export settings, export listening statistics/history | Browser downloads JSON generated from selected local state. API keys are intentionally excluded from settings export. |
+| PWA | Install prompt, app manifest, service-worker app-shell cache | Works through localhost or HTTPS; cache policy differs for navigation, app assets and fonts. |
+| Accessibility/responsive UI | Touch-friendly controls, dialog keyboard handling, mobile layouts, desktop layout, reduced motion | CSS media queries and event handlers adapt interaction to the viewport and available browser APIs. |
+
+---
+
+## 4. Architecture at a glance
 
 ```text
-index.html                  app markup and PWA metadata
-css/app.css                 styles, responsive layout and theme tokens
-js/vendor-loader.js        on-demand metadata parser loader (import path only)
-js/core.js                 utilities, app state and artwork cache
-js/backend.js              IndexedDB persistence, settings and listening statistics
-js/lyrics.js               embedded/cache, LRCLIB, Render and LyricsPlus fallback providers
-js/dialogs.js              prompt/confirm dialog controller
-js/player.js               audio element, Web Audio filters/effects, queue and Media Session
-js/library.js               file import/metadata, library actions and playlist operations
-js/ui.js                    screen rendering, search, settings, sheets and delegated interactions
-js/app.js                   startup, restore/resume lifecycle and service-worker registration
-manifest.webmanifest       install metadata
-sw.js                       versioned offline application-shell cache
-icons/                      PWA icons
+┌──────────────────────────────────────────────────────────┐
+│                     index.html                           │
+│  App shell · views · settings markup · player controls    │
+└───────────────────────────┬──────────────────────────────┘
+                            │ loads classic deferred scripts in order
+┌───────────────────────────▼──────────────────────────────┐
+│                       js/app.js                           │
+│  Startup · restore · install event · service worker       │
+└───────────┬───────────────┬──────────────┬────────────────┘
+            │               │              │
+     ┌──────▼─────┐  ┌──────▼──────┐  ┌────▼────────────┐
+     │ js/ui.js   │  │ js/player.js│  │ js/library.js   │
+     │ Views and  │  │ Audio/queue │  │ Import and      │
+     │ interaction│  │ transport   │  │ playlists       │
+     └──────┬─────┘  └──────┬──────┘  └────┬────────────┘
+            │               │              │
+            └───────────────┼──────────────┘
+                            │
+                   ┌────────▼────────┐
+                   │ js/storage.js   │
+                   │ IndexedDB +     │
+                   │ stats            │
+                   └────────┬────────┘
+                            │
+           ┌────────────────┴──────────────────┐
+           │                                   │
+  ┌────────▼─────────┐                ┌────────▼──────────┐
+  │ Browser storage  │                │ js/lyrics.js      │
+  │ audio/art/track  │                │ Lyrics cache and  │
+  │ settings/history │                │ online providers  │
+  └──────────────────┘                └────────┬──────────┘
+                                               │ optional internet
+                             ┌─────────────────┼─────────────────┐
+                             │                 │                 │
+                          LRCLIB          Render fallback    LyricsPlus
+                                               │
+                                      Optional Gemini direct call
 ```
 
-Scripts are kept as ordered classic deferred scripts rather than converted to ES modules so the existing shared-state/legacy app interactions remain intact. The metadata parser libraries are not fetched during app startup; they are requested only if the user imports music. Actual audio files, cover art, track metadata, playlists, preferences and lyrics cache are kept locally in IndexedDB. The service worker caches the application shell only; the user’s audio blobs are stored in IndexedDB and verified after import.
+### Architectural choices
 
-## Performance and offline behavior
-
-- App startup never waits for LyricsPlus, LRCLIB, the Render lyrics service, or metadata parser CDN requests.
-- Playback starts after the audio blob is read; title/artwork/theme updates continue in the background.
-- Import verifies a saved audio blob before showing the track as available offline.
-- Listening events are append-only in IndexedDB; the history panel reads a bounded recent window for low memory use, while manual stats export includes the full stored event history.
-- Optional player effects are off by default where they may add CPU or DSP work. Loudness control uses Web Audio dynamics compression; silence skipping uses a throttled RMS check; soft transitions are a brief gain fade rather than overlapping two audio streams.
-- Supported audio formats depend on codecs implemented by the browser/device. The app cannot force a browser to decode an unsupported codec.
-- Lyrics order: embedded lyrics → local lyrics cache → LRCLIB exact/search → existing Render fallback → optional LyricsPlus v2 API. Online lyric providers are external fallback services; lyrics already embedded or cached remain available offline.
-- LyricsPlus repository: [ibratabian17/lyricsplus](https://github.com/ibratabian17/lyricsplus). Its API is a backend and requires internet access; public instances may have availability or CORS limits.
-
-## Player effects
-
-Settings includes opt-in **soft track transitions**, **skip long silence**, **loudness control**, **auto-skip unsupported tracks**, **prevent duplicate queue items**, **preserve pitch**, **keep screen awake** (Wake Lock API support varies), and a configurable media-session seek increment. Optional effects are deliberately not enabled at startup by default. `Crossfade` is a short volume fade around a track change; it does not overlap two songs, avoiding extra decoders and RAM use on low-end devices.
-
-## Data & privacy
-
-Mujic does not include ad networks, account sign-in, cloud music uploads, or analytics SDKs. Music and library data stay in local browser storage. External network access is only needed for optional web fonts, on-demand metadata parser download while importing, and lyrics-provider lookups while lyrics are requested. Playing local tracks itself does not require a network connection after the track has been imported and stored.
-
-## Validation
-
-The v12 package has been checked for JavaScript syntax, expected script ordering, PWA manifest validity, required cache-shell file presence, and ZIP integrity. Full physical-device/browser testing should still be performed on target Android/iOS browsers because supported codecs, Wake Lock, Media Session and third-party lyric CORS availability vary by browser.
+1. **Classic scripts, ordered with `defer`.** The files are split by responsibility but use shared browser globals (`State`, `Utils`, `UI`, `Player`, `AudioAdapter`, `StorageAdapter`, `Library`, `Playlists`, `LyricsFetcher`, `Dialog`, `Stats`). Ordered deferred scripts allow the current integration style without converting the application into ES modules.
+2. **Single-page shell.** Views are sections in `index.html`; `UI.switchView()` changes the active section rather than requesting a new HTML page.
+3. **Local persistence.** IndexedDB is the durable data layer. The in-memory `State` object is used for fast interaction and is loaded/saved through `StorageAdapter`.
+4. **Native audio element.** `AudioAdapter.audio` is an `Audio` element. Web Audio is created lazily when effects such as EQ, loudness processing or the analyser are needed.
+5. **Provider adapters.** Lyrics providers are called by `LyricsFetcher`, which applies timeouts and handles data conversion. A provider failing does not invalidate locally embedded or cached lyrics.
+6. **No app-owned API server.** `package.json` starts a static Python server. Direct Gemini calls originate in the browser and use keys the user entered in Settings.
 
 ---
 
+## 5. Complete repository structure
 
-> A lightweight, local-first, offline music player built for people who want their music library to stay on their device — fast, private, uncluttered, and free from ads.
-
-[![MIT License](https://img.shields.io/badge/license-MIT-black.svg)](./LICENSE)
-[![PWA](https://img.shields.io/badge/PWA-installable-5a5a5a.svg)](./manifest.webmanifest)
-[![Local First](https://img.shields.io/badge/storage-local--first-111111.svg)](#offline-first-architecture)
-[![No Ads](https://img.shields.io/badge/ads-none-111111.svg)](#why-mujic)
-
-**Mujic** is an open-source, local-first music player designed especially for low-end devices, limited-connectivity environments, and users who prefer a clean music experience without ads, accounts, feeds, or unnecessary UI clutter.
-
-Created by **Ashutosh Roy (aka Mackkar)**.
-
-- GitHub: https://github.com/royverse69/mujic
-- License: MIT
-- Project type: installable Progressive Web App (PWA)
-- Primary architecture: single-page HTML application with browser-native storage and media APIs
-
----
-
-## Table of Contents
-
-1. [What Mujic Is](#what-mujic-is)
-2. [Why Mujic](#why-mujic)
-3. [Core Design Principles](#core-design-principles)
-4. [Feature Overview](#feature-overview)
-5. [Application Architecture](#application-architecture)
-6. [Offline-First Architecture](#offline-first-architecture)
-7. [Library Management](#library-management)
-8. [Audio Import and Metadata Extraction](#audio-import-and-metadata-extraction)
-9. [Artwork and Image Caching](#artwork-and-image-caching)
-10. [Playback Engine](#playback-engine)
-11. [Queue, Shuffle, Repeat, and Playback Order](#queue-shuffle-repeat-and-playback-order)
-12. [Mini Player and Full Player](#mini-player-and-full-player)
-13. [Lyrics System](#lyrics-system)
-14. [Lyrics Fallback Chain](#lyrics-fallback-chain)
-15. [Lyrics Caching and Offline Lyrics](#lyrics-caching-and-offline-lyrics)
-16. [Audio Equalizer](#audio-equalizer)
-17. [Audio Waveform](#audio-waveform)
-18. [Listening Statistics](#listening-statistics)
-19. [Search](#search)
-20. [Artists](#artists)
-21. [Albums](#albums)
-22. [Playlists](#playlists)
-23. [Home Experience](#home-experience)
-24. [History and Favorites](#history-and-favorites)
-25. [Themes and Appearance](#themes-and-appearance)
-26. [Responsive Design](#responsive-design)
-27. [Glass UI System](#glass-ui-system)
-28. [PWA and Installation](#pwa-and-installation)
-29. [Service Worker and Caching](#service-worker-and-caching)
-30. [Media Session and Lock-Screen Controls](#media-session-and-lock-screen-controls)
-31. [Playback Resume](#playback-resume)
-32. [Importing Music Into a Playlist](#importing-music-into-a-playlist)
-33. [Exporting Settings and Statistics](#exporting-settings-and-statistics)
-34. [Storage Model](#storage-model)
-35. [Data Lifecycle](#data-lifecycle)
-36. [Privacy Model](#privacy-model)
-37. [Supported Audio Formats](#supported-audio-formats)
-38. [Browser Compatibility](#browser-compatibility)
-39. [Low-End Device Strategy](#low-end-device-strategy)
-40. [Project Structure](#project-structure)
-41. [Running Locally](#running-locally)
-42. [Installing as a PWA](#installing-as-a-pwa)
-43. [Development Notes](#development-notes)
-44. [Troubleshooting](#troubleshooting)
-45. [Contributing](#contributing)
-46. [Security and Privacy Issues](#security-and-privacy-issues)
-47. [Roadmap](#roadmap)
-48. [License](#license)
-49. [Credits](#credits)
-
----
-
-## What Mujic Is
-
-Mujic is a **local-first music player**.
-
-The important part of that definition is **local-first**.
-
-The music library itself is not represented as a remote catalog. When the user imports a file, Mujic stores the actual audio file in the browser's IndexedDB storage and stores the song's metadata separately. Artwork and lyrics cache data are also stored locally.
-
-The result is a player that can continue to work even when the internet is unavailable.
-
-The network is treated as an enhancement layer rather than the foundation of playback.
-
-Typical workflow:
+The current v12.0.5 ZIP contains this structure:
 
 ```text
-Import local music
-      ↓
-Read metadata / artwork / embedded lyrics
-      ↓
-Store audio + metadata + artwork locally
-      ↓
-Build local library
-      ↓
-Playback directly from IndexedDB
-      ↓
-Cache optional online lyrics
-      ↓
-Continue playing locally when offline
+Mujic-v12.0.5/
+├── index.html                  # App shell, views, settings and player markup
+├── css/
+│   └── app.css                 # Theme tokens, components, responsive layouts, animation
+├── js/
+│   ├── vendor-loader.js        # On-demand metadata parser loader
+│   ├── core.js                 # Utilities, State, artwork cache
+│   ├── storage.js              # IndexedDB adapter, saved settings, listening stats
+│   ├── lyrics.js               # Lyrics providers, cache logic, Gemini identification
+│   ├── dialogs.js              # Confirm/prompt dialog component
+│   ├── player.js               # Audio engine, EQ, effects, visualizer, queue, Media Session
+│   ├── library.js              # Import, parsing, track removal, playlist CRUD/reordering
+│   ├── ui.js                   # Rendering, navigation, settings, gesture delegation
+│   └── app.js                  # Startup, resume restoration, PWA and lifecycle setup
+├── icons/
+│   ├── icon-192.png            # PWA icon, 192×192
+│   └── icon-512.png            # PWA icon, 512×512
+├── manifest.webmanifest        # Name, icons, display mode and install scope
+├── sw.js                       # Application-shell and font cache strategy
+├── changlog.json               # Release note source used by Change & Update Log
+├── VERSION                     # Release version string
+├── package.json                # Package metadata and local/check scripts
+├── start-mujic.bat             # Windows launcher for localhost static hosting
+├── .gitignore                  # Ignores local env files, node_modules and OS files
+├── LICENSE                     # MIT license
+└── README.md                   # Project documentation (this file)
 ```
 
-Mujic deliberately avoids turning the home screen into a social feed or advertising surface. The interface focuses on the user's own collection.
+### Files in more detail
+
+#### `index.html`
+Contains the semantic structure for Home, Library, Search, contextual details and Settings. It also contains the mini-player, full player, dialogs and bottom-sheet markup. The external stylesheet and scripts are referenced locally. The file includes the PWA manifest link and icons. Avoid duplicating component markup in JavaScript when an existing component/action pattern can be reused.
+
+#### `css/app.css`
+Defines root CSS custom properties for colors, spacing, radii, typography, safe-area insets and navigation geometry. It styles track rows, artwork cards, tabs, sheets, dialogs, equalizer controls, player layouts, lyrics, waveform canvas, Settings pages, theme variants and breakpoints. Performance mode classes reduce motion/expensive visual treatments where applicable.
+
+#### `js/vendor-loader.js`
+Keeps metadata parsers out of the critical startup path. `MujicVendors.ensure()` tries `music-metadata-browser` first and then `jsmediatags`, using timeouts. It is called by the metadata-import path, not on every ordinary launch. If both libraries are unavailable, file-name parsing provides a limited fallback.
+
+#### `js/core.js`
+Provides common helpers (`formatTime`, `formatBytes`, extension/MIME detection, debounce, ID generation, HTML escaping, generated placeholder artwork), defines the shared `State` object and owns `ArtworkCache`. Artwork blobs are retrieved from IndexedDB and exposed as object URLs. Pending requests are shared to avoid repeated work, and object URLs can be revoked when the cache is cleared.
+
+#### `js/storage.js`
+Implements IndexedDB operations, settings serialisation/deserialisation, saved tracks, audio blobs, artwork, playlists, lyrics cache, append-only play-history entries and aggregate listening statistics. It also calculates binary storage size. This is the primary place to change the persistence schema.
+
+#### `js/lyrics.js`
+Implements title/artist normalization, LRC recognition/parsing, result-match checks, bounded fetch timeouts, local-cache resolution, LRCLIB exact/search requests, the Render lyrics fallback, the optional LyricsPlus v2 fallback and Gemini-based song identification. It does not run lyric network lookups during initial app startup.
+
+#### `js/dialogs.js`
+Implements the app's prompt/confirm modal. Callers receive a promise that resolves to the user's input, `true`, `false` or `null` depending on dialog type and action. The component handles cancel/confirm, the overlay and keyboard shortcuts.
+
+#### `js/player.js`
+Contains the `AudioAdapter` and `Player` objects. Audio events update state/progress/stats and the browser Media Session. It constructs the optional Web Audio graph, manages EQ/effects and the seek-bar analyser, plays audio blobs, updates metadata, resolves playback order and exposes queue controls. It also handles sleep timers and wake lock requests.
+
+#### `js/library.js`
+Imports files, loads metadata parsers on demand, extracts common tags and embedded lyrics, saves file/metadata/artwork, verifies the stored audio blob, sorts the library, removes tracks, and provides playlist creation/add/rename/delete/reorder operations.
+
+#### `js/ui.js`
+Owns view rendering and interactions: Settings category navigation, Home rails, songs/albums/artists/playlists, context detail views, row templates, artwork hydration, search, lyrics display, queue UI, sheets, toast messages, play-stat presentation, JSON downloads, visualizer style selection, installation UI and global touch/pointer/click delegation.
+
+#### `js/app.js`
+Starts the app on `DOMContentLoaded`: initialises UI, opens IndexedDB, loads settings, renders the Gemini key manager, applies settings, loads tracks/playlists/history, warms artwork, initialises audio, renders views and restores the last queue/current position if resume is enabled. It registers the service worker only on HTTP/HTTPS origins.
+
+#### `sw.js`
+Caches the static application shell and two icon files during install, deletes old Mujic cache versions at activation, and serves local assets cache-first. Page navigations try the network and fall back to the cached shell if offline. Google Fonts resources can be cached; unrelated remote provider requests are deliberately not intercepted by the app-shell policy.
+
+#### `manifest.webmanifest`
+Defines the app's name, start URL, scope, standalone display mode, orientation preference, theme colors and install icons.
+
+#### `changlog.json`
+Provides versioned entries for the in-app Change & Update Log. The filename is intentionally spelled `changlog.json` in the code; do not rename it without updating the fetch path and service-worker shell list. The UI also has fallback release notes when the file cannot be retrieved.
+
+#### `package.json`
+Provides project metadata and convenience commands. `npm start` runs `python -m http.server 3000`; it is not an application backend. `npm run check` runs Node.js syntax checks over the service worker and JavaScript files.
+
+#### `start-mujic.bat`
+For Windows, starts Python's static server bound to loopback (`127.0.0.1:3000`), waits for the app URL to respond and opens it in the browser. Python is used as a static-file server only.
 
 ---
 
-## Why Mujic
+## 6. Frontend and module responsibilities
 
-Mujic is built around a very simple idea:
+### Shared application state
 
-> Your music library should feel like a local collection, not a website pretending to be one.
+`State` is initialised in `js/core.js` and used by the ordered script set. Broad categories include:
 
-The project targets users who care about:
+- **Library/navigation:** `library`, `playlists`, current view/context, current playlist ID, search results and action targets.
+- **Transport:** `queue`, `playbackOrder`, `queueIndex`, `currentTrackId`, `isPlaying`, `currentTime`, `duration` and `isFullPlayerOpen`.
+- **User collections:** `favorites`, `favoriteArtists`, simple recent `history`, append-only `playHistory` and pagination state.
+- **Audio preferences:** volume/mute, playback rate, shuffle/repeat, EQ preset/bands, waveform mode/style, loudness/silence behavior, pitch and seek configuration.
+- **Appearance:** theme, accent preset/custom accent, surface palette, text scale, density, interface intensity, radius, motion and player artwork/background modes.
+- **Lyrics:** style, position, offset, size, spacing, width, emphasis, current lyrics, active line and unavailable-lyrics timeout.
+- **AI:** enable flag, at most four Gemini keys, next key index and per-session warning state.
+- **Persistence/cache:** artwork object URLs, current playback request ID, current artwork request ID, saved resume position and stats save timer.
 
-- offline playback
-- low memory and CPU overhead
-- low-end Android phones
-- local music ownership
-- no ads
-- no account requirement for the local library
-- fast startup
-- straightforward controls
-- a clean visual hierarchy
-- an installable app-like experience
+This is ordinary mutable in-memory JavaScript state. IndexedDB is the durable copy for the settings/tracks/playlists/history described below. A new feature should identify which values are transient UI state and which must survive a reload.
 
-The current application contains no advertising layer or ad SDK in the player interface.
+### Delegated interaction model
 
----
+Many controls use `data-action`, `data-setting`, `data-tab`, `data-view` or similar attributes. `UI.setupGlobalDelegation()` handles these attributes centrally rather than attaching an individual listener to every rendered row. That lets dynamically generated track rows and playlist cards reuse the same behavior. Special controls requiring more careful event priority—such as mini-player transport, navigation, pointer queue dragging or long-press actions—have specific listeners to avoid click propagation conflicts.
 
-# Core Design Principles
+### Settings categories
 
-## 1. Local first
+The long Settings view is split into subpages rather than forcing a user to scroll through every control. Categories include:
 
-Audio playback should not depend on a live music service.
+1. **UI & Customization** — themes, accents, surface palettes, text and density, radius, motion and player appearance.
+2. **Player & Audio** — waveform, playback, EQ/audio effects and transport preferences.
+3. **Lyrics & AI** — lyrics presentation, LyricsPlus and experimental Gemini identification/key management.
+4. **Library & Listening** — sort settings, artwork-in-list display, listening summaries and exports.
+5. **App & About** — PWA install, storage information, clear-library action, extras and changelog/about content.
 
-## 2. Offline capable
-
-Imported audio remains available from browser storage after the network disappears, subject to browser storage persistence and codec support.
-
-## 3. Minimal UI
-
-Mujic intentionally avoids unnecessary cards, feeds, advertisements, or large amounts of decorative information.
-
-## 4. Progressive enhancement
-
-When browser capabilities exist, Mujic uses them:
-
-- Web Audio API
-- Media Session API
-- Pointer Events
-- IndexedDB
-- PWA installation APIs
-- service workers
-
-When a capability is unavailable, the player falls back to simpler browser behavior rather than making the whole application unusable.
-
-## 5. Responsive by construction
-
-The application changes navigation, sizing, spacing, player structure, and interaction patterns depending on available screen size.
-
-## 6. State-driven playback
-
-Playback state, queue position, current track identity, settings, history, and statistics are maintained in a central application state object instead of being scattered across unrelated DOM elements.
+The groups are created by `UI.setupSettingsGroups()` from existing Settings sections, so the actual settings controls remain in the document and are moved into the correct category container. `UI.setSettingsGroup()` manages the current category and browser history.
 
 ---
 
-# Feature Overview
+## 7. Startup and application lifecycle
 
-| Feature | Description |
-|---|---|
-| Local Music Library | Import and permanently store music locally in IndexedDB |
-| Offline Playback | Play imported audio without an internet connection |
-| Metadata Extraction | Read title, artist, album, artwork, genre, year, composer, track/disc data, lyrics, etc. |
-| Artwork Cache | Persistent artwork blobs + in-memory object URL reuse |
-| Queue | Current playback queue with reordering and removal |
-| Shuffle | Generates a playback order while preserving the current track |
-| Repeat | Supports normal playback, repeat behavior, and repeat-one state |
-| Mini Player | Persistent compact player while browsing the app |
-| Full Player | Dedicated now-playing interface |
-| Lyrics | Embedded lyrics, cache, LRCLIB and Render backend fallback |
-| Synced Lyrics | Timestamped LRC parsing and active-line synchronization |
-| Lyrics Styles | Apple-style, Spotify-style, and neon-highlight style |
-| Equalizer | Five-band Web Audio equalizer with presets and custom values |
-| Audio Waveform | Optional live visualization drawn over the played seek-bar section |
-| Search | Songs, artists, albums, playlists, and metadata fields |
-| Artists | Artist index and artist detail pages |
-| Albums | Album grouping, artwork and album detail pages |
-| Playlists | Create, rename, delete, reorder, import multiple tracks, remove/reorder songs |
-| Listening History | Local listening history with direct playback |
-| Favorites | Favorite tracks and artists |
-| Top Picks | Home recommendations based on local listening history |
-| Listening Stats | Today, week, month, all-time play counts and listening time |
-| JSON Export | Export settings or listening statistics |
-| Themes | System, dark, light + accent customization |
-| PWA | Installable standalone app |
-| Service Worker | App shell and runtime static-resource caching |
-| Media Session | Lock-screen / notification controls when supported |
-| Resume Playback | Restores the last track and stored position |
-| Sleep Timer | Time-based and end-of-song stopping behavior |
-| Playback Speed | Adjustable playback rate |
-| Output Device | Attempts browser-supported audio output device switching |
+The startup sequence is intentionally ordered because this codebase uses classic scripts and shared globals.
+
+1. The browser parses `index.html`, loads `css/app.css`, then evaluates the deferred scripts in the declared order.
+2. `DOMContentLoaded` runs `App.init()`.
+3. `UI.init()` attaches settings, navigation, dialogs, gestures and delegated action handlers.
+4. `StorageAdapter.init()` opens IndexedDB database `MujicDB`, version `6`, and creates any missing stores.
+5. `StorageAdapter.loadSettings()` restores saved preferences, favourites, queue settings, visualiser, statistics and Gemini key values.
+6. The Gemini key editor is populated from saved state, then `UI.applySettings()` applies theme classes and CSS variables, layout density, typography, performance mode and control values.
+7. Track metadata, playlists and a page of recent history are loaded from IndexedDB. Library sorting is applied.
+8. Artwork warm-up is scheduled in small batches; it does not block the initial page render.
+9. The audio engine and Media Session are initialised. Home/library/playlists, stats, player labels and storage-size display are rendered.
+10. If Resume Playback is enabled and a saved current track/queue still exists, the app restores the queue and player metadata, reads that track's local audio blob, assigns an object URL and restores the saved time after metadata loads.
+11. Lyrics are not downloaded merely because a track changed; `UI.loadCurrentLyrics()` requests them when lyrics mode opens.
+12. On HTTP/HTTPS, `app.js` registers `sw.js` after the page loads. A `file://` launch cannot install a service worker or provide the normal same-origin PWA experience.
+
+### Why script order matters
+
+The modules reference shared objects by name and are loaded as classic scripts, not `import` statements. Keep the order in `index.html` intact unless you also refactor the modules. `vendor-loader.js` should remain before the import path that references `window.MujicVendors`; `core.js` defines `State` and `Utils`; storage, lyrics, dialogs, player, library and UI follow; app bootstrap is last.
 
 ---
 
-# Application Architecture
+## 8. Importing audio
 
-Mujic uses a compact client-side architecture organized around responsibilities instead of a large framework stack.
+### Supported file selection
 
-```mermaid
-flowchart TD
-    A[User Interface] --> B[UI Controller]
-    B --> C[Application State]
-    B --> D[Player Controller]
-    D --> E[Audio Adapter]
-    E --> F[HTMLAudioElement]
-    E --> G[Web Audio API]
-    G --> H[EQ Filters]
-    G --> I[Analyser]
-    I --> J[Audio Waveform]
-    C --> K[IndexedDB Storage]
-    K --> L[Audio Blobs]
-    K --> M[Track Metadata]
-    K --> N[Artwork]
-    K --> O[Lyrics Cache]
-    K --> P[App Settings]
-    K --> Q[Playlists]
-    E --> R[Media Session]
-    B --> S[Lyrics Fetcher]
-    S --> T[Embedded Lyrics]
-    S --> U[Local Lyrics Cache]
-    S --> V[LRCLIB]
-    S --> W[Render Backend]
-    B --> X[Statistics Engine]
-    B --> Y[PWA / Service Worker]
-```
+The file picker accepts audio MIME types and the current fallback extension list:
 
-## Main application modules
+`mp3`, `m4a`, `aac`, `flac`, `wav`, `ogg`, `oga`, `opus`, `webm`, `aiff`, `aif`, `alac`.
 
-The application is implemented inside the primary HTML application and keeps core responsibilities separated logically:
+This list is an import acceptance filter, not a guarantee that every browser can decode every listed codec. Playback depends on the codec support of the browser/operating system. A file can have its metadata stored correctly while still being unplayable in a particular browser.
 
-### `State`
-
-Central runtime state for:
-
-- library
-- playlists
-- history
-- favorites
-- favorite artists
-- queue
-- playback order
-- queue index
-- current track
-- playback state
-- volume
-- speed
-- EQ
-- theme and appearance
-- lyrics state
-- waveform mode
-- statistics
-- PWA install prompt
-
-### `StorageAdapter`
-
-Owns IndexedDB persistence and abstracts database reads/writes.
-
-### `ArtworkCache`
-
-Owns artwork lookup, object URL reuse, lazy loading, and library warming.
-
-### `LyricsFetcher`
-
-Owns embedded lyrics, local cache, remote lookup, timeout handling, validation, parsing, and fallback behavior.
-
-### `AudioAdapter`
-
-Owns actual audio playback, Web Audio processing, EQ, analyser data, waveform rendering, volume, speed, seeking, and Media Session integration.
-
-### `Player`
-
-Owns queue behavior and playback sequencing.
-
-### `Library`
-
-Owns music import, metadata parsing, sorting, and library deletion.
-
-### `Playlists`
-
-Owns creation, editing, ordering, song insertion/removal, and deletion of playlists.
-
-### `Stats`
-
-Owns play counting and listening-time accumulation.
-
-### `UI`
-
-Owns rendering, navigation, dialogs, sheets, settings, search, detail pages, and interaction delegation.
-
----
-
-# Offline-First Architecture
-
-Mujic uses two different browser storage systems for two different jobs:
-
-### IndexedDB
-
-Used for the user's actual library data:
-
-- audio files
-- metadata
-- artwork
-- playlists
-- settings
-- lyrics cache
-
-### Cache Storage / Service Worker
-
-Used for the application shell and selected static runtime resources.
-
-This separation is important.
-
-The music files are **not dependent on the service worker cache**. The audio is explicitly stored in IndexedDB and requested by track ID when playback begins.
-
-That means a large music file does not have to behave like an HTTP resource for playback.
-
----
-
-# Library Management
-
-## Adding music
-
-The user selects one or multiple local files.
-
-The file picker supports the common audio extensions recognized by the application, and files whose MIME type starts with `audio/` are also accepted.
-
-Once imported, the file is represented by a generated internal track ID.
-
-The library then stores:
+### Import pipeline
 
 ```text
-Track ID
-File name
-File size
-Format / extension
-MIME type
-Title
-Artist
-Album
-Album Artist
-Genre
-Year
-Track number
-Disc number
-Composer
-Duration
-Embedded lyrics
-Artwork reference
-Date added
+User selects one or more files
+            │
+            ▼
+Check file type / supported extension
+            │
+            ▼
+Detect duplicate by filename + byte size
+            │
+            ├── Duplicate: restore/save existing audio blob
+            │
+            ▼
+Load optional metadata parser if needed
+            │
+            ▼
+Read tags, duration, embedded lyrics, cover art
+            │
+            ▼
+If title is missing, derive from filename
+(artist - title when the naming pattern fits)
+            │
+            ▼
+If artist is missing and duration is known, try a bounded
+LRCLIB metadata lookup with title/duration match checks
+            │
+            ▼
+Save track metadata, audio Blob and artwork Blob
+            │
+            ▼
+Read the audio Blob back to verify it was stored
+            │
+            ▼
+Add track to in-memory library and optional target playlist
 ```
 
-## Duplicate handling
+### Duplicate handling
 
-Mujic checks existing library entries using the source filename and file size before creating a new track record.
+Mujic currently identifies likely duplicate imports by `fileName` plus `fileSize`. When it finds a duplicate, it rewrites/restores the existing track's stored audio blob and verifies that the blob exists and has a positive size. This is a practical local duplicate check, not a cryptographic hash: two different files with identical names and sizes can be treated as the same entry. A future enhancement could add optional content hashes, but hashing large files has a CPU cost that should be considered on low-end devices.
 
-When a matching entry already exists, the audio blob can be refreshed and, when importing into a playlist, the existing track can be attached to that playlist rather than being duplicated as a new library track.
+### Offline imports
 
-## Removing music
-
-Removing a library track also removes:
-
-- the library metadata record
-- the stored audio blob
-- its library references such as favorites/history references
-- playlist references to that track
-- queue membership
-
-Queue index correction is performed only when the removed track actually existed in the playback order.
+Metadata parsing libraries may not already be present after a fresh offline launch. In that case the app falls back to the parser that is available, or to filename-derived metadata. Audio storage does not depend on a lyrics provider. The import logic checks that a saved blob can be read back before adding a new track to the visible library, so a failed write should not be presented as a confirmed offline-ready import.
 
 ---
 
-# Audio Import and Metadata Extraction
+## 9. Metadata and artwork processing
 
-Mujic uses browser-side metadata tooling rather than sending the local music file to a server for basic parsing.
+### Metadata providers
 
-The project includes:
+The lazy vendor loader tries:
 
-- `jsmediatags`
-- `music-metadata-browser`
+1. `music-metadata-browser` from jsDelivr.
+2. `jsmediatags` from cdnjs if the first parser does not load or parse the file.
 
-These libraries are used to inspect local media metadata and artwork.
+Each script request is bounded by a timeout. The app does not fetch these parser scripts on every startup. They are requested when the import path requires metadata extraction.
 
-## Metadata priority
+### Fields read when available
 
-The general priority is:
+The metadata parser attempts to obtain:
 
-1. Embedded metadata in the file
-2. Filename-derived fallback for a missing title / artist pattern
-3. A carefully validated LRCLIB metadata completion step when the artist is genuinely missing and enough identifying information exists
+- title;
+- artist;
+- album and album artist;
+- genre and year;
+- track number and disc number;
+- composer;
+- duration (used during import-time metadata matching when available);
+- embedded lyrics;
+- embedded artwork and its format.
 
-The application does not simply accept the first online search result. Metadata completion uses normalized title and duration matching and checks artist compatibility when an artist value exists.
+Not all tag formats expose all fields, and different libraries return different shapes. Missing fields are allowed. The current import record initially stores `duration: 0`; the audio element updates the persisted duration after the browser loads media metadata on playback. The parsed duration can still be used by the import-time missing-artist lookup. The app stores fallback values such as `Unknown Title`, `Unknown Artist` and `Unknown Album` when it cannot derive better information.
 
-## Filename fallback
+### Artwork storage and display
 
-A filename such as:
+Embedded pictures are represented as `Blob`s, stored under generated artwork IDs in IndexedDB, and associated with track metadata by `artworkId`. `ArtworkCache.getUrl()` retrieves the blob and creates a browser object URL for display. It maintains a URL cache and in-flight request map to avoid repeatedly reading the same artwork blob or creating duplicate URLs. Object URLs are revoked when artwork caches are cleared.
 
-```text
-Artist - Song Title.mp3
-```
+When artwork is missing, Mujic generates local placeholder SVG artwork from a deterministic title seed. The placeholder is generated inside the browser; it is not fetched from a remote cover-art service. The generated image avoids a blank broken-image frame and is cached as a usable fallback by the row templates.
 
-can be interpreted as:
+The app can also derive an average colour from existing artwork for dynamic accent appearance. That extraction uses a small canvas read and has its own cache/pending map to avoid repeating the work.
 
-```text
-Artist → artist
-Song Title → title
-```
+### Storage size display
 
-When that pattern does not exist, the filename without its extension becomes the fallback title.
-
----
-
-# Artwork and Image Caching
-
-Artwork is treated as real local media rather than a disposable remote URL.
-
-When a file contains artwork:
-
-1. Artwork is extracted as a Blob.
-2. A unique artwork ID is created.
-3. The Blob is stored in the IndexedDB `artworks` object store.
-4. The track keeps the artwork ID.
-5. The UI resolves the artwork through `ArtworkCache`.
-6. An in-memory object URL is created and reused.
-
-The cache also maintains a `pending` map so multiple simultaneous requests for the same artwork do not unnecessarily create independent loads.
-
-## Library warming
-
-On startup, Mujic warms artwork progressively in small batches so images become ready without blocking the complete application startup.
-
-The implementation uses an idle callback when the browser supports it, with a timed fallback when it does not.
-
-## Missing artwork
-
-When no artwork is available, Mujic generates deterministic gradient artwork from the title/seed.
-
-This means the same track can receive a visually stable placeholder rather than a generic empty rectangle.
+The UI first calculates a metadata-based estimate from track file sizes and can then read binary stores to refine the size using saved audio and artwork blobs. Browser storage APIs do not expose a perfectly uniform cross-browser quota view, so the displayed value is a useful estimate of Mujic's saved audio/artwork bytes rather than a complete accounting of every byte the browser allocates internally.
 
 ---
 
-# Playback Engine
+## 10. Local library, artists and albums
 
-Mujic's playback path is local.
+### Songs library
 
-The core flow is:
+The Songs view lists `State.library` after the selected sort field and direction have been applied. Current sort fields are:
 
-```text
-User selects track
-      ↓
-Player chooses queue position
-      ↓
-startCurrentTrack()
-      ↓
-Read audio Blob from IndexedDB
-      ↓
-Create object URL
-      ↓
-Set HTMLAudioElement.src
-      ↓
-Initialize Web Audio pipeline when needed
-      ↓
-Call audio.play()
-      ↓
-Track becomes active
-```
+- Recently Added (`dateAdded`)
+- Title
+- Artist
+- Album
 
-The application uses the browser's native `HTMLAudioElement` for transport and timing.
+Sort direction can be ascending or descending. The metadata sort is local and does not require the network.
 
-A generated object URL acts as the bridge between the IndexedDB Blob and the media element.
+### Artist grouping
 
-When an old object URL is no longer needed, it is revoked to avoid unnecessary memory retention.
+Artist groups are built from the local library, using `albumArtist` when present and otherwise `artist`. Track rows within a group resolve back to library track IDs. Opening an artist creates a contextual detail view with a generated/artwork thumbnail, relevant track list and actions for playback/shuffle/favourite artist where available. A favourite artist is a stored text identity; tracks with the same artist name are grouped by the same local key.
 
-## Async playback protection
+### Album grouping
 
-Changing tracks is asynchronous because the audio Blob has to be read from IndexedDB first.
+Albums are grouped from local metadata using album plus album-artist/artist identity, preventing albums with the same name by different artists from automatically merging into a single group. The album view shows locally derived artwork and its associated tracks. No online album catalogue is required.
 
-Mujic therefore uses a playback request ID.
+### Removing tracks
 
-Conceptually:
-
-```text
-Request 14 → Song A
-Request 15 → Song B
-Request 14 finishes later
-
-Request 14 is now stale
-→ ignored
-
-Request 15 remains authoritative
-→ Song B plays
-```
-
-This prevents race conditions where a slower previous track load could overwrite a newer user selection.
+Removing a library track updates in-memory library/favourite/history/queue references, removes the track from any playlist that references it, deletes its metadata record and audio blob, then refreshes the relevant views. If the current song is removed, playback is paused and the player is closed. Artwork blobs can become unreferenced if no remaining track points at them; the current storage model does not run a full global garbage collector over every artwork ID after every deletion.
 
 ---
 
-# Queue, Shuffle, Repeat, and Playback Order
+## 11. Playlists
 
-Mujic separates the library's order from the playback order.
+Playlists are local named collections of track IDs. They do not duplicate audio blobs; they reference tracks already in the library.
 
-The important concepts are:
-
-- `queue`: the IDs selected for the current playback context
-- `playbackOrder`: the actual sequence the player will follow
-- `queueIndex`: the current position in that sequence
-
-This design allows shuffle without permanently rewriting the user's library order.
-
-## Queue operations
-
-The queue can:
-
-- play a specific queue item
-- move an item
-- remove an item
-- clear the queue
-- add a track next
-- add a track to the end
-
-## Reordering on touch devices
-
-Because native HTML drag-and-drop is unreliable on touch devices, the queue provides pointer-based interaction and mobile-friendly directional movement controls.
-
-This lets the same queue remain functional on phones and desktops.
-
-## Shuffle
-
-Shuffle creates a playback sequence while preserving the selected/current track as appropriate for the current context.
-
-## Repeat
-
-The application stores repeat state in the central state model so it survives normal settings persistence.
-
----
-
-# Mini Player and Full Player
-
-## Mini Player
-
-The mini player remains visible while the user navigates the library.
-
-It contains the key now-playing information and compact playback controls.
-
-The mini player's progress indicator is intentionally display-oriented rather than acting as a second full scrubbing surface.
-
-This avoids accidental interaction conflicts with navigation on small screens.
-
-## Full Player
-
-The full player expands the current track into a dedicated interface containing:
-
-- artwork
-- title
-- artist
-- favorite state
-- seek bar
-- elapsed time
-- duration
-- play/pause
-- next/previous
-- shuffle
-- repeat
-- volume / mute
-- more controls
-- lyrics mode
-- immersive lyrics
-
-The full player supports phone-sized layouts and a dedicated desktop layout.
-
----
-
-# Lyrics System
-
-Lyrics are intentionally **lazy-loaded**.
-
-The application does not fetch lyrics for every track just because the song exists in the library.
-
-Lyrics are requested when lyrics mode is actually used.
-
-This reduces startup work, network requests, and unnecessary latency.
-
-## Lyrics sources
-
-Mujic supports multiple sources with priority rules.
-
-### 1. Embedded lyrics
-
-If the imported file contains lyrics, those lyrics are treated as authoritative.
-
-This is the strongest offline source because the data belongs to the music file itself.
-
-### 2. Local lyrics cache
-
-Previously retrieved lyrics are stored in IndexedDB under the track ID.
-
-### 3. LRCLIB exact lookup
-
-Mujic first attempts a parameterized lookup using title, artist, album and duration when available.
-
-### 4. LRCLIB search
-
-When the exact lookup does not provide usable lyrics, the application searches LRCLIB and selects a validated result.
-
-### 5. Render backend fallback
-
-The final network fallback uses the configured backend:
-
-```js
-const BACKEND_BASE =
-  'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
-```
-
-The request format is:
-
-```text
-GET /lyrics?track=SONG_TITLE&artist=ARTIST_NAME
-```
-
-Full endpoint form:
-
-```text
-https://gaana-suno-varna-machhar-aajayega.onrender.com/lyrics?track=SONG_TITLE&artist=ARTIST_NAME
-```
-
-The frontend accepts several common response shapes (`lyrics`, `syncedLyrics`, `plainLyrics`, `text`, or nested data) to make the fallback tolerant of backend response variations.
-
----
-
-# Lyrics Fallback Chain
-
-The complete current logic can be summarized as:
-
-```text
-Embedded lyrics?
-   ├─ Yes → render embedded lyrics
-   └─ No
-      ↓
-Local lyrics cache?
-   ├─ Yes → render cached lyrics
-   └─ No
-      ↓
-Online?
-   ├─ No → offline unavailable state
-   └─ Yes
-      ↓
-LRCLIB exact lookup
-      ↓
-Validated LRCLIB search match
-      ↓
-Render backend fallback
-      ↓
-Nothing verified
-      ↓
-Show fallback message + Google search option
-```
-
-The important part is **validation**.
-
-Mujic does not blindly select `results[0]` from a search list. A candidate is normalized and checked against the current track.
-
----
-
-# Lyrics Caching and Offline Lyrics
-
-A cached lyrics record is stored using the track ID as the key.
-
-For offline use:
-
-- embedded lyrics work without a network
-- previously cached lyrics work without a network
-- a not-yet-cached network lyric cannot magically be fetched offline
-
-When a user asks the application to check lyrics cache while offline and no cache exists, Mujic explains that an internet connection is needed rather than appearing to hang.
-
-When all online fallbacks fail, the UI provides a Google search action for the track rather than returning a dead-end screen.
-
----
-
-# Synced Lyrics
-
-Mujic recognizes LRC timestamp syntax and converts it into structured line objects.
-
-Conceptually:
-
-```text
-[01:12.340] Example lyric line
-```
-
-becomes:
-
-```js
-{
-  time: 72.34,
-  text: "Example lyric line"
-}
-```
-
-During playback:
-
-1. the audio element updates current time
-2. the lyrics synchronizer computes the active line
-3. the previously active line is cleared
-4. the new line receives the active state
-5. the lyrics container scrolls toward the active line
-
-This allows Apple-style, Spotify-style, and neon-highlight presentation modes without changing the underlying lyric data.
-
----
-
-# Audio Equalizer
-
-The equalizer uses the Web Audio API rather than modifying the audio file itself.
-
-## Five bands
-
-Current frequency bands are:
-
-- 60 Hz
-- 230 Hz
-- 910 Hz
-- 3.6 kHz
-- 14 kHz
-
-The filter chain uses browser-native `BiquadFilterNode` instances.
-
-The approximate structure is:
-
-```text
-HTMLAudioElement
-      ↓
-MediaElementSource
-      ↓
-60 Hz low shelf
-      ↓
-230 Hz peaking
-      ↓
-910 Hz peaking
-      ↓
-3.6 kHz peaking
-      ↓
-14 kHz high shelf
-      ↓
-Analyser
-      ↓
-Destination
-```
-
-## Presets
-
-Built-in presets include:
-
-- Flat
-- Bass Boost
-- Vocal
-- Rock
-- Treble
-
-Each preset maps to a five-band gain curve.
-
-## Custom EQ
-
-Each band can be adjusted independently between `-12 dB` and `+12 dB`.
-
-When a slider is changed manually, the state becomes `Custom` and the exact band values are persisted.
-
-## Important browser note
-
-Web Audio support varies by browser and device. If the Web Audio API cannot be initialized, the basic audio player can still function using the native audio element path.
-
----
-
-# Audio Waveform
-
-The user-facing name is **Audio Waveform** because the visualization is part of the seek/progress experience rather than a full-screen visualizer.
-
-The waveform is rendered on a canvas positioned over the seek bar.
-
-## Key behavior
-
-The visualization is clipped to the **played portion** of the seek bar.
-
-That means:
-
-```text
-[ animated waveform ][ clean unplayed area ]
-<----- played -----><------ remaining ------>
-```
-
-The entire future portion is intentionally left visually quiet.
-
-## Modes
-
-Current selectable seek-bar modes include:
-
-- Off
-- Spectrum Bars
-- Audio Waveform (Default, Wavy, Slim, Squiggly)
-- Pulse
-- Dots
-- Mirror Bars
-
-## Audio Waveform
-
-The seek-bar waveform is limited to the played portion. The Wavy, Slim and Squiggly presets use a small number of smooth, cubic Bézier curve segments driven by smoothed low-frequency energy, while Default uses a calm progress line. The curve is deliberately low-cycle with stronger crests and troughs; it does not draw every raw FFT sample as a sharp bar. This reduces visual chatter and keeps work bounded on low-end devices.
-
-## Animation-loop safety
-
-Visualizer animation is controlled through one `requestAnimationFrame` loop.
-
-A stored animation frame ID is used to prevent duplicate loops and to cancel the loop when visualization is not needed.
-
-This is important on low-end devices because duplicated animation loops can multiply CPU/GPU work over time.
-
----
-
-# Listening Statistics
-
-The listening system is intentionally local.
-
-The app records two related things:
-
-1. number of playback starts (`plays`)
-2. actual listening time (`seconds`)
-
-## Play count
-
-A play is recorded after a track is successfully started by the playback system.
-
-## Listening time
-
-The player compares the current audio time to the previous audio time and accumulates valid playback deltas.
-
-Large jumps are ignored so seeks or broken time updates do not accidentally become thousands of seconds of listening.
-
-## Persistence strategy
-
-Statistics are saved with a throttled persistence approach rather than writing to IndexedDB on every tiny time update.
-
-This reduces unnecessary storage writes.
-
-Statistics are flushed when playback pauses.
-
-## Retention
-
-The stats engine keeps a bounded daily history rather than allowing the statistics object to grow forever.
-
-The current implementation trims the stored daily history after approximately 400 days.
-
-## Time windows
-
-The Settings screen exposes:
-
-- Today
-- This week
-- This month
-- All time
-
-It also shows the most played tracks for the current month.
-
----
-
-# Search
-
-Search is entirely local.
-
-The current search implementation checks fields including:
-
-- title
-- artist
-- album
-- filename
-- album artist
-- composer
-- genre
-- year
-
-Search results are separated into useful content groups where possible:
-
-- artists
-- albums
-- playlists
-- songs
-
-This lets the same search field act as a library index rather than only a song-name lookup.
-
-Search input is debounced so rapid typing does not force an immediate render on every single keystroke.
-
----
-
-# Artists
-
-Artists are derived from library metadata.
-
-The library groups tracks using:
-
-```text
-albumArtist || artist
-```
-
-This means a track with an explicit album artist can be grouped consistently with other tracks from the same album/project.
-
-The artist page provides:
-
-- artist name
-- track count
-- artwork where available
-- grouped tracks
-- playback actions
-- favorite artist state
-
-No remote artist catalog is required for the local artist page.
-
----
-
-# Albums
-
-Albums are grouped from the local track library using album metadata and artist context.
-
-Album grouping takes:
-
-- album name
-- album artist or artist
-- artwork
-- track number
-- disc number
-
-Tracks within an album can therefore be displayed in a predictable disc/track sequence.
-
-Album detail pages remain part of the same local application model and use the same player queue machinery as other contexts.
-
----
-
-# Playlists
-
-Playlists are user-owned local collections.
-
-Each playlist stores:
-
-```text
-ID
-Name
-Track ID array
-Created timestamp
-Order
-```
-
-Playlist records live in IndexedDB.
-
-## Playlist operations
-
-Users can:
-
-- create playlist
-- rename playlist
-- delete playlist
-- reorder playlists
-- add a song
-- remove a song
-- reorder tracks inside a playlist
-- import multiple songs into a playlist
-- open playlist detail
-- play playlist
-- shuffle playlist
-
-## Long-press actions
-
-On touch devices, long-pressing a playlist opens an action sheet with native-app-style actions such as:
-
-- Open Playlist
-- Rename Playlist
-- Import Songs
-- Delete Playlist
-
-A delayed pointer gesture is used so a normal vertical swipe remains a scroll rather than accidentally opening a playlist menu.
-
----
-
-# Importing Music Into a Playlist
-
-Mujic can import multiple songs directly into a playlist.
-
-The flow is:
-
-```text
-Open playlist actions
-      ↓
-Import Songs
-      ↓
-Select multiple local files
-      ↓
-For each file:
-   metadata extraction
-   artwork extraction
-   track creation / duplicate detection
-   audio Blob storage
-      ↓
-Attach track ID to playlist
-      ↓
-Persist playlist
-      ↓
-Refresh playlist detail
-```
-
-If a selected song already exists in the library, the existing library track can be reused for the playlist instead of being duplicated.
-
----
-
-# Home Experience
-
-The Home page intentionally balances utility and discovery.
-
-Current major areas include:
-
-### Your Playlists
-
-A horizontally scrollable local playlist rail.
-
-### Top Picks
-
-A small recommendation rail derived from the user's own local listening behavior.
-
-The logic aggregates local play counts and history, then fills missing recommendations from the local library so a new or sparsely used library is not presented as an empty screen.
-
-### Continue Listening
-
-A compact local track list based on the most recently added library items and current local library content.
-
-### Home actions
-
-The Home header includes quick actions for:
-
-- importing music
-- opening listening history
-
-This keeps those actions accessible without adding another navigation tab.
-
----
-
-# History and Favorites
-
-## Listening history
-
-The application stores recent track IDs in state and persists that history locally.
-
-The history list is capped so the app does not grow an unlimited in-memory history array.
-
-History can be opened as a sheet and tracks can be replayed directly.
-
-## Favorites
-
-Tracks can be added to or removed from favorites.
-
-Favorite artists are stored separately from favorite tracks.
-
-The favorite system is local and does not require an account or server synchronization layer.
-
----
-
-# Themes and Appearance
-
-Mujic supports a customization model intended to remain lightweight.
-
-## Theme
-
-- System Default
-- Dark Mode
-- Light Mode
-
-## Accent color
-
-Supports:
-
-- Dynamic artwork-based accent
-- White/black
-- Blue
-- Purple
-- Pink
-- Red
-- Orange
-- Green
-- Cyan
-- Custom Hex
-
-## Lyrics style
-
-- Apple Music
-- Spotify
-- Neon Highlight
-
-## Interface style
-
-- Liquid Glass (Subtle)
-- Liquid Glass (Strong)
-- Solid / Off
-
-## Corner radius
-
-- Sharp
-- Medium
-- Rounded
-- Extra Rounded
-
-## Motion
-
-- Full Motion
-- Reduced Motion
-
-## Player artwork
-
-- Full Cover
-- Fit Inside
-
-## Player background
-
-- Artwork Blur
-- Solid Muted
-- Deep Black
-
-All major preferences are persisted in the local app state.
-
----
-
-# Responsive Design
-
-Mujic uses CSS media queries and fluid sizing rather than creating separate applications for phones and desktops.
-
-## Mobile
-
-The interface prioritizes:
-
-- thumb reach
-- bottom navigation
-- compact rows
-- large enough touch targets
-- minimized player
-- sheets instead of desktop popover-heavy controls
-- pointer-based gestures
-
-## Desktop
-
-The same application becomes:
-
-- sidebar navigation
-- wider library containers
-- larger artwork rails
-- desktop-oriented full-player layouts
-- expanded lyrics + player composition
-
-## Small-screen safeguards
-
-The UI includes dedicated small-screen rules for:
-
-- settings row stacking
-- checkbox alignment
-- player control sizing
-- font-size reduction
-- artwork dimensions
-- horizontal rail spacing
-- mobile navigation labels
-
-The goal is not merely to shrink the desktop UI; it is to preserve usability at small widths.
-
----
-
-# Glass UI System
-
-The application uses a consistent family of glass surfaces instead of giving every component an unrelated visual treatment.
-
-Shared visual concepts include:
-
-- translucent surfaces
-- backdrop blur
-- subtle borders
-- inner highlights
-- restrained shadows
-- shared corner-radius tokens
-- theme-aware text colors
-
-This system is reused across:
-
-- settings cards
-- search container
-- sheets
-- dialogs
-- rows
-- player panels
-- navigation surfaces
-
-The intention is to keep the application visually unified instead of making each feature look like a separate plugin.
-
----
-
-# PWA and Installation
-
-Mujic is packaged as a Progressive Web App.
-
-The manifest defines:
-
-- application name
-- short name
-- app description
-- standalone display mode
-- portrait orientation preference
-- theme color
-- background color
-- 192px icon
-- 512px icon
-
-The app also supports browser installation when the browser exposes the install prompt.
-
-## Android / Chromium-style browsers
-
-When `beforeinstallprompt` is available, Mujic captures the event and presents an **Install Mujic** action from Settings.
-
-The browser can then display the native install prompt.
-
-## iOS
-
-iOS Safari does not expose the same install prompt behavior as Chromium, so Mujic provides the appropriate guidance to use Safari's **Share → Add to Home Screen** flow.
-
----
-
-# Service Worker and Caching
-
-The service worker caches the application shell and selected static third-party resources.
-
-Current app-shell resources include:
-
-- `index.html`
-- `manifest.webmanifest`
-- application icons
-
-Runtime static resources include domains used for:
-
-- Google Fonts
-- Material Symbols
-- jsmediatags CDN
-- music-metadata-browser CDN
-
-The service worker uses a cache-first lookup when a resource is already cached, and otherwise attempts a network request before storing a successful/opaque response in the runtime cache.
-
-On navigation failures, it can return the cached application shell.
-
-## Important distinction
-
-Service worker caching is for the application/runtime shell.
-
-User music is stored separately in IndexedDB, which is what makes local playback independent of ordinary HTTP cache behavior.
-
----
-
-# Media Session and Lock-Screen Controls
-
-Where supported, Mujic registers Media Session actions for:
-
-- play
-- pause
-- previous track
-- next track
-- seek backward
-- seek forward
-- seek to position
-
-The currently playing track is also published as Media Session metadata with artwork references.
-
-Mujic updates position state using:
-
-```js
-navigator.mediaSession.setPositionState(...)
-```
-
-when the browser supports it.
-
-This allows compatible operating systems and browsers to show meaningful progress and transport controls outside the web page itself.
-
----
-
-# Playback Resume
-
-When **Resume Playback** is enabled, Mujic persists:
-
-- current track ID
-- playback position
-- relevant queue state
-
-On startup, Mujic reconstructs the playback order, restores the current track identity, loads its local audio Blob, and restores the saved position when duration metadata becomes available.
-
-The duration event is important because the browser must know the current media duration before safely restoring a saved position.
-
----
-
-# Playback Speed
-
-Mujic exposes browser-native playback rate control using `HTMLMediaElement.playbackRate`.
-
-Available choices are:
-
-- 0.75×
-- 1×
-- 1.25×
-- 1.5×
-- 2×
-
-The selected speed is stored in application settings and reapplied after reload.
-
----
-
-# Volume and Audio Output
-
-Volume is managed through the native audio element.
-
-The player supports:
-
-- variable volume
-- mute state
-- restored previous volume after unmuting
-
-Mujic also attempts to use `setSinkId()` when the browser provides that capability, allowing the application to cycle between available audio output devices.
-
-Because browser support for output-device APIs varies significantly, the app displays a friendly unsupported message when the capability is unavailable.
-
----
-
-# Sleep Timer
-
-The player includes a sleep timer with:
-
-- time-based shutdown
-- end-of-song shutdown
-- persistent UI state while the timer is active
-
-When the timer completes, playback is paused and the timer returns to the inactive state.
-
----
-
-# Search for Lyrics / Song Details
-
-When lyrics cannot be obtained from the available sources, Mujic provides a fallback instead of silently failing.
-
-The fallback can direct the user to Google for a search based on the current track.
-
-Links are intended to open externally in a new browser tab/window rather than replacing the current Mujic session.
-
-This preserves the current player state while the user investigates a missing lyric or song detail.
-
----
-
-# Exporting Settings and Statistics
-
-Mujic can export two different JSON documents.
-
-## Settings export
-
-Contains user-facing preferences such as:
-
-- theme
-- accent settings
-- lyrics style
-- interface style
-- corner radius
-- motion mode
-- player background
-- player artwork mode
-- resume playback
-- library sorting
-- artwork list preference
-- playback rate
-- volume / mute state
-- repeat / shuffle state
-- sleep timer state
-- EQ configuration
-- waveform mode
-
-## Listening statistics export
-
-Contains:
-
-- export timestamp
-- app name
-- raw daily play statistics
-- aggregated statistics summary
-
-Example structure:
+### Playlist data shape
 
 ```json
 {
-  "exportedAt": "2026-10-06T12:00:00.000Z",
-  "app": "Mujic",
-  "playStats": {
-    "days": {}
-  },
-  "summary": {
-    "today": {},
-    "week": {},
-    "month": {},
-    "all": {}
+  "id": "generated-local-id",
+  "name": "Playlist name",
+  "tracks": ["track-id-1", "track-id-2"],
+  "createdAt": 1790000000000,
+  "order": 0
+}
+```
+
+The timestamps and IDs above are illustrative, not a fixed API. The playlist's actual data is persisted in the IndexedDB `playlists` store.
+
+### Playlist actions
+
+- Create a new playlist.
+- Create a playlist while adding the selected track.
+- Add a track from the track-options sheet.
+- Import multiple files directly into a selected playlist.
+- Rename a playlist.
+- Delete a playlist after confirmation.
+- Remove a track from a playlist without deleting it from the library.
+- Move a track up or down inside a playlist.
+- Move a playlist up or down in the user's playlist order.
+- Open a playlist detail page and play or shuffle its tracks.
+
+### Playlist import behaviour
+
+The playlist import control passes the target playlist ID into the same `Library.importFiles()` flow used for normal library import. The newly imported files are stored in the library first and their IDs are then added to the target playlist. If a duplicate file is detected and its audio blob is restored, that existing track can be attached to the playlist instead of creating a second library record.
+
+### Deleting a playlist vs deleting a track
+
+Deleting a playlist removes the playlist record and its ordering entry; it does not delete the underlying tracks. Removing a song from a playlist only removes its ID from that playlist. Removing a track from the library is a wider action: the track is removed from playlists and its local audio/metadata are deleted.
+
+### Long-press behaviour
+
+On supported touch browsers, a press-and-hold on a Home playlist opens the playlist action sheet. The timer is cleared on pointer-up or pointer-cancel. On Home track rows, a separate touch long-press can open the song options sheet; controls inside the row are excluded. Small movement/scroll behaviour and platform event delivery may vary, so these gestures should be tested on target devices.
+
+---
+
+## 12. Search and Home
+
+### Search
+
+Search is local. It matches query text against relevant library metadata and can display songs, artists, albums and playlists. When the search query is empty, the view can show recently played items when history is available. It does not search a remote streaming catalogue and does not download music.
+
+The search input is debounced to prevent a full result rebuild on every single keystroke. User text is rendered through the app's HTML-escaping helper where templates require it.
+
+### Home
+
+Home is generated from the local library, favourites, playlists and listening stats. The current Home layout includes:
+
+- a time-of-day greeting;
+- a playlist rail, including the Liked Songs/favourites entry;
+- Top Picks generated from locally stored play counts, then recent history and library entries as a fallback;
+- a compact Continue Listening / recent library track section.
+
+Top Picks is not a cloud recommendation algorithm. It ranks tracks with available local play statistics, then uses history and library order if there are not yet enough listening events. The Home screen can therefore have meaningful content before an internet connection or an AI recommendation feature is used.
+
+### Track options
+
+Track rows can open an options sheet. Actions may include playback, play next, add to queue, favourite/unfavourite, add to playlist and remove from library. Context is held in `State.actionTargetId`; action handlers resolve the selected ID back to the stored library track instead of relying on the row's displayed text alone.
+
+---
+
+## 13. Playback engine
+
+### Primary audio pipeline
+
+`AudioAdapter.audio` is a browser `Audio` element. When a user selects a track, `Player.startCurrentTrack()` obtains the current track from `State.playbackOrder[State.queueIndex]`, reads its audio blob from IndexedDB and creates an object URL. The current object URL is revoked before it is replaced to avoid retaining obsolete blob URLs.
+
+The audio element then handles decoding and playback. Browser codec support is the final authority: an audio file's extension or MIME type cannot make an unsupported codec playable.
+
+### Why track-load request IDs exist
+
+Track changes require asynchronous storage reads and metadata updates. `State.playbackRequestId` acts as a ticket. Starting a newer track increments the ticket; an older asynchronous operation checks its ticket before committing playback. This helps prevent a slow blob read from an earlier track from replacing a song the user has already selected next.
+
+### Core transport controls
+
+- **Play/Pause:** start or pause the current `Audio` element. If there is a queue but no current queue index, playback starts at the initial item.
+- **Next:** advance the queue index and load that item. End-of-queue behaviour respects repeat settings.
+- **Previous:** if the current time is beyond approximately three seconds, reset the current track to the beginning; otherwise move to the previous queue item, bounded/wrapped according to repeat configuration.
+- **Seek:** update the audio element's `currentTime`, clamped to the known duration.
+- **Volume:** update `audio.volume` and saved mute/volume values. Platform behaviour differs, especially on iOS.
+- **Playback speed:** set `audio.playbackRate`; preserve-pitch behaviour is enabled where the browser exposes it and where varispeed is not enabled.
+- **Favourite:** persist the current track ID in the favourites list and refresh the corresponding icons.
+
+### Playback progress and duration
+
+Audio events update `State.currentTime`, `State.duration`, the time labels and the seek-bar fill/thumb. The `loadedmetadata` event refreshes duration and can restore a saved resume position. Duration can be written back to track metadata after the browser has successfully opened the file.
+
+### Object URLs
+
+An audio blob in IndexedDB is not itself a URL the audio element can stream from. `URL.createObjectURL(blob)` supplies the temporary local URL. Mujic retains the active URL while it is in use and revokes the old URL during track switches/cleanup. It must not revoke the URL while the audio element is still expected to use it.
+
+---
+
+## 14. Queue, shuffle and repeat
+
+Mujic keeps three closely related values:
+
+- `State.queue`: the conceptual queue/list of track IDs saved for restoration.
+- `State.playbackOrder`: the order the player is currently navigating (which can differ when shuffled).
+- `State.queueIndex`: the index of the current track in `playbackOrder`.
+
+The **current track ID** is kept in `State.currentTrackId`. A track is resolved back to `State.library` by ID when metadata or the audio blob is needed.
+
+### Shuffle
+
+Shuffle creates a randomised playback order while attempting to preserve the active track. Turning shuffle off restores a linear order from the queue and finds the current track's index. The shuffle flag and queue are saved to IndexedDB.
+
+### Repeat modes
+
+The player cycles through three states:
+
+- `0` — Repeat Off
+- `1` — Repeat All
+- `2` — Repeat One
+
+Repeat One restarts the current track at end. Repeat All wraps the order to the first item. Repeat Off stops at the final item rather than wrapping.
+
+### Up Next
+
+The queue sheet shows the playback order and active position. It supports selecting a queue entry, removing non-current items, clearing the queue down to the current song, adding a song to play next, appending a song and reordering entries with touch-friendly drag/drop and move controls. When reordering, the active queue index must be adjusted if an item crosses it; the reorder logic does this so the playing song remains the active item.
+
+`preventDuplicateQueue` optionally blocks adding a track already present in the queue. When disabled, duplicate IDs may exist in `playbackOrder`, which is useful when a user intentionally wants to repeat a track within a list.
+
+### Starting playback from a context
+
+The player can start from a library list, search result, artist, album or playlist. Context playback builds the queue from the relevant list and sets the active index. Shuffle-context playback generates a shuffled order for that context. When contributing, verify both the initial track and subsequent Next/Previous behaviour for every context—do not test only by clicking the song from Home.
+
+---
+
+## 15. Mini-player and full player
+
+### Mini-player
+
+The mini-player remains visible when a track is selected and the full player is collapsed. It shows artwork, title, artist, progress and transport controls. Play/Pause and Next have dedicated event handlers to prevent the parent surface's “open full player” handler from consuming a control click. The progress strip is display-only in mini-player mode; seeking is performed in the full player's scrubber.
+
+### Full player
+
+The full player includes:
+
+- artwork presentation (full-cover or contained);
+- optional backdrop mode (artwork, muted/solid or black);
+- title, artist and favourite control;
+- current time, duration and seek control;
+- shuffle, previous, play/pause, next and repeat controls;
+- volume/mute and More options;
+- queue access;
+- lyrics mode, including immersive/full-screen lyrics where supported;
+- audio waveform and its selected effect style.
+
+The desktop layout uses a wider two-column arrangement; small screens use a compact single-column presentation. Safe-area variables and viewport-height handling help account for mobile browser chrome and notches, but actual browser viewport behaviour should be tested on real devices.
+
+### More sheet and secondary sheets
+
+The More sheet links to playback speed, Bass Boost/legacy EQ options, sleep timer, output device where supported, volume where useful, and immersive lyrics. Dedicated sheets contain the Up Next queue, waveform modes/styles and other focused controls. Sheets are history-aware so browser Back can close a sheet before leaving its underlying view.
+
+---
+
+## 16. Audio effects and equalizer
+
+Audio effects use browser audio capabilities, not a separate native audio service. The app keeps features optional so users can choose between processing and lower CPU/battery use.
+
+### Five-band equalizer
+
+When Web Audio is enabled, the audio graph uses five BiquadFilters with the following bands:
+
+| Band | Frequency | Filter type | Purpose |
+|---|---:|---|---|
+| 1 | 60 Hz | Low shelf | Sub-bass and low bass |
+| 2 | 230 Hz | Peaking | Bass body / lower warmth |
+| 3 | 910 Hz | Peaking | Midrange body |
+| 4 | 3.6 kHz | Peaking | Presence / upper mids |
+| 5 | 14 kHz | High shelf | High-frequency brightness |
+
+Each band's gain is clamped from `-12 dB` to `+12 dB`. Presets in the engine include:
+
+- **Flat:** all bands at 0 dB.
+- **Bass:** more gain in the lowest bands, slight top reduction.
+- **Vocal:** lower bass and emphasised upper mids.
+- **Rock:** boosted low end and treble with a slight middle cut.
+- **Treble:** reduced lows and boosted upper bands.
+- **Custom:** the state reached when the user manually moves any band.
+
+Changes are applied to the filter nodes and persisted to the settings record. The older Off/Low/Medium/High Bass Boost choices map to a subset of the same five-band gain array for compatibility.
+
+### Web Audio graph
+
+When an effect needs Web Audio, the engine creates a graph similar to:
+
+```text
+HTMLAudioElement
+  → MediaElementSource
+  → 60 Hz low-shelf filter
+  → 230 Hz peaking filter
+  → 910 Hz peaking filter
+  → 3.6 kHz peaking filter
+  → 14 kHz high-shelf filter
+  → AnalyserNode
+  → DynamicsCompressorNode
+  → Master GainNode
+  → AudioContext destination
+```
+
+The context and nodes are initialised lazily. If `AudioContext` is missing or suspended, the app attempts to resume it where allowed. Browsers require a user gesture for some audio operations, so the first play/effect toggle can depend on platform gesture rules.
+
+### Soft track transitions
+
+The `crossfade` option performs a brief master-gain fade around a track transition. It intentionally does **not** mix two tracks simultaneously. Avoiding overlap reduces simultaneous decoder/audio-stream and memory costs on low-end devices. If Web Audio is unavailable, this enhancement may be skipped.
+
+### Silence skipping
+
+`skipSilence` checks analyser energy while playing and advances past sustained low-level audio after a threshold. `instantSkipSilence` uses a shorter threshold and larger skip but only applies when the main skip-silence option is enabled. This is heuristic detection, not semantic speech/music recognition; quiet intros or pauses in a song can sometimes be treated as silence.
+
+### Loudness control
+
+Loudness control configures a `DynamicsCompressorNode`. The Soft, Balanced and Strong profiles select different threshold, knee, ratio, attack and release settings. It reduces large volume peaks; it is not a lossless loudness normaliser and may change the sound's dynamics.
+
+### Pitch and speed
+
+- `preservePitch` attempts to keep voice pitch closer to the original while changing speed using browser-supported `preservesPitch`/`webkitPreservesPitch` properties.
+- `varispeed` deliberately allows pitch to follow playback speed (tape-style behaviour), overriding pitch preservation.
+- Actual output depends on browser/engine support.
+
+### Additional playback controls
+
+- `autoSkipOnError`: if a queued track fails to decode and there is more than one queue item, attempt to skip the failing item rather than leaving the player stuck.
+- `progressiveSeek`: repeated Media Session seeks pressed quickly can increase the step size.
+- `seekStep`: base media-session seek increment, one of 5, 10, 15 or 30 seconds.
+- `pauseWhenMuted`: pause when the user mutes or sets volume to zero.
+- `stopOnPageHide`: pause when page hide/unload is signalled. Browser task-swipe/app-kill events are not delivered consistently.
+- `keepScreenAwake`: request a Wake Lock while the full player is open, if supported.
+- **Audio output:** uses `enumerateDevices` / `setSinkId` where the browser supports output selection; otherwise the app explains that the control is unsupported.
+- **Hardware audio offload:** browser/OS managed. A web app cannot reliably force native hardware offload and should not pretend a checkbox can do so.
+
+### Sleep timer
+
+The sleep timer supports Off, a timed countdown and stopping at the end of the current song. A timed countdown updates the displayed remaining time and pauses when the timer expires. End-of-song mode waits for the audio `ended` event before stopping. It does not depend on a remote timer service.
+
+---
+
+## 17. Audio Waveform / seek-bar effects
+
+Audio Waveform is an optional audio-reactive canvas over the played part of the full-player seek bar.
+
+### Waveform modes
+
+The current selection can be Off, Spectrum Bars, Audio Waveform, Pulse, Dots or Mirror Bars (the legacy `aurora` value is normalised to Pulse). The selected mode is saved. The Audio Waveform mode also has four style choices:
+
+- **Default:** a thin, minimal played line.
+- **Wavy:** a smooth, low-frequency wave.
+- **Slim:** a restrained thin-line presentation.
+- **Squiggly:** a more visibly varied curve while remaining bounded by the compact seek-bar canvas.
+
+### How it works
+
+1. `AudioAdapter` creates an `AnalyserNode` as part of the Web Audio graph when an effect needs it.
+2. The seek-bar canvas is resized to its CSS viewport with a limited device-pixel ratio. Low-end mode caps it to a lower resolution.
+3. Frequency data is stored in reusable typed arrays instead of creating new buffers per animation frame.
+4. Drawing is clipped to the elapsed proportion `currentTime / duration`, so the waveform replaces the played section only. The unplayed part remains a separate thin timeline.
+5. `requestAnimationFrame` is owned by a single loop. It is started when the effect should animate and cancelled when playback/player state requires it to stop.
+6. While paused, the app can render one static frame rather than continuing to animate. Closing the player or turning the effect off clears the canvas.
+
+The visualisation is a lightweight representation of analyser data, not a stored waveform computed from the entire audio file. It is intentionally not rendered as a giant background visualiser, because that would spend CPU/GPU resources without improving basic playback.
+
+### Low-end considerations
+
+The app caps the canvas height and uses reusable frequency buffers. In the Low-end profile, the target frame interval is reduced and the canvas uses a lower pixel ratio. Turning the effect Off avoids the continuous visualiser loop entirely. This option is recommended on older devices when battery life or smooth scrolling is more important than animation.
+
+---
+
+## 18. Lyrics engine
+
+Lyrics are **lazy-loaded**. Changing songs updates player metadata immediately; the lyrics provider chain is invoked when the user opens lyrics mode or requests the lyrics flow. This prevents a failed lyrics API from blocking ordinary track playback.
+
+### Lyrics resolution order
+
+For the current track, the main resolver behaves in this order:
+
+1. **Embedded lyrics** — lyrics read from the user's own audio file. If present, these take priority even if an older remote result is cached.
+2. **In-memory lyrics cache** — result already resolved during this page session.
+3. **IndexedDB lyrics cache** — saved result for the track ID.
+4. **Optional Gemini identification** — only when enabled, online, keys are configured, and filename/title/artist heuristics indicate likely incomplete or noisy metadata. The result improves metadata for subsequent lookup; Gemini itself is not a lyrics provider.
+5. **LRCLIB exact lookup** — query by title, artist, album and duration.
+6. **LRCLIB search lookup** — if exact lookup fails, search for the candidate and accept a result only when title is normalised to a match, duration is compatible (within the defined tolerance when supplied) and artist is compatible where available.
+7. **Render fallback** — request `GET https://gaana-suno-varna-machhar-aajayega.onrender.com/lyrics?track=TITLE&artist=ARTIST`.
+8. **Optional LyricsPlus v2** — try the configured public host mirrors, with per-host timeouts, when LyricsPlus fallback is enabled.
+9. **Unavailable message** — if no usable lyrics are found, present an unavailable result; the UI can offer Google search/song-detail links and automatically close the lyrics panel after its timeout.
+
+The online order is deliberate: local material is free of network latency, LRCLIB exact/search requests are attempted before the Render service, and LyricsPlus is the timed final provider. A provider can be unavailable, rate-limited, blocked by CORS or return no matching result; the player must continue to work without it.
+
+### Synced vs plain lyrics
+
+- **Synced lyrics (LRC):** the parser extracts timestamps such as `[mm:ss.xx]`, associates text with the timestamp, and sorts entries by time. Audio time updates locate the active line; the container scrolls the active line toward the central reading area. Tapping a timed line can seek playback to that timestamp.
+- **Plain lyrics:** shown as text without line-by-line time sync. These may come from embedded metadata or a provider response that has no timing data.
+
+The app recognises multiple LRC timestamp shapes and converts fractional seconds to numeric seconds. Synced lyrics are useful for karaoke-style following but are not guaranteed to be word-synced; accuracy is determined by the source data.
+
+### LyricsPlus integration
+
+The current implementation calls a `/v2/lyrics/get` endpoint on a small list of public LyricsPlus host mirrors. Parameters include title, artist, album, duration and source names. The response can group words by line key and millisecond start time; Mujic groups those entries, builds line start timestamps and serialises them into LRC-style text. Where the API returns track metadata, the result is rejected if title or artist clearly mismatches the requested track.
+
+LyricsPlus is optional and has bounded per-host timeouts. A public instance may change or stop working; the application cannot guarantee third-party uptime or provider source coverage.
+
+### Cache rules
+
+Successfully resolved lyrics are stored by track ID in IndexedDB and a memory cache is used for fast subsequent display. Embedded lyrics are written into the cache and always take precedence. An unavailable result is not considered a verified lyrics cache hit. Cached lyrics can be displayed offline; uncached remote lyrics cannot be fetched while offline.
+
+### No-lyrics experience
+
+When all available sources fail, the UI displays a friendly unavailable state instead of a developer-facing stack trace. It can provide **Search lyrics on Google** and **Song details** actions that open a separate tab. After the configured grace period, the lyrics panel closes automatically so the rest of the player remains accessible.
+
+---
+
+## 19. Experimental Gemini song identification
+
+Gemini identification is an opt-in helper for cases where a local file has an ambiguous name or missing artist. It is not required for playback or ordinary lyrics lookup.
+
+### Activation conditions
+
+The feature is considered only when:
+
+- `aiSongIdentification` is enabled;
+- the browser reports an online connection;
+- at least one non-empty Gemini key is saved;
+- title, artist or filename heuristics suggest that the metadata is incomplete/noisy.
+
+Examples of heuristic signals include `Unknown Artist`, generic titles such as `Track 01`, or numbered/recording-style filenames. Normal well-formed metadata should not be sent to Gemini unnecessarily.
+
+### Data sent
+
+The request includes text metadata, bounded in length:
+
+- current title;
+- artist;
+- album;
+- filename without the application uploading its file bytes;
+- duration in seconds when known.
+
+**The audio file itself is not uploaded to Gemini.** The browser builds a prompt that treats field values as data and asks for a JSON suggestion with title, artist, album and confidence.
+
+### Acceptance rules
+
+- Response must parse as JSON (with optional code fences removed).
+- Title and artist must be non-empty and not generic unknown values.
+- Confidence must be at least `0.68`.
+- Values are bounded in length before being saved.
+- The identified metadata is persisted to the track and then used for lyrics lookup.
+
+This remains experimental. Models can confidently suggest the wrong song; users should check metadata and correct it if necessary. If AI fails or all keys fail, the normal lyrics provider chain continues.
+
+### Configure up to four keys
+
+Open **Settings → Lyrics & AI → Gemini API keys**:
+
+1. Add one to four keys.
+2. Save the list.
+3. Optionally use **Test keys** to verify that Google accepts a request.
+4. Enable **AI Song Identification (Experimental)** separately.
+
+The key manager provides show/hide, add/remove, save and test actions. Duplicate keys are deduplicated and the list is capped at four. If a key is rejected, rate-limited or fails, the app rotates to the next key. A successful/attempted rotation updates the saved next-key index so repeated calls do not always start with the same key.
+
+### Direct browser call: security implications
+
+There is no Mujic API proxy. The browser calls Google's `generateContent` endpoint directly and sends the key in the `x-goog-api-key` header. The keys are stored locally in the browser's IndexedDB settings record. This avoids putting a secret in source code or shipping it inside the repository, but **IndexedDB is not an encrypted secret vault**. Anyone with access to the user's device, browser profile or DevTools can inspect values. Use only keys suitable for client-side use, restrict them in Google's console where possible, monitor usage, and rotate exposed keys. Mujic's Settings export intentionally omits the Gemini key list.
+
+---
+
+## 20. Listening history and statistics
+
+Mujic maintains two related but distinct records.
+
+### Recent play history
+
+When playback starts for a track, `StorageAdapter.recordPlayHistory()` appends an entry with:
+
+- an auto-increment `entryId`;
+- `trackId` (when available);
+- title, artist and album snapshots;
+- `playedAt` timestamp in milliseconds.
+
+The list is append-only through ordinary playback and can still show a snapshot if the current track is later removed from the library. The UI initially loads a bounded recent page and can load older pages using the cursor/pagination state, avoiding a huge render when the history becomes long.
+
+### Aggregate play statistics
+
+`Stats.recordPlay()` increments the selected local day’s play count and per-track play counts. On `timeupdate`, `Stats.consumeAudioDelta()` adds listening seconds only when playback is active and a small, positive time delta is observed. Large jumps (such as seeking) are not counted as real-time listened seconds. Writes are debounced using a save timer to avoid writing IndexedDB for every audio event.
+
+Daily records have this shape:
+
+```json
+{
+  "days": {
+    "2026-10-11": {
+      "plays": 4,
+      "seconds": 932,
+      "tracks": {
+        "track-id-example": 2
+      }
+    }
   }
 }
 ```
 
-Export files are generated locally in the browser and downloaded directly; no export service is required.
+This is an illustrative schema. Track IDs are generated locally and the actual counts reflect the user's library.
+
+### Summary periods
+
+The Listening section computes:
+
+- **Today:** current local calendar day;
+- **This week:** the current day plus the preceding six calendar days;
+- **This month:** every calendar day in the current local month;
+- **All time:** all day records currently present in saved statistics;
+- **Most played this month:** aggregate per-track play counts for the current month.
+
+Listening time is converted to minute/hour labels for display. The statistics are local; there is no analytics upload. They persist inside the settings record and can be exported as JSON.
 
 ---
 
-# Storage Model
+## 21. Themes and personalisation
 
-The current IndexedDB database is named:
+Appearance settings map to persisted state and CSS classes/custom properties.
 
-```text
-MujicDB
-```
+### Theme mode
 
-The application uses the following object stores.
+- System Default follows `prefers-color-scheme`.
+- Dark Mode applies the dark palette.
+- Light Mode applies the light palette.
 
-## `tracks`
+### Accent colours
 
-Stores track metadata.
+The accent may be dynamically derived from artwork, selected from a named colour set or entered as a custom hex colour. Dynamic colour calculation is local and uses the artwork cache. Users can choose a fixed accent when they prefer consistent controls rather than a colour derived from each album art.
 
-Key:
+### Surface palettes
 
-```text
-id
-```
+Dark surface options are OLED Black, Graphite, Midnight Blue, Warm Espresso and Forest. Surface palette and accent colour are separate settings: the surface changes the panel/background treatment; the accent changes selected buttons, highlights and active controls.
 
-## `audioBlobs`
+### Text and layout
 
-Stores the actual imported music files.
+- **Text Size:** Compact, Standard, Large.
+- **Layout Density:** Compact, Comfortable, Spacious.
+- **Corner Radius:** Sharp, Medium, Rounded, Extra Rounded.
+- **Interface Style:** Liquid Glass subtle, Liquid Glass strong or solid/off.
+- **Motion:** Full Motion or Reduced Motion.
 
-Key:
+These options are implemented mostly through CSS custom properties and class toggles, not by duplicating markup for every theme.
 
-```text
-track ID
-```
+### Player presentation
 
-## `artworks`
+- **Player Background:** Artwork Blur, Solid Muted, Deep Black.
+- **Player Artwork:** Full Cover or Fit Inside.
+- **Show Artwork List Icons:** show real artwork thumbnails in list rows or use compact generated placeholders.
 
-Stores artwork blobs.
+The artwork-blur background uses the current artwork as a backdrop; it is independent of the seek-bar Audio Waveform. The Audio Waveform does not need a full-screen background canvas.
 
-Key:
+### Lyrics display
 
-```text
-artwork ID
-```
+- **Lyrics Style:** Apple Music, Spotify or Neon Highlight.
+- **Vertical Position:** Upper, Center or Lower.
+- **Fine Position:** bounded vertical offset from `-8vh` to `+8vh`.
+- **Text Size:** Compact, Standard, Large or Extra Large.
+- **Line Spacing:** Compact, Balanced or Relaxed.
+- **Text Width:** Narrow, Standard or Wide.
+- **Active-line Emphasis:** Soft, Standard, Strong or Off.
 
-## `settings`
-
-Stores application state that needs to survive reloads.
-
-The main settings record is stored under:
-
-```text
-app_state
-```
-
-## `playlists`
-
-Stores playlist records keyed by playlist ID.
-
-## `lyricsCache`
-
-Stores cached lyric payloads by track ID.
+Lyrics preferences are applied as CSS classes and custom properties so the same synchronized-lyrics data can be presented in different layouts without re-fetching it.
 
 ---
 
-# Data Lifecycle
+## 22. Performance profile for low-end devices
 
-A typical imported song follows this lifecycle:
+`performanceProfile` accepts `auto`, `low-end` or `full`.
 
-```text
-Local file selected
-      ↓
-Metadata parser
-      ↓
-Artwork extraction
-      ↓
-Track metadata object created
-      ↓
-Track saved to `tracks`
-      ↓
-Audio Blob saved to `audioBlobs`
-      ↓
-Artwork saved to `artworks`
-      ↓
-Library state updated
-      ↓
-Home / Library / Artist / Album indexes refreshed
-```
+### Auto mode
 
-A lyric retrieval follows a different lifecycle:
+The UI checks available browser hints:
 
-```text
-Lyrics mode opened
-      ↓
-Embedded lyric?
-      ↓
-Cache?
-      ↓
-LRCLIB exact
-      ↓
-LRCLIB validated search
-      ↓
-Render backend
-      ↓
-Store valid result in lyricsCache
-```
+- `navigator.hardwareConcurrency` (logical core count);
+- `navigator.deviceMemory` where exposed;
+- the OS/browser `prefers-reduced-motion` media query.
 
-A play-stat lifecycle is:
+A reported core count at or below four, reported device memory at or below four gigabytes, or a reduced-motion preference can activate the constrained profile. These are heuristics; not every browser exposes hardware hints and the hints are not a full benchmark.
 
-```text
-Successful track start
-      ↓
-Increment daily play count
-      ↓
-Timeupdate deltas accumulate listening seconds
-      ↓
-Throttle persistence
-      ↓
-Flush on pause
-```
+### Low-end profile changes
+
+- adds the `low-end-mode` class for lower-cost visual styling;
+- lowers the waveform canvas device-pixel ratio to 1;
+- increases waveform frame interval (lower target frame rate) while active;
+- warms artwork in smaller batches and waits longer between batches;
+- works with Reduced Motion and solid interface styles to reduce transitions and backdrop filters.
+
+### Practical recommendations
+
+For a phone with limited RAM or an older GPU:
+
+1. Set **Performance Profile → Low-end device** if Auto is not enough.
+2. Set **Audio Waveform → Off** if the animated seek bar is not important.
+3. Set **Motion → Reduced Motion** and **Interface Style → Solid / Off**.
+4. Avoid enabling several audio-processing features at once unless needed.
+5. Close other browser tabs if the device is memory constrained.
+
+These settings reduce optional rendering/processing work; they cannot improve the decoding speed of an unsupported codec or prevent the operating system from suspending a PWA in the background.
 
 ---
 
-# Privacy Model
+## 23. IndexedDB storage model
 
-Mujic is designed to keep the user's core music library local.
+Mujic opens database **`MujicDB` version `6`**. `onupgradeneeded` creates missing object stores; the database remains in the browser profile for the site's origin.
 
-## What stays local
+| Store | Key strategy | Content | Used by |
+|---|---|---|---|
+| `tracks` | `id` keyPath | Track metadata and tags | Library, player metadata, search, artist/album grouping |
+| `audioBlobs` | Track ID as explicit key | Original imported audio `Blob`/`File` | Offline playback and re-import restoration |
+| `artworks` | Artwork ID as explicit key | Extracted picture blobs | Row/album/artist artwork and player display |
+| `settings` | Explicit keys (`app_state`) | Preferences, queue restoration, favourites, play stats and up to four Gemini keys | Startup restore and Settings persistence |
+| `playlists` | `id` keyPath | Playlist name/order and track ID arrays | Playlist list, detail, reorder/import actions |
+| `lyricsCache` | Track ID as explicit key | Lyrics text, synced flag and parsed/cache data | Offline lyrics and faster display |
+| `playHistory` | Auto-increment `entryId` | Append-only track-start snapshots and timestamps | History sheet/pagination |
 
-Imported audio files are stored in browser IndexedDB.
+### Track metadata record
 
-Track metadata is stored locally.
+A track record can include these fields, where available:
 
-Artwork is stored locally.
+- `id`
+- `fileName`, `format`, `mimeType`, `fileSize`
+- `title`, `artist`, `album`, `albumArtist`
+- `genre`, `year`, `trackNumber`, `discNumber`, `composer`
+- `lyrics`
+- `artworkId`, `pictureType`
+- `duration`, `dateAdded`
+- optional AI identification metadata such as `aiIdentified` and confidence where generated
 
-Playlists are stored locally.
+Not every field exists for every file. The metadata record does not store the full audio byte stream; that is stored separately in `audioBlobs`.
 
-Favorites and history are stored locally.
+### Settings record
 
-Listening statistics are stored locally.
+The settings store uses key `app_state`. The serialised object includes favourites, favourite artists, history IDs, queue/current track, volume/mute, shuffle/repeat, playback rate, EQ preset/bands, theme/accent/surface/text/layout, performance profile, lyrics presentation, player presentation, waveform settings, Resume Playback position, sort preferences, artwork-list preference, listening stats, optional playback effects, seek settings, LyricsPlus flag and the bounded Gemini key array/key rotation index.
 
-Settings are stored locally.
+The Gemini key values in IndexedDB are locally persistent but inspectable by anyone who can access the browser profile. They are deliberately left out of Settings JSON export.
 
-## What may use the network
+### Clearing browser data
 
-Lyrics may use remote services when the device is online and no embedded/cache result is available.
-
-The current lyrics network chain includes:
-
-- LRCLIB
-- the configured Render backend
-
-Google may also be opened externally when the user explicitly chooses the missing-lyrics/search fallback.
-
-## Important privacy note
-
-A "local-first" player does not mean "network-free in every interaction".
-
-If an online lyrics lookup is performed, the requested title/artist are sent to the relevant lyrics service. Core audio playback does not require sending the imported audio Blob to those lyrics services.
-
----
-
-# Supported Audio Formats
-
-The application accepts files with common audio MIME types and recognizes these extensions in its picker/import logic:
-
-```text
-mp3
-m4a
-aac
-flac
-wav
-ogg
-oga
-opus
-webm
-aiff
-aif
-alac
-```
-
-## Codec caveat
-
-Recognizing an extension and decoding that format are not the same thing.
-
-Actual playback support depends on the browser's media stack and the specific codec/container combination.
-
-For example, a browser may accept an `.m4a` file while the embedded codec variant inside it is unsupported.
-
-Mujic therefore reports a clear playback error when the browser cannot decode the selected media instead of pretending the file is broken.
+Because audio and library data are origin-specific browser storage, clearing site data, using a different protocol/host/port, switching browser profiles or uninstalling some browsers' storage environments can make the local library unavailable. An offline library is not automatically synchronised between devices. Exporting settings/statistics is not a backup of the audio blobs themselves.
 
 ---
 
-# Browser Compatibility
+## 24. Offline behaviour and service worker
 
-Mujic is built primarily around modern browser APIs.
+Offline support is implemented by **two complementary storage paths**:
 
-Best experience is expected on browsers with support for:
+1. **IndexedDB** stores user content and app state: audio, track metadata, artwork, playlists, lyrics cache, preferences, statistics and play history.
+2. **Service worker Cache API** stores the application shell and selected static resources: HTML, CSS, JavaScript, manifest, icons, changelog and eligible font resources.
 
-- IndexedDB
-- HTMLMediaElement
-- Pointer Events
-- CSS backdrop filtering
-- Web Audio API
-- Media Session API
-- service workers
-- PWA installation
+The service worker does not cache all imported audio as fetch responses. Playback loads local audio blobs directly from IndexedDB. This separation avoids trying to duplicate the user's media library inside the service-worker cache.
 
-Not every feature has to exist for basic playback to work.
+### Service worker install
 
-A simplified capability model is:
+`sw.js` opens a versioned cache named similarly to `mujic-pwa-v12.0.5-local-gemini-low-end` and attempts to add all app-shell entries. A single failed app-shell item should not abort the entire installation. The worker calls `skipWaiting()` after the install-cache operation.
 
-| Capability | Basic playback needs it? | If unsupported |
-|---|---:|---|
-| IndexedDB | Yes | Core local library cannot function correctly |
-| HTML Audio | Yes | Playback unavailable |
-| Web Audio | No | Equalizer/waveform enhancements degrade gracefully |
-| Media Session | No | External/lock-screen controls unavailable |
-| Service Worker | No | App still works as a normal web app |
-| PWA install prompt | No | Manual browser install may still be possible |
-| `setSinkId()` | No | Output device switching is unavailable |
+### Service worker activation
 
----
+At activation, it deletes old cache keys beginning with `mujic-pwa-` except for the current cache, then claims clients. Bumping `CACHE_NAME` during releases allows old static assets to be replaced.
 
-# Low-End Device Strategy
+### Fetch strategy
 
-Mujic is deliberately conservative about expensive work.
+- **Navigation request:** network first; a successful response can update the cached `index.html`. If network access fails, return the cached navigation response or cached app shell.
+- **Same-origin non-navigation assets:** cache first, then fetch and cache a successful response. If the network request fails, use the cached item.
+- **Google Fonts CSS/files:** eligible for the same runtime cache path.
+- **Other remote hosts:** the service worker does not intercept them. Lyrics/Gemini requests therefore still need network access and may fail while offline.
 
-## 1. Local playback
+### Offline feature matrix
 
-Playing a local Blob avoids depending on a remote streaming infrastructure for every song.
-
-## 2. Lazy lyrics
-
-Lyrics are fetched only when required.
-
-## 3. Progressive artwork warming
-
-Artwork requests are warmed in small batches rather than resolving the entire library in one synchronous burst.
-
-## 4. Request IDs
-
-Async track loading is protected against stale requests.
-
-## 5. Throttled statistics persistence
-
-Listening time does not trigger an IndexedDB write for every tiny timeupdate.
-
-## 6. Single visualizer loop
-
-The waveform uses one controlled animation frame loop and stops it when it is not needed.
-
-## 7. Debounced search
-
-Search does not render on every raw keystroke.
-
-## 8. Bounded history/statistics
-
-History and daily statistics are intentionally bounded.
-
-## 9. CSS-first responsive UI
-
-The app uses native layout primitives and media queries rather than a heavy UI framework runtime.
+| Feature | Works offline after required data is present? | Notes |
+|---|---|---|
+| Play an imported track | Yes | Requires the audio blob to remain in IndexedDB and the browser to support the codec. |
+| Library/playlist browsing | Yes | Metadata and playlists are local. |
+| Theme/settings | Yes | Persisted in IndexedDB. |
+| Favourites and history display | Yes | Local records. |
+| Listening stats | Yes | Recorded locally and saved with debounced writes. |
+| Embedded lyrics | Yes | Extracted during import when metadata exposes them. |
+| Previously cached lyrics | Yes | Retrieved from `lyricsCache`. |
+| First-time online lyrics | No | A remote provider cannot be reached offline. |
+| Gemini AI identification | No | Requires Google access, a valid key and network connection. |
+| PWA installation | Requires HTTP/HTTPS | Browser's install/service-worker rules apply. |
 
 ---
 
-# Project Structure
+## 25. PWA installation
 
-The current GitHub-ready application is intentionally small.
+The manifest defines:
 
-```text
-mujic/
-├── index.html
-├── manifest.webmanifest
-├── sw.js
-├── icons/
-│   ├── icon-192.png
-│   └── icon-512.png
-├── README.md
-└── LICENSE
-```
+- `name` and `short_name`: Mujic;
+- `start_url`: `./index.html?source=pwa`;
+- `scope`: `./`;
+- standalone display mode and a supported display override;
+- portrait-primary orientation preference;
+- theme/background colors;
+- 192×192 and 512×512 PNG icons.
 
-## `index.html`
+`UI.setupInstallPrompt()` listens for the `beforeinstallprompt` event when supported. When the browser provides a deferred prompt, the Install button can display the native installation flow. When already running standalone, the button reports that the app is installed. On iOS, where the browser may not provide the same prompt event, the UI shows Safari's **Share → Add to Home Screen** instructions.
 
-The main application containing:
+### Correct launch method
 
-- UI markup
-- responsive CSS
-- state management
-- IndexedDB abstraction
-- player logic
-- lyrics logic
-- EQ
-- waveform renderer
-- playlists
-- search
-- stats
-- settings
-- PWA UI
-
-## `manifest.webmanifest`
-
-PWA identity and installation metadata.
-
-## `sw.js`
-
-Service worker responsible for application-shell and static runtime caching.
-
-## `icons/`
-
-Installable app icons.
-
-## `README.md`
-
-This documentation.
-
-## `LICENSE`
-
-The repository's MIT license.
-
----
-
-# Running Locally
-
-Mujic does not require a large JavaScript build pipeline for the current structure.
-
-A static HTTP server is enough.
-
-## Python
+Use an HTTP or HTTPS origin. On Windows, run `start-mujic.bat`. Elsewhere, from the project directory:
 
 ```bash
-python -m http.server 8080
+python -m http.server 3000
 ```
 
-Then open:
+Then open `http://localhost:3000`. Opening `index.html` with `file://` is not a supported way to test PWA installation; browsers block service workers and manifest fetches from that origin. Basic markup may render, but installability and same-origin browser features will not behave like a hosted PWA.
 
-```text
-http://localhost:8080/
-```
+For production hosting, deploy the project root so the paths `./css/app.css`, `./js/...`, `./manifest.webmanifest`, `./sw.js`, `./icons/...` and `./changlog.json` resolve under the same scope. Use HTTPS.
 
-## Node
+---
 
-Any static server can be used. For example, with a commonly available static-server package:
+## 26. Media Session, lock-screen controls and wake lock
+
+### Media Session metadata
+
+When a track changes, Mujic updates browser `navigator.mediaSession.metadata` when available. Metadata contains title, artist, album and artwork variants. This allows supporting operating systems to show track information in lock-screen/media controls and system media surfaces.
+
+### Action handlers
+
+The app registers Media Session handlers for supported actions such as:
+
+- play and pause;
+- previous and next track;
+- seek backward and forward;
+- seek to an explicit time.
+
+The configured seek increment is used for backward/forward actions. Progressive seek can enlarge the amount when several seeks happen rapidly. The engine updates position state when the browser supports it.
+
+### Browser variance
+
+Media Session support differs across browsers and installed PWAs. Some browsers expose only part of the action set; some operating systems control background execution and may suspend a tab. The app can request and report support but cannot override OS power-management policies.
+
+### Wake Lock
+
+When enabled and supported, Mujic requests a screen wake lock while the full player is open/visible and re-establishes it when the document becomes visible. The lock can be denied or released by the browser/system. This should not be interpreted as a guarantee that audio can run forever in the background.
+
+---
+
+## 27. Settings reference
+
+This section lists the main configuration groups exposed in v12.0.5 and how they affect the application.
+
+### UI & Customization
+
+| Setting | Values / behaviour |
+|---|---|
+| Theme | System, Dark, Light. Applies the page's color scheme. |
+| Accent Color | Dynamic artwork accent; named presets; or custom colour input. |
+| Dark Surface Palette | OLED Black, Graphite, Midnight Blue, Warm Espresso, Forest. Separately changes dark surfaces. |
+| Text Size | Compact, Standard, Large. |
+| Layout Density | Compact, Comfortable, Spacious. |
+| Performance Profile | Auto, Low-end device, Full visuals. |
+| Interface Style | Liquid Glass subtle, Liquid Glass strong, Solid/Off. |
+| Corner Radius | Sharp, Medium, Rounded, Extra Rounded. |
+| Motion | Full Motion or Reduced Motion. |
+| Player Background | Artwork Blur, Solid Muted, Deep Black. |
+| Player Artwork | Full Cover or Fit Inside. |
+| Show Artwork List Icons | Show embedded art thumbnails in track lists or use placeholders. |
+| Restore default appearance | Resets selected appearance preferences to their defaults. |
+
+### Player & Audio
+
+| Setting | Effect / dependency |
+|---|---|
+| Audio Waveform | Off or an enabled seek-bar visual effect. Web Audio analyser support is required for live audio reactivity. |
+| Seek bar effect style | Default, Wavy, Slim, Squiggly. Choosing a style selects Audio Waveform. |
+| Resume Playback | Saves the last track/position and attempts to restore the local queue/position on next startup. |
+| Soft track transitions | Short master-gain fade around track changes; no simultaneous song overlap. |
+| Skip long silence | Uses analyser energy to detect sustained near-silence. Requires analyser/Web Audio support. |
+| Instantly skip silence | Shorter threshold/larger skip, only while Skip long silence is enabled. |
+| Loudness control | Dynamics compressor for more controlled peaks. |
+| Loudness profile | Soft, Balanced or Strong compressor settings. |
+| Auto-skip unsupported tracks | Attempt to continue queue on decoding/playback failure. |
+| Prevent duplicate queue items | Refuse to add an ID already in playback order. |
+| Preserve pitch | Request pitch preservation at changed speed if supported. |
+| Varispeed | Pitch follows playback rate; overrides preserve-pitch behaviour. |
+| Progressive seek | Increases Media Session seek size during rapid repeated presses. |
+| Pause when muted | Pauses if volume is muted or set to zero. |
+| Stop on page exit | Pauses on `pagehide` when that event is delivered. |
+| Keep screen awake | Requests Wake Lock if browser support permits it. |
+| Seek increment | 5, 10, 15 or 30 seconds for Media Session seeking. |
+| Hardware audio offload | Informational only; actual offload is controlled by the browser and OS. |
+
+### Lyrics & AI
+
+| Setting | Effect / dependency |
+|---|---|
+| LyricsPlus fallback | Enable/disable the final LyricsPlus request. Requires network. |
+| AI Song Identification | Experimental; only runs for incomplete/noisy metadata and with saved Gemini key(s). |
+| Gemini API keys | Manage up to four locally stored browser keys, test requests and fallback rotation. |
+| Lyrics Style | Apple Music, Spotify, Neon Highlight. |
+| Vertical Position | Upper, Center, Lower. |
+| Fine Position | Offset bounded to `-8vh` through `+8vh`. |
+| Lyrics text size | Compact, Standard, Large, Extra Large. |
+| Line spacing | Compact, Balanced, Relaxed. |
+| Text width | Narrow, Standard, Wide. |
+| Active-line emphasis | Soft, Standard, Strong, Off. |
+
+### Library & Listening
+
+| Setting | Effect |
+|---|---|
+| Sort Library By | Recently Added, Title, Artist, Album. |
+| Sort Direction | Descending or Ascending. |
+| Show Artwork List Icons | Same preference as Appearance; controls real artwork thumbnails in lists. |
+| Your Listening | Shows Today/Week/Month/All Time and most played this month. |
+| Export Settings | Downloads a JSON subset of preferences and player settings, excluding Gemini keys. |
+| Export Listening Stats | Downloads listening statistics plus stored play-history records as JSON. |
+
+### App & About
+
+| Setting | Effect |
+|---|---|
+| Install Mujic | Opens the native install prompt where available or shows platform instructions. |
+| Library Size | Estimates binary audio/artwork storage usage. |
+| Clear All | Removes library audio, artwork, metadata, playlists, settings, lyric cache and play history from the database. This is destructive. |
+| Change & Update Log | Loads release entries from `changlog.json`; has a built-in fallback. |
+| Version/About | Shows the current app version and creator attribution. |
+
+---
+
+## 28. Data export, deletion and recovery
+
+### Export Settings
+
+Exports a JSON file containing a supported subset of settings, appearance, lyrics presentation and player configuration. It intentionally excludes Gemini API keys so users are less likely to share them accidentally. It is **not a complete database export** and does not include audio blobs, cover-art blobs, full metadata objects or playlist audio files.
+
+### Export Listening Stats
+
+Exports locally recorded listening statistics and play-history information as JSON. This is useful for keeping a copy of listening insights, but it does not back up the songs themselves.
+
+### Clear All
+
+The Clear All action requires confirmation before clearing the IndexedDB stores: `tracks`, `audioBlobs`, `artworks`, `playlists`, `settings`, `lyricsCache` and `playHistory`. Once cleared, local content cannot be restored unless the user separately kept copies of the original music files. This action is not an undoable trash operation.
+
+### Manual backup recommendation
+
+Because the app deliberately avoids cloud uploads, users should keep the original audio files in a separate folder or drive. Settings/stats JSON can be exported separately. A future complete backup/import feature would need to handle binary audio, artwork blobs, schema versioning and storage quota constraints; settings export alone is not a full backup.
+
+---
+
+## 29. External services and network behaviour
+
+The player itself is local. The following are optional or supporting network integrations:
+
+| Service | When called | Purpose | Required for local playback? |
+|---|---|---|---|
+| Google Fonts | Browser loads app fonts, subject to cache/network availability | Inter and Material Symbols visual assets | No; system fonts can provide fallback. |
+| jsDelivr `music-metadata-browser` | When importing metadata and library is not already loaded | Primary metadata parser | No; fallback metadata parsing is available. |
+| cdnjs `jsmediatags` | Parser fallback during import | Alternate metadata parser | No; filenames still provide limited fallback. |
+| LRCLIB | Lyrics request; sometimes guarded missing-artist import enrichment | Exact/search lyrics and cautious metadata completion | No. |
+| Render lyrics endpoint | Lyrics request after LRCLIB fails | Additional lyrics fallback | No. |
+| LyricsPlus API mirrors | Lyrics request after other sources fail and fallback is enabled | Additional synchronized lyric candidates | No. |
+| Google Gemini API | Only when AI identification is enabled, its heuristics match and a key is available | Suggest likely title/artist/album based on text metadata | No. |
+
+### Timeouts and fallbacks
+
+`LyricsFetcher.fetchWithTimeout()` applies a bounded wait and uses `AbortController` where supported. Individual provider timeouts vary according to the request. LyricsPlus host requests use short limits and are started as a race so the first valid response can win. Requests are deliberately not performed during ordinary app startup.
+
+### CORS and service availability
+
+The browser requires the remote provider to permit cross-origin requests. A host being online does not guarantee that the browser can call it. Public mirrors may change paths, impose rate limits, be blocked by networks or change response schemas. Mujic catches provider failures and continues down the fallback path; no provider is guaranteed by this repository.
+
+### What is not sent
+
+Mujic does not upload audio blobs to its lyrics services. Lyrics requests contain text search parameters (typically title and artist, with album/duration for relevant providers). The optional Gemini identification sends file metadata text only, not the audio file. The app has no built-in analytics endpoint or account backend.
+
+---
+
+## 30. Privacy and security model
+
+Mujic is designed to keep the music collection in the browser profile, not on a Mujic-owned server. That does not make every operation completely offline or make local browser storage cryptographically secure.
+
+### Local data
+
+Audio, metadata, artwork, playlists, preferences, lyrics cache, listening stats and play history are stored under the web origin in IndexedDB. Different origins such as `localhost:3000`, a deployed HTTPS domain and a different port are separate storage partitions. Clearing site data can remove the library.
+
+### Gemini key safety
+
+- The key is not shipped as a literal in `index.html` or other source modules.
+- The key is stored in IndexedDB on the device and sent directly to Google in an API header when the feature is used.
+- Someone with access to the device/browser profile/DevTools can inspect it.
+- Settings export omits keys, but browser storage is not an encrypted vault.
+- Do not commit live API keys into Git history, even if the project is intended for personal use.
+- Restrict keys through the provider console where possible; rotate a key if exposed.
+
+### Imported file safety
+
+Metadata-derived text is escaped before being inserted into HTML templates where applicable. Generated artwork is local SVG content. External API responses can still be malformed or unavailable, so new provider integrations should validate structure and never execute provider text as markup or script.
+
+### No claim of total anonymity
+
+When a user requests remote lyrics or Gemini identification, those services receive request information. The browser and host/network may also log standard request metadata. Mujic does not claim that third-party providers are anonymous or that a direct API call leaves no network traces.
+
+---
+
+## 31. Audio-format and browser compatibility
+
+Mujic can import files based on audio MIME type or the extension allowlist, but actual playback is delegated to the browser's media engine. MP3 and common browser-native formats are widely supported; support for AAC/M4A, FLAC, Opus, OGG, AIFF, ALAC and other combinations varies by browser, OS build and codec licensing/implementation.
+
+| Capability | Browser dependency |
+|---|---|
+| Audio decode/playback | HTML media element and codec support |
+| Persistent library | IndexedDB and available storage quota |
+| Offline app shell | Service Worker + Cache API, served over HTTP/HTTPS |
+| PWA install | Browser-specific install criteria and manifest support |
+| EQ and loudness | Web Audio API and user-gesture/audio-context permissions |
+| Seek-bar waveform | Web Audio analyser, canvas and animation frames |
+| Lock-screen actions | Media Session API implementation |
+| Keep-screen-awake | Screen Wake Lock API availability/permission |
+| Output device selection | `enumerateDevices` and `setSinkId` support |
+| Install prompt | `beforeinstallprompt` where implemented; iOS uses manual Add to Home Screen |
+| Dynamic artwork accent | Canvas access for readable image data; cross-origin restrictions can limit it |
+
+### Mobile caveats
+
+Browsers on mobile can suspend background pages, revoke wake locks, constrain audio contexts, change viewport height as browser chrome expands/collapses, and differ in volume API behaviour. The UI includes safe-area and responsive rules, but no PWA can force the OS to provide a native background service equivalent on every platform.
+
+---
+
+## 32. Run the project locally
+
+### Requirements
+
+- A modern browser with IndexedDB and HTML media support.
+- Python 3 for the included static local server, or another local HTTPS/HTTP static host.
+- Node.js only if you want to run the package's `npm run check` syntax script.
+- Internet for online lyrics/Gemini/font/parser requests; not needed for previously imported local audio itself.
+
+### Windows
+
+1. Extract the repository ZIP.
+2. Double-click `start-mujic.bat`.
+3. The launcher starts Python's static server on loopback and opens `http://127.0.0.1:3000/index.html`.
+4. Leave the server process running while using that local site.
+
+### macOS, Linux or another shell
+
+Open a terminal in the project root:
 
 ```bash
-npx serve .
+python3 -m http.server 3000
 ```
 
-## Why HTTP instead of `file://`
-
-The PWA service worker requires a secure context.
-
-For local development, `localhost` is treated specially by browsers and can support service-worker functionality.
-
-Opening `index.html` directly as a `file://` URL is not an appropriate PWA test environment.
-
----
-
-# Installing as a PWA
-
-## Chromium / Android
-
-1. Serve Mujic over `https://` or `http://localhost`.
-2. Open the app.
-3. Go to **Settings**.
-4. Choose **Install Mujic** when the browser exposes the install capability.
-5. Accept the browser's native installation prompt.
-
-## iOS
-
-Use Safari:
+Then browse to:
 
 ```text
-Share → Add to Home Screen
+http://localhost:3000
 ```
 
-The exact wording can vary slightly by iOS version.
+On Windows, the equivalent can be:
 
----
-
-# Development Notes
-
-## No framework requirement
-
-The current project is a compact browser-native application rather than a React/Vue/Angular project.
-
-That keeps deployment simple and reduces the runtime framework footprint.
-
-## External dependencies
-
-The HTML currently uses:
-
-### jsmediatags
-
-Used for browser-side media tag parsing compatibility.
-
-### music-metadata-browser
-
-Used for richer metadata parsing and artwork extraction.
-
-### Google Fonts
-
-Inter is used as the primary UI font.
-
-### Material Symbols
-
-Material Symbols Rounded are used for the application iconography.
-
-The service worker can runtime-cache the static third-party resources after they are requested.
-
----
-
-# Interaction Model
-
-The app intentionally uses a combination of click, pointer, and long-press interactions.
-
-## Click / tap
-
-Used for normal navigation and playback actions.
-
-## Pointer events
-
-Used for interactions such as:
-
-- seek-bar manipulation
-- volume slider
-- queue movement
-- touch-safe gesture handling
-
-Pointer Events are preferable to relying solely on native drag-and-drop for touch compatibility.
-
-## Long press
-
-Used for Android-like contextual actions on:
-
-- playlists
-- Home track rows
-
-A short delay separates the long press from normal scrolling/tapping.
-
-## Keyboard dialogs
-
-Dialogs support:
-
-- Enter → confirm
-- Escape → cancel
-- overlay click → cancel where appropriate
-
-This keeps the interaction model coherent across mouse, touch, and keyboard environments.
-
----
-
-# Navigation and Back Behavior
-
-Mujic uses browser history state to represent navigation states.
-
-Examples include:
-
-```text
-Home
-Library
-Artist detail
-Album detail
-Playlist detail
-Full player
-Sheet
+```powershell
+py -m http.server 3000
 ```
 
-The application listens to `popstate` so browser/mobile back behavior can return through the app's UI hierarchy instead of treating every back action as an immediate page exit.
-
-This is especially important when installed as a PWA because the browser chrome may be much less visible than in a normal desktop tab.
-
----
-
-# Settings Architecture
-
-Settings are not stored as scattered DOM values.
-
-The application stores user preferences in `State`, serializes the user-facing configuration into IndexedDB, then reapplies them to the UI and audio engine on startup.
-
-Examples:
-
-```text
-theme
-accentPreset
-accentColor
-interfaceStyle
-cornerRadius
-motion
-lyricsStyle
-playerBackground
-playerArtworkMode
-visualizerMode
-resumePlayback
-librarySort
-librarySortDir
-showArtworkLists
-playbackRate
-volume
-muted
-repeat
-shuffle
-eq
-eqPreset
-eqBands
-```
-
-This is why a setting can survive a reload without depending on the current page DOM.
-
----
-
-# Storage Size Reporting
-
-The Settings page reports library/storage information using the actual locally stored binary media where possible.
-
-Audio and artwork blobs are traversed from their respective IndexedDB stores and their byte sizes are summed.
-
-A short timeout protects the UI from staying in an indefinite calculation state on problematic storage implementations.
-
----
-
-# Data Clearing
-
-The **Clear All** action is intentionally destructive.
-
-It clears the application data stores:
-
-```text
-tracks
-audioBlobs
-artworks
-playlists
-settings
-lyricsCache
-```
-
-The runtime state is also reset and the currently loaded player is detached.
-
-Because this data is local, clearing it removes the locally stored library rather than sending a delete request to a central music account.
-
----
-
-# Design Philosophy for Ads and Clutter
-
-Mujic intentionally avoids:
-
-- advertising cards
-- sponsored shelves
-- account upsells
-- social timelines
-- autoplay discovery feeds
-- unnecessary popups
-
-Home content is derived from the user's own playlists, library, history, and local listening patterns.
-
-That is important for low-end devices because every unnecessary component has a cost in:
-
-- DOM size
-- layout work
-- memory
-- paint work
-- interaction complexity
-
----
-
-# Troubleshooting
-
-## Music imports but does not play
-
-Possible reasons:
-
-1. The browser does not support the codec used inside the container.
-2. The local storage operation did not complete.
-3. The file itself is invalid or damaged.
-4. The browser is blocking media behavior under its current security/policy context.
-
-Try a known-good MP3 or another browser with broader media support.
-
-## Lyrics are missing
-
-Check in this order:
-
-1. Does the file contain embedded lyrics?
-2. Is the device online?
-3. Has lyrics for this track previously been cached?
-4. Does LRCLIB have a verified matching result?
-5. Is the Render fallback available?
-6. Use the Google search action provided by the lyrics fallback UI.
-
-## PWA install option is missing
-
-The install prompt is controlled by the browser.
-
-Typical requirements include:
-
-- valid PWA manifest
-- service worker
-- secure context / localhost
-- browser support for the install flow
-- installability conditions being satisfied
-
-On browsers that do not expose the prompt, browser menu installation may still be available.
-
-## Artwork is missing
-
-If a track has no embedded artwork, Mujic intentionally uses deterministic generated artwork rather than failing the layout.
-
-If an artwork record exists but cannot be resolved, the UI falls back to the generated art for that track.
-
-## Statistics look low
-
-Play count is tied to successfully starting playback, while listening time is derived from real playback-time deltas.
-
-A seek or a large timestamp jump is not treated as genuine continuous listening time.
-
-## Offline lyrics unavailable
-
-Offline lyrics require either embedded lyrics or a previously cached lyric response.
-
-The app cannot fetch a new remote lyric source without a network connection.
-
----
-
-# Contributing
-
-Contributions are welcome.
-
-Before making a large change, keep Mujic's primary constraints in mind:
-
-1. Do not turn the application into a server-dependent streaming player.
-2. Preserve local-first audio storage.
-3. Avoid unnecessary runtime dependencies.
-4. Keep low-end devices in mind.
-5. Preserve keyboard, pointer, touch, and responsive behavior.
-6. Do not introduce intrusive ads or tracking into the core application.
-7. Keep asynchronous playback race-safe.
-8. Avoid background loops that are not explicitly owned and stopped.
-9. Preserve offline behavior wherever possible.
-
-## Suggested contribution workflow
+### Package scripts
 
 ```bash
-git clone https://github.com/royverse69/mujic.git
-cd mujic
+npm start       # Runs Python's static server on port 3000
+npm run check   # Runs Node syntax checks across JS files and sw.js
 ```
 
-Make your changes, test them in a local HTTP environment, then open a pull request with:
+This is a static PWA. The Python server only serves files; it is not a custom backend, does not read API keys, and does not proxy Gemini requests.
 
-- what changed
-- why it changed
-- device/browser tested
-- offline/online testing notes
-- screenshots for UI changes where useful
+### Deploy to a static host
+
+Publish the **contents of the project root** to the hosting root. Do not publish only `index.html`; the CSS, JS modules, icons, manifest, service worker, changelog and license/readme should remain at the paths shown in the repository tree. Configure HTTPS. After a release changes `sw.js` or the cache version, clients can fetch the new shell and replace the previous cache on worker activation.
 
 ---
 
-# Security and Privacy Issues
+## 33. Development workflow and checks
 
-If you discover a security or privacy problem, do not intentionally expose sensitive user data in a public issue.
+### Suggested change workflow
 
-Pay particular attention to:
+1. Identify whether the feature belongs to UI (`ui.js`/`app.css`), playback (`player.js`), import/library (`library.js`), persistence (`storage.js`), lyrics/network (`lyrics.js`) or startup (`app.js`).
+2. Add/update the state field in `core.js` only if a durable or shared preference is genuinely needed.
+3. If the field must persist, add both save and load handling in `storage.js`, including default values and validation for legacy state.
+4. Add the Settings control with `data-setting` or a delegated `data-action` if it is a user-facing feature.
+5. Connect the control to working engine behaviour; don't add controls that merely change their displayed label.
+6. Add or update changelog entries and README documentation.
+7. Increment the service-worker `CACHE_NAME` when the static shell changes in a release.
+8. Run syntax/JSON/asset checks and test the affected workflow in at least one desktop and one mobile browser.
 
-- local file handling
-- DOM injection through metadata
-- unsafe HTML rendering
-- external lyrics URLs
-- service-worker caching
-- object URL lifecycle
-- IndexedDB data deletion
-- export file contents
+### Automated syntax check
 
-Mujic already escapes user/library metadata before inserting it into many user-facing HTML templates, but contributions should continue to treat metadata as untrusted input.
+With Node.js installed:
 
----
-
-# Roadmap
-
-Possible future directions for Mujic include:
-
-- richer local recommendation controls
-- more advanced waveform rendering presets
-- more equalizer bands / audio presets
-- optional smart playlist rules based entirely on local statistics
-- deeper accessibility support
-- improved media-format diagnostics
-- more granular storage management
-- optional backup/restore flows beyond JSON settings/statistics
-- expanded PWA background behavior where browser support permits
-
-The project should continue to favor features that improve the local music experience rather than turning the app into a network-heavy service.
-
----
-
-# License
-
-Mujic is released under the **MIT License**.
-
-That means the software can generally be used, modified, distributed, and incorporated into other projects under the terms of the license included in the repository.
-
-See the repository's `LICENSE` file for the complete legal text.
-
----
-
-# Credits
-
-## Creator
-
-**Ashutosh Roy (aka Mackkar)**
-
-GitHub:
-
-https://github.com/royverse69/mujic
-
-## Libraries / browser technologies
-
-Mujic is built using browser-native web technologies and the following external libraries/resources currently used by the app:
-
-- jsmediatags
-- music-metadata-browser
-- Inter by Google Fonts
-- Material Symbols Rounded
-- IndexedDB
-- HTMLAudioElement / HTMLMediaElement
-- Web Audio API
-- Media Session API
-- Service Worker API
-- PWA Manifest
-
-## Lyrics services
-
-The lyrics subsystem can use:
-
-- LRCLIB
-- the configured Render backend at `gaana-suno-varna-machhar-aajayega.onrender.com`
-
-These services are optional enhancement paths; the core local audio library does not depend on them for offline playback.
-
----
-
-# Final Summary
-
-Mujic is intentionally small in architecture but deep in behavior.
-
-Its core idea is simple:
-
-```text
-Your music
-   ↓
-Your device
-   ↓
-Your library
-   ↓
-Your playback
-   ↓
-Your settings
-   ↓
-Your playlists
-   ↓
-Your history
-   ↓
-Your statistics
+```bash
+npm run check
 ```
 
-The network is useful when available, but it is not the owner of the user's local music experience.
+The script runs `node --check` for `sw.js` and every ordered JavaScript module. It catches syntax errors but does not prove runtime interactions work correctly.
 
-That is the foundation of Mujic:
+### Manual smoke-test checklist
 
-**Open source. No ads. Local first. Offline capable. Lightweight. Built for real devices.**
+- [ ] Open the app over `http://localhost:3000` without console errors.
+- [ ] Import a small audio file and confirm it appears in Library.
+- [ ] Reload the page and confirm the track remains listed.
+- [ ] Disconnect the network and play the imported file.
+- [ ] Test play/pause, seek, volume, next/previous, shuffle/repeat and queue reorder.
+- [ ] Start playback from Home, Search, Library, an artist, an album and a playlist; verify Next and Previous in each context.
+- [ ] Create, rename, reorder, populate and delete a playlist; verify deleting a playlist doesn't delete the songs.
+- [ ] Check a file with embedded lyrics, a cached lyrics track, an online provider hit and a no-lyrics state.
+- [ ] Test synced lyric auto-scroll and tapping a timed lyric line.
+- [ ] Enable/disable each visualizer mode, pause playback and close the full player; confirm the animation loop stops appropriately.
+- [ ] Test EQ presets and individual sliders with Web Audio enabled.
+- [ ] Confirm settings persist after reload and theme/low-end profiles affect the UI.
+- [ ] Test Gemini key save, hide/show, key test, bad-key fallback and metadata-only identification using a non-sensitive sample.
+- [ ] Verify JSON exports do not include Gemini keys.
+- [ ] Install the PWA where supported, go offline, reload and verify the app shell and imported music.
+- [ ] Test the mobile mini-player/navigation overlap, safe areas and lyrics layout on a real device.
 
 ---
 
-<p align="center">
-  Made with care by <strong>Ashutosh Roy aka Mackkar</strong> · <a href="https://github.com/royverse69/mujic">github.com/royverse69/mujic</a>
-</p>
+## 34. Troubleshooting
 
+### The page opens but CSS or scripts are missing
 
-## v12.0.2 UI / waveform fixes
+Make sure you served the project **root** and did not move `index.html` away from `css/` and `js/`. Open DevTools → Network and check for 404 responses. Use a static HTTP server, not an editor preview that changes the document base path unexpectedly.
 
-- Removed the file:// launch popup. The PWA manifest is linked only on HTTP(S), avoiding manifest CORS errors when opening a local file. Service workers and PWA installation still require localhost or HTTPS.
-- Removed CSS and SVG gradients from the interface and generated artwork; surfaces and fallback artwork use solid colors.
-- Removed persistent playing-row accent/highlight styling and the seek-fill glow.
-- Added four seek-bar Audio Waveform styles (Default, Wavy, Slim, Squiggly). Curved styles use low-cycle smoothed curves, accent colors, and amplitude that responds to low-frequency energy. The drawing is clipped to the played portion of the seek bar.
-- Lyrics view closes after five seconds if all providers fail, preventing a stale unavailable panel from remaining open.
-- Added persisted Text Size and Layout Density options to Appearance settings.
+### The manifest/service worker is blocked
 
+A `file:///` origin is not a supported PWA origin. Start the static server and use `http://localhost:3000` or an HTTPS deployment. The manifest and worker must resolve under the same origin/scope as the app.
 
-## v12.0.2 visual and settings refinement
+### Music is visible but does not play
 
-- Removed the local-file warning overlay. The manifest link is added only for HTTP(S) origins so `file://` does not attempt a blocked manifest request. For the PWA and same-origin Gemini endpoint, run the included server on localhost.
-- Removed gradient declarations from app CSS and generated fallback artwork; UI panels and generated placeholder art use solid fills.
-- Removed active playing-row highlight class styling entirely, along with seek-fill glow.
-- Reworked the four Audio Waveform previews as smooth SVG curves and the active waveform as a low-cycle, smoothed canvas curve clipped to the played section. Style selection activates Audio Waveform.
-- When all lyric sources return no lyrics, the unavailable lyrics panel closes after five seconds. The manual cache-check action replaces an earlier unavailable cached result when saved lyrics exist.
-- Added persisted Text Size (Compact/Standard/Large) and Layout Density (Compact/Comfortable/Spacious) preferences under Appearance.
+- Verify the audio blob exists by re-importing the original file if necessary.
+- Check whether the browser supports the file's codec.
+- Inspect the browser console for media decode errors.
+- Try a known-good MP3/WAV test file to separate a codec problem from a library/player problem.
+- Confirm the browser was allowed to start audio after a user gesture.
 
+### Library is empty after changing the URL
 
-## v12.0.3 — Waveform and lyrics refinement
+IndexedDB storage is origin-scoped. `http://localhost:3000` and `http://127.0.0.1:3000` are different origins, and a deployed domain is different again. Return to the original origin/profile or re-import the original audio files. Settings export does not contain the audio library.
 
-- The seek-bar waveform canvas is capped to a compact, predictable height; wave amplitude and extra oscillation are reduced to prevent oversized peaks.
-- During visualization, the canvas draws the unplayed timeline itself so the ordinary baseline does not show through the played waveform.
-- The selected waveform remains visible while paused and is cleared when the full player/effect is closed.
-- Added persistent lyrics vertical position, fine vertical offset, typography size, line spacing, text width and active-line emphasis controls.
-- Reworked mobile lyrics layout to reserve a dedicated area above controls, allow scrolling and reduce clipping on short screens.
-- Added the **Change & Update Log** section that reads the release-notes file `changlog.json` from the app root.
+### Metadata is incomplete
 
-The filename is intentionally `changlog.json` to match the requested path. When serving the app, keep this file beside `index.html`; it is included in the service-worker app shell.
+The file may lack tags or its metadata parser may be unavailable offline. Check the file name format; `Artist - Title.ext` can be used to recover some basic information. Online missing-artist enrichment is attempted only when title/duration match constraints can be checked. AI identification is optional and may be wrong.
+
+### Lyrics are unavailable
+
+1. Check whether the track contains embedded lyrics.
+2. Check whether the lyrics have already been cached.
+3. Check internet access and provider CORS/availability.
+4. Enable LyricsPlus only if you want that fallback.
+5. If metadata is ambiguous, correct the title/artist or opt into experimental Gemini identification.
+6. Remember: local playback may work offline while a first-time online lyric lookup cannot.
+
+### Gemini key test fails
+
+- Confirm the key is saved and AI Song Identification is enabled for identification (key testing is separate).
+- Confirm the browser is online and Google API access is available for that key/model.
+- Check quota, restrictions and billing/free-tier status in the provider's console.
+- Try another saved key; Mujic will rotate keys when a request fails.
+- Review DevTools Network for the response status but do not post the full key in an issue or screenshot.
+
+### Audio Waveform / EQ does not activate
+
+Web Audio can require a direct user gesture and may be suspended. Start playback first, then enable the effect. Some browsers reject an audio graph for particular environments. Turn the effect off to return to ordinary media playback if analyser processing is unavailable.
+
+### PWA serves an old version
+
+The service worker intentionally caches static app files. Ensure the deployed `sw.js` has the current versioned cache name, then reload/reopen the app. During development, DevTools → Application → Service Workers/Cache Storage can be used to inspect the active worker and cache. Use the browser's update/unregister controls only as a debugging step, since clearing site data also removes the local library.
+
+### Storage quota errors or missing offline content
+
+Large audio libraries can exceed a browser's storage quota or be evicted by a browser/OS policy. The app requests persistent storage where supported but the browser decides whether to grant it. Keep the original audio files separately, and avoid clearing site storage unless you understand that the local collection is stored there.
+
+---
+
+## 35. Extension points for contributors
+
+### Add a new preference
+
+1. Add a conservative default in the `State` object in `js/core.js`.
+2. Persist it in `StorageAdapter.saveSettings()`.
+3. Load it in `StorageAdapter.loadSettings()` and validate its permitted values so old settings remain safe.
+4. Add the appropriate UI control and a stable `data-setting` key in `index.html`.
+5. Implement behaviour in the owning module (`ui.js` for presentation, `player.js` for audio, etc.).
+6. Ensure `UI.applySettings()` applies it on startup and when changed.
+7. Add documentation/changelog and test persistence across a reload.
+
+### Add a new lyrics provider
+
+Place the integration in `js/lyrics.js`. It should:
+
+- receive a normalised title/artist and available album/duration metadata;
+- use a bounded timeout and abort where supported;
+- validate the response shape before reading lyric text;
+- verify title/artist/duration when the provider supplies metadata;
+- identify whether data is synced or plain;
+- never execute response text as HTML or JavaScript;
+- fail closed to the next source instead of blocking playback/startup;
+- integrate with existing cache semantics and the unavailable-lyrics UI.
+
+### Add a player effect
+
+Implement the DSP/transport work in `js/player.js`, keep the UI control in `index.html` and handlers in `js/ui.js`, and add the saved preference to `State` and `StorageAdapter`. Decide whether the effect requires Web Audio. Prefer no allocation in high-frequency events; reuse buffers/nodes, throttle expensive work and cancel animation loops when the effect is not running.
+
+### Add a visual UI component
+
+Use the existing design tokens and action/settings conventions. Keep mobile touch targets comfortable, use safe-area variables, and ensure desktop layouts do not inherit mobile-specific positioning that clips content. Avoid adding another CSS override if the existing component can be corrected at its source. Respect `Reduced Motion` and Low-end Device Mode.
+
+### Add a data schema field/store
+
+IndexedDB currently opens at version 6. If a new store is required, increase the database version and add the store in `onupgradeneeded`. IndexedDB upgrades can fail if another tab has the database open; test both clean-install and upgrade scenarios. If only adding a field to existing records, keep load paths tolerant of undefined values from older installations.
+
+---
+
+## 36. Known limits and honest expectations
+
+- **Browser codec support varies.** Import acceptance doesn't mean every browser can decode every format.
+- **IndexedDB is local browser storage, not a cloud backup.** Data can be lost by quota eviction, browser data clearing or changing origins.
+- **Gemini keys are locally stored, not encrypted.** Device/browser access means the keys can be inspected.
+- **Gemini is experimental.** Song identification is probabilistic and should not silently be treated as authoritative metadata.
+- **Lyrics providers are external dependencies.** CORS rules, uptime, rate limits and API response changes can affect lyrics independently of playback.
+- **PWA APIs differ.** Install prompts, Media Session, Wake Lock, audio output selection and background behaviour vary by browser and OS.
+- **Audio processing may affect sound and CPU.** EQ, loudness compression, silence skipping, analyser effects and varispeed use additional processing. Turn them off on slow devices if needed.
+- **Crossfade is not a two-track mix.** It is a short volume fade around a transition.
+- **Statistics are best-effort local metrics.** They reflect successful play starts and observed small audio-time deltas; they are not a server-certified audit of listening activity.
+- **Static hosting is enough for the app.** There is no required application server, but online features still call their respective remote services directly.
+
+---
+
+## 37. Release notes
+
+The in-app **Change & Update Log** reads [`changlog.json`](./changlog.json). The misspelled filename is the path used by the current app and service worker; keep it as-is unless both references are updated together.
+
+### v12.0.5 — Local Gemini keys and performance profile
+
+- Added the Settings key manager for up to four browser-local Gemini API keys with hide/show, save, testing and fallback rotation.
+- Removed the custom Gemini proxy; AI identification now calls Google directly from the browser.
+- Added Auto / Low-end / Full performance profiles, lower waveform render cost on constrained devices, smaller artwork warm-up batches and removal of duplicate Web Audio setup.
+
+### v12.0.4 — Production polish and settings organisation
+
+- Added low-end presentation profile adjustments and reduced costly blur/shadow/motion work.
+- Moved lyrics presentation controls into the dedicated Lyrics Display category.
+- Added changelog fallback content so release notes can render when the changelog request fails.
+- Updated the service-worker cache version.
+
+### v12.0.3 — Waveform and lyrics layout refinement
+
+- Reduced waveform size/amplitude/frequency and refined the played-section rendering.
+- Added configurable lyrics position, fine offset, text size, line spacing, width and active-line emphasis.
+- Refined mobile lyrics spacing/scrolling.
+- Added the file-based Change & Update Log.
+
+### v12.0.2 — Settings and theme refinement
+
+- Added settings grouping and expanded personalisation.
+- Began the experimental AI metadata-identification workflow. The current v12.0.5 implementation is client-only; earlier release-note wording may refer to the prior proxy implementation.
+
+Always treat `changlog.json` in the checked-out version as the source of the current release notes.
+
+> **Release housekeeping note:** in the v12.0.5 source inspected for this README, `package.json`, `VERSION`, the PWA cache name and `changlog.json` identify the release as `12.0.5`, while the small footer string in `index.html` still says `Version 12.0.4`. The package metadata and version files agree on 12.0.5; update that footer text in a follow-up source change to make every visible version label consistent.
+---
+
+## 38. Contributing
+
+Issues and pull requests are welcome. To keep changes maintainable:
+
+1. Describe the user-facing problem and the affected device/browser.
+2. Keep changes focused on the owning module; avoid cross-cutting inline patches where a module already exists.
+3. Document new settings, storage fields, network calls and permissions.
+4. Do not include real Gemini keys, private music files or personal listening data in issues/commits.
+5. Include steps to reproduce and, for UI changes, screenshots at both small mobile and desktop widths.
+6. Run `npm run check`, validate JSON assets and test PWA/offline behaviour if the service worker or app shell changed.
+7. Add a release note to `changlog.json` when behaviour changes.
+
+### Suggested issue template fields
+
+- Mujic version (`VERSION`)
+- OS and browser/version
+- Device or approximate hardware class
+- Installed PWA or browser tab
+- Online/offline state
+- Steps to reproduce
+- Expected behaviour
+- Actual behaviour and console/network error with secrets removed
+
+---
+
+## 39. License and credits
+
+Mujic is distributed under the **MIT License**. See [`LICENSE`](./LICENSE) for the complete text. In brief, it permits use, copying, modification, merging, publication, distribution, sublicensing and sale, subject to retaining the copyright notice and permission notice. The software is provided “as is” without warranty, as stated in the license.
+
+**Copyright © 2026 Ashutosh Roy (Mackkar).**
+
+### Credits and external projects
+
+- [LRCLIB](https://lrclib.net/) — lyrics search/exact lookup integration.
+- [LyricsPlus](https://github.com/ibratabian17/lyricsplus) — optional synchronized lyrics API integration.
+- [Google Gemini API](https://ai.google.dev/) — optional experimental text-metadata song identification.
+- [music-metadata-browser](https://github.com/Borewit/music-metadata-browser) — optional metadata parsing dependency loaded on demand.
+- [jsmediatags](https://github.com/aadsm/jsmediatags) — alternative metadata parser loaded when needed.
+- Google Fonts — Inter and Material Symbols assets, with local/system fallback behaviour depending on availability.
+
+The names and services above remain the property of their respective owners. Their API availability and terms can change independently of Mujic.
+
+---
+
+## Final note
+
+Mujic is intended to make a personal music library feel dependable and uncluttered, especially on devices where large apps and constant background activity are undesirable. The app keeps playback and library data local, uses remote services only for optional enrichment, and exposes controls so users can choose how much visual and audio processing they want.
+
+If you use, fork or improve Mujic, keep the MIT notice, avoid publishing API keys, and please document any changes to storage, provider order, or browser permissions so the next maintainer can understand the full flow.
