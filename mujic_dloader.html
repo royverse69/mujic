@@ -1,0 +1,1181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#090a0f">
+<title>Mujic Dloader</title>
+<meta name="description" content="Mujic Dloader — search music and save a single tagged audio file for offline playback.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --bg-app: #090a0f;
+  --bg-gradient: linear-gradient(180deg, #11141d 0%, #090a0f 400px);
+  --surface-base: #13161f;
+  --surface-hover: #1c202d;
+  --surface-elevated: #1a1e2a;
+  --border-subtle: #252a36;
+  --border-focus: #b8f36b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent-primary: #b8f36b;
+  --accent-primary-hover: #a1e64e;
+  --accent-text: #0a1005;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+  --shadow-sm: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-lg: 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px var(--border-subtle);
+  --trans-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --trans-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  min-height: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--bg-app);
+  background-image: var(--bg-gradient);
+  color: var(--text-main);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, input {
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-primary);
+  color: var(--accent-text);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--trans-fast);
+  user-select: none;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(184, 243, 107, 0.2);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button:focus-visible, input:focus-visible, input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 3px;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+button.ghost {
+  background: var(--surface-hover);
+  color: var(--text-main);
+}
+button.ghost:hover:not(:disabled) {
+  background: #272c3d;
+  box-shadow: none;
+}
+
+button.quiet {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+}
+button.quiet:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: #3b4356;
+}
+
+main {
+  width: min(1040px, 100%);
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 64px) clamp(16px, 4vw, 32px) 48px;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: clamp(32px, 6vw, 56px);
+  flex-wrap: wrap;
+}
+
+.brandmark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-size: 22px;
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--accent-primary);
+  color: var(--accent-text);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 24px;
+  box-shadow: 0 4px 16px rgba(184, 243, 107, 0.2);
+}
+
+.coming {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255,255,255,0.02);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+}
+
+.hero {
+  max-width: 800px;
+  margin-bottom: 40px;
+}
+
+.eyebrow {
+  color: var(--accent-primary);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.hero h1 {
+  font-size: clamp(40px, 8vw, 72px);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 1.05;
+  margin: 0 0 20px;
+  background: linear-gradient(to right, #fff, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+  color: var(--text-muted);
+  font-size: clamp(16px, 2.5vw, 18px);
+  max-width: 640px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.search {
+  display: flex;
+  gap: 12px;
+  padding: 8px 8px 8px 20px;
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+  transition: var(--trans-smooth);
+  position: relative;
+  z-index: 10;
+}
+
+.search:focus-within {
+  border-color: #3b4356;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  background: var(--surface-elevated);
+}
+
+.search-icon {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.search input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  border: 0;
+  padding: 8px 0;
+  color: var(--text-main);
+  outline: none;
+  font-size: 16px;
+}
+
+.search input::placeholder {
+  color: #5c667a;
+}
+
+.search button {
+  min-width: 110px;
+  padding: 12px 24px;
+}
+
+.status {
+  font-size: 13px;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 0 12px;
+  min-height: 20px;
+}
+
+.status b {
+  color: var(--accent-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 40px 0 16px;
+  padding: 0 4px;
+}
+
+.tools-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.tool-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tool-actions button {
+  font-size: 13px;
+  padding: 8px 16px;
+  min-height: 36px;
+}
+
+#results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.song {
+  display: grid;
+  grid-template-columns: auto 72px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px 12px 12px;
+  transition: var(--trans-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.song:hover {
+  border-color: #3b4356;
+  background: var(--surface-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.select-track {
+  width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: var(--trans-fast);
+}
+
+.cover {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: #1e2230;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sub {
+  color: var(--text-muted);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.small {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.download-btn {
+  min-width: 110px;
+  font-size: 13px;
+  padding: 10px 16px;
+  background: rgba(184, 243, 107, 0.1);
+  color: var(--accent-primary);
+  border: 1px solid rgba(184, 243, 107, 0.2);
+}
+
+.download-btn:hover:not(:disabled) {
+  background: var(--accent-primary);
+  color: var(--accent-text);
+  border-color: var(--accent-primary);
+}
+
+.empty {
+  padding: 48px 24px;
+  text-align: center;
+  background: rgba(255,255,255,0.01);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.notice {
+  margin-top: 48px;
+  padding: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  font-size: 13px;
+  background: var(--surface-elevated);
+  line-height: 1.6;
+}
+
+.notice strong {
+  color: var(--text-main);
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 32px 0 16px;
+  margin-top: auto;
+  color: #64748b;
+  font-size: 13px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+footer nav {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+footer button {
+  background: none;
+  color: var(--text-muted);
+  padding: 0;
+  min-height: auto;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 0;
+}
+footer button:hover {
+  color: var(--text-main);
+  background: none;
+  transform: none;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+  opacity: 0;
+  transition: opacity var(--trans-fast);
+}
+
+.modal.open {
+  display: flex;
+  opacity: 1;
+}
+
+.modal-card {
+  width: min(600px, 100%);
+  max-height: min(85vh, 800px);
+  overflow-y: auto;
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: clamp(24px, 5vw, 40px);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(20px);
+  transition: transform var(--trans-smooth);
+}
+
+.modal.open .modal-card {
+  transform: translateY(0);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.modal h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-main);
+}
+
+.modal p, .modal li {
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+.modal ul {
+  padding-left: 20px;
+  margin-bottom: 24px;
+}
+
+.modal li {
+  margin-bottom: 12px;
+}
+
+.modal-close {
+  padding: 8px 16px;
+  min-height: 36px;
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .song {
+    grid-template-columns: auto 64px minmax(0, 1fr);
+    padding: 12px;
+  }
+  .cover {
+    width: 64px;
+    height: 64px;
+  }
+  .actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar { margin-bottom: 32px; flex-direction: column; align-items: flex-start; gap: 20px; }
+  .tools { flex-direction: column; align-items: stretch; gap: 16px; }
+  .tool-actions { width: 100%; }
+  .tool-actions button { flex: 1; }
+  
+  .search { padding: 6px 6px 6px 16px; }
+  .search button { min-width: 80px; padding: 10px 16px; }
+  
+  .song { gap: 12px; }
+  .select-track { width: 18px; height: 18px; margin-left: 0; }
+  
+  footer { flex-direction: column; align-items: flex-start; gap: 16px; }
+  footer nav { flex-direction: column; gap: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+</style>
+</head>
+<body>
+<main>
+  <header class="topbar">
+    <div class="brandmark">
+      <span class="logo" aria-hidden="true">m</span>
+      <span>mujic <span style="color:var(--text-muted);font-weight:600">dloader</span></span>
+    </div>
+    <span class="coming">
+      <span class="dot"></span> Spotify playlists · coming soon
+    </span>
+  </header>
+
+  <section class="hero" aria-labelledby="page-title">
+    <span class="eyebrow">Your music, ready offline</span>
+    <h1 id="page-title">Find it. Keep it.</h1>
+    <p>Search for a track and save it as one audio file with available song details and high-quality cover art directly embedded.</p>
+  </section>
+
+  <div class="search" role="search">
+    <span class="search-icon" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+    </span>
+    <input id="query" type="search" placeholder="Search songs, artists or albums..." autocomplete="off" aria-label="Search songs, artists or albums">
+    <button id="searchBtn">Search</button>
+  </div>
+
+  <div class="status">
+    <span id="message" aria-live="polite">Checking backend…</span>
+    <span id="warmStatus">Backend: <b id="timer">checking</b></span>
+  </div>
+
+  <div class="tools">
+    <span class="tools-label" id="resultCount">Search results</span>
+    <div class="tool-actions">
+      <button class="quiet" id="selectAllBtn" type="button">Select all</button>
+      <button id="bulkBtn" type="button" disabled>Download selected</button>
+    </div>
+  </div>
+
+  <div id="results" aria-live="polite">
+    <div class="empty">Start typing a song or artist to find music.</div>
+  </div>
+
+  <div class="notice">
+    <strong>About Mujic Dloader</strong>
+    Music and cover art are provided by third-party internet sources. Mujic Dloader does not own, host, or claim ownership of these recordings or images and is not affiliated with any artist, label, streaming service, or rights holder. All rights belong to their respective owners. This is an independent open-source project; use it only for content you have the right to download.
+  </div>
+
+  <footer>
+    <span>Made for personal music-library workflows.</span>
+    <nav aria-label="Legal">
+      <button type="button" data-modal="termsModal">Terms &amp; conditions</button>
+      <button type="button" data-modal="privacyModal">Privacy policy</button>
+      <button type="button" data-modal="errorsModal">Help &amp; errors</button>
+    </nav>
+  </footer>
+</main>
+
+<div class="modal" id="termsModal" role="dialog" aria-modal="true" aria-labelledby="termsTitle">
+  <section class="modal-card">
+    <div class="modal-head">
+      <h2 id="termsTitle">Terms &amp; conditions</h2>
+      <button class="ghost modal-close" data-close="termsModal">Close</button>
+    </div>
+    <p>Mujic Dloader is an independent open-source utility interface. It is not affiliated with Spotify, any music streaming service, artists, record labels, or rights holders.</p>
+    <ul>
+      <li>Audio and artwork are fetched from third-party internet sources. Mujic Dloader does not own or claim ownership of them.</li>
+      <li>You are responsible for ensuring that downloading, converting, storing, and using content complies with applicable law and source-provider terms.</li>
+      <li>Only download content you own, have permission to use, or are otherwise legally entitled to save.</li>
+      <li>Availability, metadata accuracy, audio quality, and uptime depend on third-party sources and may change without notice.</li>
+      <li>The project is provided as-is, without guarantees of uninterrupted availability or fitness for a particular purpose.</li>
+    </ul>
+    <p>Spotify playlist downloading is not available yet; the interface marks it as coming soon and does not imply an existing integration.</p>
+  </section>
+</div>
+
+<div class="modal" id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+  <section class="modal-card">
+    <div class="modal-head">
+      <h2 id="privacyTitle">Privacy policy</h2>
+      <button class="ghost modal-close" data-close="privacyModal">Close</button>
+    </div>
+    <p>Mujic Dloader is designed as a lightweight browser-based tool.</p>
+    <ul>
+      <li>Search terms and requests are sent to the configured music backend and its upstream provider to retrieve results and audio.</li>
+      <li>A small local browser setting remembers recent backend readiness for up to 10 minutes. Search history is not intentionally stored by this page.</li>
+      <li>When you download a track, the browser processes audio and metadata locally. The MP3 encoder is loaded from a public CDN when needed.</li>
+      <li>This page does not include analytics or advertising code. Hosting providers, backend, upstream providers, and CDN may independently process technical request data under their own policies.</li>
+      <li>Do not enter passwords, payment details, or other sensitive information into the search field.</li>
+    </ul>
+    <p>This app relies on external services and cannot guarantee their privacy practices or availability.</p>
+  </section>
+</div>
+
+<div class="modal" id="errorsModal" role="dialog" aria-modal="true" aria-labelledby="errorsTitle">
+  <section class="modal-card">
+    <div class="modal-head">
+      <h2 id="errorsTitle">Help &amp; errors</h2>
+      <button class="ghost modal-close" data-close="errorsModal">Close</button>
+    </div>
+    <ul>
+      <li><strong>Search fails:</strong> check your connection and wait for the backend to wake. A CORS or upstream error may also prevent results.</li>
+      <li><strong>Download fails:</strong> the source may be unavailable, return an invalid stream, or block browser access to audio/artwork.</li>
+      <li><strong>MP3 conversion fails:</strong> use current Chrome or Edge and keep the page open. Large tracks need extra memory, and the encoder needs internet on first use.</li>
+      <li><strong>Year or duration is missing:</strong> the catalog may not supply that detail. The app does not invent missing values.</li>
+      <li><strong>Cover art is missing:</strong> the source may not provide a usable image or the browser may be blocked from fetching it.</li>
+      <li><strong>Bulk downloads:</strong> your browser may ask permission for multiple downloads. Allow them if you intend to download selected tracks.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(() => {
+  const BACKEND = "https://gaana-suno-varna-machhar-aajayega.onrender.com/";
+  const $ = id => document.getElementById(id);
+  const READY_KEY = "royverse_backend_ready_at";
+  const READY_TTL = 10 * 60 * 1000;
+  let warmPromise = null;
+  let isReady = Date.now() - Number(localStorage.getItem(READY_KEY) || 0) < READY_TTL;
+
+  $("timer").textContent = isReady ? "ready" : "58s";
+  if (isReady) $("message").textContent = "Backend recently responded.";
+
+  async function rawFetch(url, timeoutMs=9000) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, {headers:{Accept:"application/json"}, signal:controller.signal, cache:"no-store"});
+    } finally { clearTimeout(timeout); }
+  }
+  async function request(url) {
+    const response = await rawFetch(url, 20000);
+    if (!response.ok) throw new Error("Backend returned HTTP " + response.status);
+    const type = response.headers.get("content-type") || "";
+    if (type.includes("json")) return response.json();
+    const body = await response.text();
+    try { return JSON.parse(body); } catch { return body; }
+  }
+
+  async function pingBackend() {
+    const res = await rawFetch(BACKEND, 8000);
+    // A 404 on the root still proves the web service is answering. 5xx can indicate cold start.
+    if (res.status >= 500) throw new Error("Backend is starting (HTTP " + res.status + ")");
+    return true;
+  }
+  function markReady() {
+    isReady = true;
+    localStorage.setItem(READY_KEY, String(Date.now()));
+    $("timer").textContent = "ready";
+    $("message").textContent = "Backend online.";
+  }
+  function ensureBackend() {
+    if (isReady) {
+      // Validate in the background; never make a known-live session wait another minute.
+      pingBackend().then(markReady).catch(() => { isReady = false; });
+      return Promise.resolve(true);
+    }
+    if (warmPromise) return warmPromise;
+    warmPromise = (async () => {
+      const started = Date.now();
+      const deadline = started + 58000;
+      $("message").textContent = "Waking the Render backend…";
+      while (Date.now() < deadline) {
+        const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        $("timer").textContent = remaining + "s";
+        try { await pingBackend(); markReady(); return true; }
+        catch (_) {
+          await new Promise(resolve => setTimeout(resolve, Math.min(2500, Math.max(500, deadline - Date.now()))));
+        }
+      }
+      $("timer").textContent = "retry";
+      $("message").textContent = "Backend did not wake in time. Search will still try the API directly.";
+      return false;
+    })().finally(() => { warmPromise = null; });
+    return warmPromise;
+  }
+
+  function text(value, fallback="Unknown") {
+    if (value == null || value === "") return fallback;
+    if (typeof value === "string") return value.replace(/&amp;/g,"&").replace(/&#39;/g,"'");
+    return String(value);
+  }
+  function imageOf(raw) {
+    const imgs = raw.image || raw.images || raw.more_info?.image || raw.more_info?.images;
+    if (Array.isArray(imgs)) {
+      const candidates = imgs.map(x => typeof x === "string" ? x : (x?.url || x?.link || x?.image || "")).filter(Boolean);
+      // Prefer the URL marked largest/highest quality; otherwise use the last API size variant.
+      const best = [...imgs].sort((a,b) => {
+        const score = x => Number(x?.quality || x?.width || x?.height || String(x?.url||x?.link||"").match(/(?:^|[=/])(\d{2,4})x\d{2,4}/)?.[1] || 0);
+        return score(b)-score(a);
+      })[0];
+      let url = (typeof best === "string" ? best : (best?.url || best?.link || best?.image)) || candidates[candidates.length-1] || "";
+      // Saavn-style CDN image URLs commonly encode thumbnail size in the path.
+      return url.replace(/\b50x50\b/g,"500x500").replace(/\b150x150\b/g,"500x500");
+    }
+    return typeof imgs === "string" ? imgs.replace(/\b50x50\b/g,"500x500").replace(/\b150x150\b/g,"500x500") : "";
+  }
+  function artistsOf(raw) {
+    const a = raw.subtitle || raw.primaryArtists || raw.singers || raw.artist ||
+      raw.more_info?.singers || raw.more_info?.artistMap?.primary_artists?.map(x=>x.name).join(", ");
+    if (Array.isArray(a)) return a.map(x=>x.name || x).join(", ") || "Unknown Artist";
+    if (a && typeof a === "object") return a.primary?.map(x=>x.name || x).join(", ") || a.name || "Unknown Artist";
+    return text(a, "Unknown Artist");
+  }
+  function normalize(raw) {
+    return {
+      id: raw.id || raw.songId || raw.more_info?.song_id || "",
+      title: text(raw.title || raw.name, "Untitled"),
+      artists: artistsOf(raw),
+      album: text(raw.album?.name || raw.album || raw.more_info?.album),
+      year: text(raw.year || raw.releaseYear || raw.more_info?.year || raw.more_info?.release_year || raw.releaseDate?.slice?.(0,4) || raw.more_info?.release_date?.slice?.(0,4) || raw.album?.year || raw.more_info?.album_year),
+      duration: parseDuration(raw.duration ?? raw.more_info?.duration ?? raw.duration_seconds ?? raw.more_info?.duration_seconds ?? raw.more_info?.song_duration),
+      language: text(raw.language || raw.more_info?.language),
+      composer: text(raw.composer || raw.more_info?.composer, ""),
+      genre: text(raw.genre || raw.more_info?.genre, ""),
+      label: text(raw.label || raw.more_info?.label, ""),
+      albumArtist: text(raw.albumArtist || raw.more_info?.album_artist, ""),
+      releaseDate: text(raw.releaseDate || raw.more_info?.release_date, ""),
+      trackNumber: text(raw.trackNumber || raw.more_info?.track_number, ""),
+      image: imageOf(raw), raw
+    };
+  }
+  function parseDuration(value) {
+    if (value == null || value === "") return 0;
+    if (typeof value === "string" && value.includes(":")) {
+      const parts=value.split(":").map(Number); if(parts.every(Number.isFinite)) return parts.reduce((n,p)=>n*60+p,0);
+    }
+    const n=Number(value); if(!Number.isFinite(n) || n<=0) return 0;
+    // APIs sometimes provide milliseconds rather than seconds.
+    return n > 100000 ? Math.round(n/1000) : Math.round(n);
+  }
+  function unwrapSong(data) {
+    let d=data?.data ?? data?.song ?? data;
+    if(Array.isArray(d)) d=d[0] || {};
+    if(d?.song && typeof d.song === "object") d=d.song;
+    if(d?.data && !Array.isArray(d.data) && typeof d.data === "object") d=d.data;
+    return d || {};
+  }
+  async function enrichSong(song) {
+    // Search results often omit release year/duration. Ask the detail endpoint before rendering/downloading.
+    try {
+      const detail=unwrapSong(await request(BACKEND+"song/"+encodeURIComponent(song.id)));
+      const merged={...song.raw,...detail,more_info:{...(song.raw?.more_info||{}),...(detail?.more_info||{})}};
+      const full=normalize(merged);
+      if ((!full.year || full.year==="Unknown") && song.year && song.year!=="Unknown") full.year=song.year;
+      if (!full.duration) full.duration=song.duration;
+      if (!full.image) full.image=song.image;
+      if (!full.artists || full.artists==="Unknown Artist") full.artists=song.artists;
+      if (!full.album || full.album==="Unknown") full.album=song.album;
+      return {...full, id:song.id || full.id, raw:merged};
+    } catch (_) { return song; }
+  }
+
+  function collect(data) {
+    let out = [];
+    if (data?.data?.topQuery?.results) out.push(...data.data.topQuery.results);
+    if (data?.data?.songs?.results) out.push(...data.data.songs.results);
+    if (data?.data?.albums?.results) out.push(...data.data.albums.results);
+    if (Array.isArray(data?.data)) out.push(...data.data);
+    if (data?.songs?.results) out.push(...data.songs.results);
+    if (Array.isArray(data?.results)) out.push(...data.results);
+    if (Array.isArray(data)) out.push(...data);
+    const seen = new Set();
+    return out.filter(x => { const id=x.id || x.songId; if(!id || seen.has(id)) return false; seen.add(id); return true; });
+  }
+  function duration(seconds) {
+    if (!seconds) return "Duration unavailable";
+    const n = Number(seconds);
+    return `${Math.floor(n/60)}:${String(Math.floor(n%60)).padStart(2,"0")}`;
+  }
+  function safeName(name) {
+    return text(name,"track").replace(/[<>:"/\\|?*\x00-\x1F]/g," ").replace(/\s+/g," ").trim().slice(0,160) || "track";
+  }
+  function saveBlob(blob,filename){
+    const url=URL.createObjectURL(blob), a=document.createElement("a");
+    a.href=url; a.download=filename; document.body.append(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+  function extensionFor(type, url="") {
+    const t=(type||"").toLowerCase();
+    if(t.includes("mpeg") || /\.mp3(?:$|\?)/i.test(url)) return "mp3";
+    if(t.includes("mp4") || t.includes("m4a") || /\.m4a?(?:$|\?)/i.test(url)) return "m4a";
+    if(t.includes("ogg") || /\.ogg(?:$|\?)/i.test(url)) return "ogg";
+    if(t.includes("wav") || /\.wav(?:$|\?)/i.test(url)) return "wav";
+    if(t.includes("flac") || /\.flac(?:$|\?)/i.test(url)) return "flac";
+    if(t.includes("webm") || /\.webm(?:$|\?)/i.test(url)) return "webm";
+    return "audio";
+  }
+  function concatBytes(parts) {
+    const size=parts.reduce((n,p)=>n+p.length,0), out=new Uint8Array(size);
+    let at=0; for(const p of parts){out.set(p,at);at+=p.length;} return out;
+  }
+  function be32(n){return new Uint8Array([(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255]);}
+  function syncSafe(n){return new Uint8Array([(n>>21)&127,(n>>14)&127,(n>>7)&127,n&127]);}
+  function utf16Text(value) {
+    const s=String(value ?? "");
+    const out=new Uint8Array(2+s.length*2); out[0]=255; out[1]=254;
+    for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);out[2+i*2]=c&255;out[3+i*2]=c>>>8;}
+    return concatBytes([new Uint8Array([1]),out]);
+  }
+  function frame(id, data) {
+    return concatBytes([new TextEncoder().encode(id),be32(data.length),new Uint8Array([0,0]),data]);
+  }
+  async function coverBytes(url) {
+    if(!url) return null;
+    const response=await fetch(url,{mode:"cors"});
+    if(!response.ok) throw new Error("Cover image could not be fetched.");
+    const blob=await response.blob();
+    const type=blob.type.toLowerCase();
+    if(!type.startsWith("image/")) throw new Error("Cover URL did not return an image.");
+    return {bytes:new Uint8Array(await blob.arrayBuffer()), mime:type.includes("png")?"image/png":"image/jpeg"};
+  }
+  function stripExistingID3(bytes) {
+    if(bytes.length>=10 && bytes[0]===73 && bytes[1]===68 && bytes[2]===51) {
+      const size=((bytes[6]&127)<<21)|((bytes[7]&127)<<14)|((bytes[8]&127)<<7)|(bytes[9]&127);
+      const end=Math.min(bytes.length,10+size+((bytes[5]&0x10)?10:0));
+      return bytes.slice(end);
+    }
+    return bytes;
+  }
+  async function readAudioDuration(blob) {
+    return new Promise(resolve => {
+      const audio = document.createElement("audio");
+      const url = URL.createObjectURL(blob);
+      const finish = value => { audio.removeAttribute("src"); audio.load(); URL.revokeObjectURL(url); resolve(Number.isFinite(value) && value > 0 ? Math.round(value) : 0); };
+      audio.preload = "metadata";
+      audio.onloadedmetadata = () => finish(audio.duration);
+      audio.onerror = () => finish(0);
+      audio.src = url;
+    });
+  }
+  let lameJsPromise = null;
+  async function loadLameJs() {
+    if (window.lamejs) return window.lamejs;
+    if (!lameJsPromise) {
+      lameJsPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js";
+        script.async = true;
+        script.onload = () => window.lamejs ? resolve(window.lamejs) : reject(new Error("MP3 encoder failed to load."));
+        script.onerror = () => reject(new Error("Could not load the browser MP3 encoder. Check your internet connection and retry."));
+        document.head.appendChild(script);
+      });
+    }
+    return lameJsPromise;
+  }
+  
+  async function convertToMp3(inputBlob, progress = () => {}) {
+    // Browser-native AAC/M4A decoding + a small lazy-loaded MP3 encoder avoids a huge FFmpeg download.
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) throw new Error("This browser does not support audio decoding needed for M4A conversion. Try current Chrome or Edge.");
+    progress("Loading MP3 encoder…");
+    const lamejs = await loadLameJs();
+    const context = new AudioCtx();
+    try {
+      progress("Decoding M4A audio…");
+      const sourceBytes = await inputBlob.arrayBuffer();
+      let decoded;
+      try {
+        decoded = await context.decodeAudioData(sourceBytes.slice(0));
+      } catch {
+        throw new Error("This browser could not decode the returned M4A/AAC stream. Try Chrome/Edge or use a source stream the browser can decode.");
+      }
+      const channels = Math.min(2, decoded.numberOfChannels);
+      const sampleRate = decoded.sampleRate;
+      const encoder = new lamejs.Mp3Encoder(channels, sampleRate, 256);
+      const left = decoded.getChannelData(0);
+      const right = channels > 1 ? decoded.getChannelData(1) : null;
+      const blockSize = 1152;
+      const chunks = [];
+      const toInt16 = (data, start, end) => {
+        const out = new Int16Array(end - start);
+        for (let i = start, j = 0; i < end; i++, j++) {
+          const v = Math.max(-1, Math.min(1, data[i]));
+          out[j] = v < 0 ? v * 32768 : v * 32767;
+        }
+        return out;
+      };
+      for (let i = 0; i < left.length; i += blockSize) {
+        const end = Math.min(i + blockSize, left.length);
+        const l = toInt16(left, i, end);
+        const mp3buf = channels > 1
+          ? encoder.encodeBuffer(l, toInt16(right, i, end))
+          : encoder.encodeBuffer(l);
+        if (mp3buf.length) chunks.push(new Uint8Array(mp3buf));
+        if (i % (blockSize * 100) === 0) {
+          progress("Converting to MP3… " + Math.round(i / left.length * 100) + "%");
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      }
+      const tail = encoder.flush();
+      if (tail.length) chunks.push(new Uint8Array(tail));
+      progress("Finalizing MP3…");
+      return new Blob(chunks, { type: "audio/mpeg" });
+    } finally {
+      try { await context.close(); } catch {}
+    }
+  }
+
+  async function addID3Tags(audioBlob, song) {
+    const audio=new Uint8Array(await audioBlob.arrayBuffer());
+    let cover=null;
+    if (song.image) {
+      cover=await coverBytes(song.image);
+    }
+    if (!cover) throw new Error("No usable cover image URL was returned; cannot create the requested all-in-one file.");
+    const frames=[
+      frame("TIT2",utf16Text(song.title)),
+      frame("TPE1",utf16Text(song.artists)),
+      frame("TALB",utf16Text(song.album==="Unknown"?"":song.album)),
+      frame("TYER",utf16Text(song.year==="Unknown"?"":song.year)),
+      frame("TLAN",utf16Text(song.language==="Unknown"?"":song.language)),
+      frame("TCOM",utf16Text(song.composer)),
+      frame("TCON",utf16Text(song.genre)),
+      frame("TPUB",utf16Text(song.label)),
+      frame("TPE2",utf16Text(song.albumArtist)),
+      frame("TDRC",utf16Text(song.releaseDate)),
+      frame("TRCK",utf16Text(song.trackNumber)),
+      frame("TLEN",utf16Text(song.duration ? String(Math.round(song.duration*1000)) : "")),
+      frame("TXXX",concatBytes([new Uint8Array([1,255,254]),new Uint8Array([...("Royverse Song ID")].flatMap(c=>[c.charCodeAt(0),0])),new Uint8Array([0,0]),new Uint8Array([...String(song.id)].flatMap(c=>[c.charCodeAt(0),0]))]))
+    ];
+    if(cover) {
+      const desc=new Uint8Array([0]);
+      frames.push(frame("APIC",concatBytes([new Uint8Array([0]),new TextEncoder().encode(cover.mime),new Uint8Array([0,3]),desc,cover.bytes])));
+    }
+    const payload=concatBytes(frames);
+    const header=concatBytes([new TextEncoder().encode("ID3"),new Uint8Array([3,0,0]),syncSafe(payload.length)]);
+    const cleanAudio=stripExistingID3(audio);
+    return new Blob([header,payload,cleanAudio],{type:"audio/mpeg"});
+  }
+  async function resolveAudioURL(songId) {
+    const data=await request(BACKEND+"stream/"+encodeURIComponent(songId));
+    if(typeof data==="string" && /^https?:\/\//i.test(data)) return data;
+    if(data?.stream && typeof data.stream==="string") return data.stream;
+    let s=Array.isArray(data?.data)?data.data[0]:(data?.data||data);
+    if(!s?.downloadUrl && Array.isArray(data) && data[0]?.downloadUrl) s=data[0];
+    const urls=s?.downloadUrl;
+    if(Array.isArray(urls)) {
+      const selected=urls.find(u=>String(u.quality).toLowerCase()==="320kbps")
+        || urls.find(u=>/320/.test(String(u.quality)))
+        || urls.find(u=>String(u.quality).toLowerCase()==="160kbps")
+        || urls.find(u=>/160/.test(String(u.quality)))
+        || [...urls].sort((a,b)=>parseInt(String(b.quality).match(/\d+/)?.[0]||0)-parseInt(String(a.quality).match(/\d+/)?.[0]||0))[0];
+      return selected?.link || selected?.url || selected?.downloadUrl || null;
+    }
+    if(typeof urls==="string") return urls;
+    if(typeof s?.url==="string") return s.url;
+    throw new Error("The stream endpoint returned no audio URL. Check its response format.");
+  }
+
+  function render(songs) {
+    const root=$("results"); root.replaceChildren();
+    if (!songs.length) { root.innerHTML='<div class="empty">No results found. Try a different search term.</div>'; return; }
+    for (const raw of songs) {
+      const s=normalize(raw);
+      const card=document.createElement("article"); card.className="song";
+      const select=document.createElement("input"); select.type="checkbox"; select.className="select-track"; select.setAttribute("aria-label","Select "+s.title+" for bulk download"); select.addEventListener("change",updateBulkState);
+      const img=document.createElement("img"); img.className="cover"; img.alt="Cover for "+s.title; img.loading="lazy";
+      img.src=s.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='100%25' height='100%25' fill='%231e2230'/%3E%3C/svg%3E";
+      const info=document.createElement("div"); info.className="info";
+      const title=document.createElement("div"); title.className="title"; title.textContent=s.title;
+      const artist=document.createElement("div"); artist.className="sub"; artist.textContent=s.artists;
+      const details=document.createElement("div"); details.className="sub small";
+      details.textContent=[s.album,s.year,s.language,duration(s.duration)].filter(Boolean).join(" · ");
+      info.append(title,artist,details);
+      const actions=document.createElement("div"); actions.className="actions";
+      const dl=document.createElement("button"); dl.className="download-btn"; dl.textContent="Download";
+      
+      dl.onclick=async()=>{
+        dl.disabled=true; dl.textContent="Preparing…"; $("message").textContent="Resolving audio and metadata…";
+        try {
+          await ensureBackend();
+          const url=await resolveAudioURL(s.id);
+          if(!url || !/^https?:\/\//i.test(url)) throw new Error("No valid audio URL was returned.");
+          const res=await fetch(url);
+          if(!res.ok) throw new Error("Audio fetch failed (HTTP "+res.status+"). The source may block browser downloads.");
+          const blob=await res.blob();
+          if(blob.size<1024) throw new Error("The server returned an empty or invalid audio response.");
+          dl.textContent="Checking metadata…";
+          const full=await enrichSong(s); Object.assign(s,full);
+          if(!s.duration) s.duration=await readAudioDuration(blob);
+          if(!s.year || s.year==="Unknown") {
+            const release= s.releaseDate || s.raw?.releaseDate || s.raw?.release_date || s.raw?.more_info?.release_date || s.raw?.more_info?.year;
+            const match=String(release || "").match(/\b(19|20)\d{2}\b/);
+            if(match) s.year=match[0];
+          }
+          const ext=extensionFor(blob.type,url);
+          let mp3Blob = blob;
+          if(ext!=="mp3" && !blob.type.toLowerCase().includes("mpeg")) {
+            if (!["m4a","audio","mp4","aac","webm","ogg","wav","flac"].includes(ext)) {
+              throw new Error("The source returned an unsupported audio format (."+ext+"). No separate files were created.");
+            }
+            mp3Blob = await convertToMp3(blob, message => { dl.textContent=message; $("message").textContent=message; });
+            if(mp3Blob.size < 1024) throw new Error("M4A-to-MP3 conversion returned an empty file. Try again or use another source quality.");
+          }
+          if(!s.image) throw new Error("No cover-art URL was returned for this track, so embedded artwork is unavailable.");
+          if(!s.duration) s.duration=await readAudioDuration(mp3Blob);
+          dl.textContent="Embedding tags…";
+          const tagged=await addID3Tags(mp3Blob,s);
+          saveBlob(tagged,safeName(s.title)+".mp3");
+          $("message").textContent="Downloaded one MP3 with embedded title, artist, album, duration and cover art" + (s.year && s.year!=="Unknown" ? ", plus release year." : ". Release year was not supplied by the catalog.") + (ext!=="mp3" && !blob.type.toLowerCase().includes("mpeg") ? " Source audio was converted locally from " + ext.toUpperCase() + "." : ".");
+          dl.textContent="Downloaded";
+        } catch(e) {
+          $("message").textContent=e.message || "Download failed. Check the Render stream response and CORS.";
+          dl.textContent="Retry";
+        } finally { dl.disabled=false; }
+      };
+      actions.append(dl);
+      card.append(select,img,info,actions); root.append(card);
+      
+      // Fill missing metadata asynchronously without delaying initial search results.
+      enrichSong(s).then(full => {
+        if (!root.contains(card)) return;
+        Object.assign(s,full);
+        artist.textContent=s.artists;
+        details.textContent=[s.album,s.year,s.language,duration(s.duration)].filter(Boolean).join(" · ");
+        if (s.image && s.image !== img.src) img.src=s.image;
+      });
+    }
+  }
+  
+  let searchSequence=0, typeTimer=null;
+  function updateBulkState(){
+    const selected=document.querySelectorAll(".select-track:checked").length;
+    $("bulkBtn").disabled=selected===0;
+    $("bulkBtn").textContent=selected ? `Download selected (${selected})` : "Download selected";
+    const boxes=[...document.querySelectorAll(".select-track")];
+    $("selectAllBtn").textContent=boxes.length && boxes.every(x=>x.checked) ? "Clear selection" : "Select all";
+  }
+  
+  async function search(queryOverride){
+    const q=(queryOverride ?? $("query").value).trim(), sequence=++searchSequence;
+    if(!q){ $("results").innerHTML='<div class="empty">Start typing a song or artist to find music.</div>'; $("message").textContent=""; $("resultCount").textContent="Search results"; updateBulkState(); return; }
+    $("searchBtn").disabled=true; $("message").textContent="Searching…"; $("results").innerHTML='<div class="empty">Loading results...</div>'; $("resultCount").textContent="Searching…";
+    try {
+      await ensureBackend();
+      let data;
+      try { data=await request(BACKEND+"search?q="+encodeURIComponent(q)); }
+      catch (firstError) { isReady=false; localStorage.removeItem(READY_KEY); await ensureBackend(); data=await request(BACKEND+"search?q="+encodeURIComponent(q)); }
+      if(sequence!==searchSequence || q!==$("query").value.trim()) return;
+      const songs=collect(data); render(songs);
+      $("message").textContent=songs.length ? "Ready to download" : "No matching tracks found";
+      $("resultCount").textContent=`${songs.length} ${songs.length===1?"result":"results"}`;
+      updateBulkState();
+    } catch(e){
+      if(sequence===searchSequence){ $("message").textContent="Search failed: "+(e.message||"network or CORS error"); $("results").innerHTML='<div class="empty">Could not load results. Check your connection and try again.</div>'; $("resultCount").textContent="Search unavailable"; }
+    } finally { if(sequence===searchSequence) $("searchBtn").disabled=false; }
+  }
+  
+  $("searchBtn").addEventListener("click",()=>{clearTimeout(typeTimer);search();});
+  $("query").addEventListener("input",()=>{
+    clearTimeout(typeTimer); const q=$("query").value.trim();
+    if(!q){++searchSequence;$("results").innerHTML='<div class="empty">Start typing a song or artist to find music.</div>';$("message").textContent="";$("resultCount").textContent="Search results";updateBulkState();return;}
+    typeTimer=setTimeout(()=>search(q),420);
+  });
+  $("query").addEventListener("keydown",e=>{if(e.key==="Enter"){clearTimeout(typeTimer);search();}});
+  $("selectAllBtn").addEventListener("click",()=>{const boxes=[...document.querySelectorAll(".select-track")];const check=boxes.length&&!boxes.every(x=>x.checked);boxes.forEach(x=>x.checked=check);updateBulkState();});
+  
+  $("bulkBtn").addEventListener("click",async()=>{
+    const cards=[...document.querySelectorAll(".song")].filter(card=>card.querySelector(".select-track")?.checked);
+    if(!cards.length)return;
+    $("bulkBtn").disabled=true;let done=0;
+    for(const card of cards){
+      const button=card.querySelector(".download-btn");if(!button)continue;
+      $("message").textContent=`Bulk download: ${done+1} of ${cards.length}`;
+      button.click();
+      while(button.disabled)await new Promise(resolve=>setTimeout(resolve,250));
+      if(["Download","Retry","Downloaded"].includes(button.textContent))done++;
+      await new Promise(resolve=>setTimeout(resolve,350));
+    }
+    $("message").textContent=`Bulk download finished. Processed ${done} of ${cards.length} selected tracks.`;updateBulkState();
+  });
+  
+  document.querySelectorAll("[data-modal]").forEach(button=>button.addEventListener("click",()=>$(button.dataset.modal).classList.add("open")));
+  document.querySelectorAll("[data-close]").forEach(button=>button.addEventListener("click",()=>$(button.dataset.close).classList.remove("open")));
+  document.querySelectorAll(".modal").forEach(modal=>modal.addEventListener("click",event=>{if(event.target===modal)modal.classList.remove("open");}));
+  document.addEventListener("keydown",event=>{if(event.key==="Escape")document.querySelectorAll(".modal.open").forEach(modal=>modal.classList.remove("open"));});
+  
+  // A recent successful check is remembered for 10 minutes; a sleeping service is retried only when needed.
+  if (isReady) {
+    pingBackend().then(markReady).catch(()=>{isReady=false; localStorage.removeItem(READY_KEY); $("timer").textContent="checking";});
+  } else {
+    ensureBackend().catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
