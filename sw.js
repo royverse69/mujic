@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mujic-pwa-v12.0.6-home-artists-swipe-help';
+const CACHE_NAME = 'mujic-pwa-v12.0.7-gemini-model-key-fix';
 const APP_SHELL = [
   './', './index.html', './manifest.webmanifest', './changlog.json', './css/app.css',
   './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/app.js',

@@ -31,29 +31,76 @@
                 const icon = button?.querySelector('.material-symbols-rounded'); if (icon) icon.textContent = visible ? 'visibility_off' : 'visibility';
                 if (button) button.setAttribute('aria-label', `${visible ? 'Hide' : 'Show'} API key ${Number(index) + 1}`);
             },
-            saveGeminiKeys: async () => {
-                const keys = [...new Set(UI.collectGeminiKeyDrafts().map(key => String(key || '').trim()).filter(Boolean))].slice(0,4);
-                State.geminiApiKeys = keys; State.geminiNextKeyIndex = 0;
+            persistGeminiKeys: async (keys) => {
+                if (!StorageAdapter.db) throw new Error('Local storage is not ready yet. Reload Mujic after it finishes loading.');
+                const cleanKeys = [...new Set((keys || []).map(key => String(key || '').trim().replace(/^['\"]|['\"]$/g, '')).filter(Boolean))].slice(0,4);
+                const previousKeys = Array.isArray(State.geminiApiKeys) ? State.geminiApiKeys.slice() : [];
+                State.geminiApiKeys = cleanKeys;
+                State.geminiNextKeyIndex = 0;
                 try {
-                    await StorageAdapter.saveSettings(); UI.geminiKeyDrafts = keys.length ? keys.slice() : ['']; UI.renderGeminiKeyManager();
-                    const status = document.getElementById('gemini-key-status'); if (status) status.textContent = `Saved ${keys.length} key${keys.length === 1 ? '' : 's'} on this device.`;
-                    UI.showToast(`Saved ${keys.length} Gemini API key${keys.length === 1 ? '' : 's'} locally`, 'check_circle');
-                } catch (error) { UI.showToast('Unable to save Gemini keys in this browser.', 'error'); }
+                    const writeResult = await StorageAdapter.saveSettings();
+                    if (writeResult !== 'app_state') throw new Error('IndexedDB did not confirm the settings write.');
+                    const stored = await StorageAdapter._get('settings', 'app_state');
+                    const storedKeys = Array.isArray(stored?.geminiApiKeys) ? stored.geminiApiKeys.map(k => String(k || '').trim()).filter(Boolean).slice(0,4) : [];
+                    if (JSON.stringify(storedKeys) !== JSON.stringify(cleanKeys)) throw new Error('Saved keys could not be verified in IndexedDB.');
+                    return cleanKeys;
+                } catch (error) {
+                    State.geminiApiKeys = previousKeys;
+                    throw error;
+                }
+            },
+            saveGeminiKeys: async () => {
+                const keys = UI.collectGeminiKeyDrafts();
+                const status = document.getElementById('gemini-key-status');
+                if (status) status.textContent = 'Saving keys on this device…';
+                try {
+                    const savedKeys = await UI.persistGeminiKeys(keys);
+                    UI.geminiKeyDrafts = savedKeys.length ? savedKeys.slice() : [''];
+                    UI.renderGeminiKeyManager();
+                    if (status) status.textContent = `Saved and verified ${savedKeys.length} key${savedKeys.length === 1 ? '' : 's'} in this browser.`;
+                    UI.showToast(`Saved ${savedKeys.length} Gemini API key${savedKeys.length === 1 ? '' : 's'} locally`, 'check_circle');
+                } catch (error) {
+                    if (status) status.textContent = `Keys were not saved. ${error?.message || 'Check browser storage permissions and try again.'}`;
+                    UI.showToast('Unable to verify Gemini keys were saved. Check browser storage permissions.', 'error');
+                }
             },
             testGeminiKeys: async () => {
-                const keys = [...new Set(UI.collectGeminiKeyDrafts().map(key => String(key || '').trim()).filter(Boolean))].slice(0,4);
-                if (!keys.length) { UI.showToast('Add a Gemini API key first.', 'info'); return; }
-                const status = document.getElementById('gemini-key-status'); if (status) status.textContent = 'Testing keys with Google Gemini…';
-                const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
-                for (let i = 0; i < keys.length; i++) {
-                    try {
-                        const response = await LyricsFetcher.fetchWithTimeout(endpoint, 3500, { method: 'POST', mode: 'cors', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': keys[i] }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Reply with the single word OK.' }] }], generationConfig: { temperature: 0, responseMimeType: 'text/plain', maxOutputTokens: 8 } }) });
-                        if (response.ok) { if (status) status.textContent = `Key ${i + 1} is accepted by Gemini.`; UI.showToast(`Gemini key ${i + 1} works`, 'check_circle'); return; }
-                        if (status) status.textContent = `Key ${i + 1} returned HTTP ${response.status}; trying the next key…`;
-                    } catch (error) { if (status) status.textContent = `Key ${i + 1} timed out or could not connect; trying the next key…`; }
+                const keys = [...new Set(UI.collectGeminiKeyDrafts().map(key => String(key || '').trim().replace(/^['\"]|['\"]$/g, '')).filter(Boolean))].slice(0,4);
+                const status = document.getElementById('gemini-key-status');
+                if (!keys.length) {
+                    if (status) status.textContent = 'Add a Gemini API key, then test it.';
+                    UI.showToast('Add a Gemini API key first.', 'info'); return;
                 }
-                if (status) status.textContent = 'No key passed the test. Check the key, API access, quotas and internet connection.';
-                UI.showToast('No configured Gemini key passed the test.', 'error');
+                try {
+                    await UI.persistGeminiKeys(keys);
+                    UI.geminiKeyDrafts = keys.slice(); UI.renderGeminiKeyManager();
+                } catch (error) {
+                    if (status) status.textContent = `Cannot test keys because they were not saved locally. ${error?.message || ''}`;
+                    UI.showToast('Save the keys in browser storage before testing.', 'error'); return;
+                }
+                if (status) status.textContent = `Testing ${keys.length} saved key${keys.length === 1 ? '' : 's'} with Google Gemini…`;
+                const failures = [];
+                const startedAt = Date.now();
+                for (let i = 0; i < keys.length; i++) {
+                    if (Date.now() - startedAt > 18000) {
+                        failures.push('Stopped after 18 seconds to keep the app responsive. Test the remaining keys separately.');
+                        break;
+                    }
+                    if (status) status.textContent = `Testing key ${i + 1} of ${keys.length}…`;
+                    try {
+                        const result = await LyricsFetcher.requestGemini(keys[i], 'Reply with exactly OK and no other words.', { json: false, timeout: Math.min(7000, 18000 - (Date.now() - startedAt)) });
+                        if (!result?.text) throw new Error('Google returned an empty response.');
+                        if (status) status.textContent = `Key ${i + 1} works with ${result.model}. AI song identification can use this key.`;
+                        UI.showToast(`Gemini key ${i + 1} works (${result.model})`, 'check_circle');
+                        return;
+                    } catch (error) {
+                        const hint = LyricsFetcher.geminiErrorHint(error);
+                        failures.push(`Key ${i + 1}: ${hint}`);
+                    }
+                }
+                const summary = failures.join(' ');
+                if (status) status.textContent = `No key passed the Gemini test. ${summary || 'Check API access, quota and connection.'}`;
+                UI.showToast('Gemini test failed. See the message below the key controls for the specific reason.', 'error');
             },
             init: () => { 
                 if (Utils.isIOS()) document.body.classList.add('ios');
@@ -143,6 +190,11 @@
                 } catch (error) {
                     // Keep the update page useful when launched from file:// or while offline.
                     const fallbackEntries = [
+                        { version: '12.0.7', date: '2026-10-12', title: 'Gemini API compatibility and key validation', changes: [
+                            'Switched to gemini-3.8-flash first with compatible stable Flash model fallbacks if Google reports a model is unavailable.',
+                            'Unified Gemini identification and Test keys requests, added detailed Google error messages, increased request timeout, and restored normal origin/referrer behavior for restricted keys.',
+                            'Key save is verified by reading the key list back from IndexedDB; Test keys saves current inputs before testing.'
+                        ]},
                         { version: '12.0.6', date: '2026-10-12', title: 'Navigation and settings polish', changes: [
                             'Added a compact Gemini API key help guide with key creation, paste/save instructions and common error tips.',
                             'Added Favorite Artists beside Playlists on wide Home layouts and touch swipes between the four main tabs.',

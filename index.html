@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.6-client-gemini">
+    <meta name="application-version" content="12.0.7-gemini-model-fix">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -393,7 +393,7 @@
                         <div class="gemini-key-panel-heading">
                             <div>
                                 <div class="settings-label" id="gemini-key-heading">Gemini API keys</div>
-                                <div class="settings-desc">Up to four keys, tried in order.</div>
+                                <div class="settings-desc">Up to four keys. Uses Gemini Interactions with current Flash models and compatible fallbacks; newer Gemini Auth keys are supported.</div>
                             </div>
                             <span class="setting-inline-value" id="gemini-key-count">0 / 4 saved</span>
                         </div>
@@ -403,19 +403,20 @@
                             <button class="btn btn-primary" type="button" data-action="save-gemini-keys">Save keys</button>
                             <button class="btn" type="button" data-action="test-gemini-keys">Test keys</button>
                         </div>
-                        <p class="gemini-key-warning">Saved on this device. Anyone with access to this browser profile may inspect the keys.</p>
+                        <p class="gemini-key-warning">Saved on this device. Use localhost or HTTPS; browser-stored keys are visible to anyone with access to this browser profile.</p>
                         <details class="gemini-help">
                             <summary><span class="material-symbols-rounded" aria-hidden="true">help</span> Need help?</summary>
                             <div class="gemini-help-content">
                                 <ol>
                                     <li>Open <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio — API keys</a>.</li>
-                                    <li>Sign in, choose <strong>Create API key</strong>, and copy the key.</li>
+                                    <li>Create a current <strong>Gemini Auth API key</strong> and copy the entire value. New Google AI Studio keys use the Auth type; older Standard keys stopped working in September 2026.</li>
                                     <li>Return to Mujic, tap <strong>Add key</strong>, paste it, then tap <strong>Save keys</strong>.</li>
-                                    <li>Tap <strong>Test keys</strong>, then enable AI Song Identification above.</li>
+                                    <li>Tap <strong>Test keys</strong>. After a successful test, enable AI Song Identification above.</li>
                                 </ol>
-                                <div class="gemini-faq"><strong>Invalid key / 403</strong><span>Check that the key is copied completely and the Gemini API is available for its project.</span></div>
+                                <div class="gemini-faq"><strong>400 / 401 — Key rejected</strong><span>Replace older Standard keys with a new Gemini Auth API key made in Google AI Studio. Remove copied quotes/spaces, then Save keys and Test keys again.</span></div>
+                                <div class="gemini-faq"><strong>403 — Permission denied</strong><span>Check that the key is active, the project has Gemini API access, and key restrictions allow this app origin.</span></div>
                                 <div class="gemini-faq"><strong>429 / quota</strong><span>Wait for quota to reset or add another key with its own available quota.</span></div>
-                                <div class="gemini-faq"><strong>Network error</strong><span>Check the connection, browser extensions and API availability. Lyrics lookup continues if AI is unavailable.</span></div>
+                                <div class="gemini-faq"><strong>Network / timeout</strong><span>Run Mujic with start-mujic.bat at http://localhost:3000 or use HTTPS. Direct file:// launches can block browser API requests. Check extensions and connectivity.</span></div>
                                 <div class="gemini-faq"><strong>Wrong song match</strong><span>AI matching is experimental. Check the title and artist; the original audio is never uploaded.</span></div>
                                 <p class="gemini-help-note">Keys are sent directly to Google and stored in this browser. Do not use a shared device or publish a filled-in key.</p>
                             </div>

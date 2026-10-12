@@ -1,8 +1,31 @@
 {
   "app": "Mujic",
-  "version": "12.0.6",
+  "version": "12.0.7",
   "updatedAt": "2026-10-12",
   "entries": [
+    {
+      "version": "12.0.7",
+      "date": "2026-10-12",
+      "title": "Gemini Auth API compatibility",
+      "changes": [
+        "Switched Gemini key testing and AI song identification to Google’s Interactions REST API, the documented flow for current Gemini Auth API keys.",
+        "Corrected current Flash model fallback order and improved response parsing for Interactions API steps.",
+        "Added explicit diagnostics for legacy Standard keys, invalid keys, project permissions, quotas, model availability, and network errors.",
+        "Updated Gemini key setup help with the current Auth-key migration requirement."
+      ]
+    },
+    {
+      "version": "12.0.7",
+      "date": "2026-10-12",
+      "title": "Gemini API compatibility and key validation",
+      "changes": [
+        "Switched from the moving gemini-flash-latest alias to the documented gemini-3.8-flash stable model first, with gemini-3.6-flash and gemini-3.5-flash-lite fallback if Google reports a model endpoint unavailable.",
+        "Unified AI song matching and Test keys on one Gemini generateContent request helper using the documented x-goog-api-key header and JSON/text response handling.",
+        "Removed no-referrer request policy so API keys restricted to the local site or web origin can be validated properly.",
+        "Raised short request timeouts and added actionable messages for local-file launches, CORS/network failures, invalid/restricted keys, model access, and quota errors.",
+        "Save keys now verifies the IndexedDB write by reading the saved key list back; Test keys persists the current inputs before testing."
+      ]
+    },
     {
       "version": "12.0.6",
       "date": "2026-10-12",
