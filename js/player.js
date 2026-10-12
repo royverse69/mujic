@@ -243,7 +243,7 @@
                 AudioAdapter.eqFilters.forEach((f, i) => { f.gain.value = Number(bands[i]) || 0; });
             },
             resizeVisualizer: () => {
-                const dpr=Math.min(window.devicePixelRatio||1,2);
+                const dpr=(State.lowEndModeActive || State.lowEndMode) ? 1 : Math.min(window.devicePixelRatio||1,1.5);
                 const sc=document.getElementById('scrubber-visualizer');
                 if(!sc) return;
                 const rect=sc.getBoundingClientRect();
@@ -384,7 +384,7 @@
                     AudioAdapter.visualizerRAF=0;
                     if(!AudioAdapter.visualizerShouldRun()){ AudioAdapter.stopVisualizerLoop(); return; }
                     // Draw at up to 30 FPS: smooth enough for a small seek-bar waveform without wasting CPU on low-end phones.
-                    const frameInterval = State.lowEndMode ? 66 : 32;
+                    const frameInterval = (State.lowEndModeActive || State.lowEndMode) ? 100 : 40;
                     if (!AudioAdapter.visualizerLastFrameAt || timestamp - AudioAdapter.visualizerLastFrameAt >= frameInterval) {
                         AudioAdapter.visualizerLastFrameAt=timestamp;
                         AudioAdapter.renderScrubberVisualizerFrame();

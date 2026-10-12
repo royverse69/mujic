@@ -941,3 +941,22 @@ body.low-end-mode .eq-layout {
 body.low-end-mode .player-bg { filter: none !important; transform: none !important; opacity: .08 !important; }
 body.low-end-mode .art-wrapper img { transition: none !important; }
 body.low-end-mode .track-row, body.low-end-mode .art-card, body.low-end-mode .btn { transition: none !important; }
+
+
+/* v12.0.5 local Gemini key manager and low-end profile */
+.gemini-key-panel { margin:12px 14px 16px; padding:14px; border:1px solid var(--border-subtle); border-radius:14px; background:var(--bg-surface); }
+.gemini-key-panel-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.gemini-key-list { display:flex; flex-direction:column; gap:10px; }
+.gemini-key-entry { min-width:0; }
+.gemini-key-entry label { display:block; color:var(--text-secondary); font-size:12px; margin:0 0 5px 2px; }
+.gemini-key-input-wrap { display:flex; align-items:center; gap:5px; min-width:0; }
+.gemini-key-input-wrap input { flex:1; min-width:0; width:0; height:42px; padding:0 11px; border-radius:10px; border:1px solid var(--border-subtle); background:var(--bg-elevated); color:var(--text-primary); outline:none; font:13px var(--font-family); }
+.gemini-key-input-wrap input:focus { border-color:var(--accent-color); }
+.gemini-key-input-wrap .icon-btn { width:38px; height:38px; min-width:38px; }
+.gemini-key-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.gemini-key-actions .btn { flex:1 1 auto; padding:9px 12px; min-height:38px; font-size:13px; }
+.gemini-key-actions .btn:disabled { opacity:.4; cursor:not-allowed; }
+.gemini-key-warning { margin-top:12px; color:var(--text-tertiary); font-size:11px; line-height:1.45; overflow-wrap:anywhere; }
+.gemini-key-status { min-height:1.2em; margin-top:8px; color:var(--text-secondary); font-size:12px; line-height:1.4; }
+body.low-end-mode .gemini-key-panel { background:var(--bg-surface); }
+body.low-end-mode .gemini-key-panel *, body.low-end-mode .gemini-key-panel *::before, body.low-end-mode .gemini-key-panel *::after { animation:none !important; transition:none !important; }

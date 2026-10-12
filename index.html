@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.4-modular">
+    <meta name="application-version" content="12.0.5-client-gemini">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -219,8 +219,8 @@
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="layoutDensity" aria-label="Layout Density"><option value="compact">Compact</option><option value="comfortable">Comfortable</option><option value="spacious">Spacious</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Low-End Device Mode</div><div class="settings-desc">Reduce blur, shadows and nonessential motion for smoother scrolling and lower battery use.</div></div>
-                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lowEndMode" aria-label="Enable low-end device mode"></div>
+                        <div class="settings-text"><div class="settings-label">Performance Profile</div><div class="settings-desc">Auto-detect constrained devices, force low-end mode, or use full visuals.</div></div>
+                        <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="performanceProfile" aria-label="Performance profile"><option value="auto">Auto (recommended)</option><option value="low-end">Low-end device</option><option value="full">Full visuals</option></select></div></div>
                     </div>
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Interface Style</div><div class="settings-desc">Overlay transparency</div></div>
@@ -379,11 +379,28 @@
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsPlusEnabled" aria-label="Enable LyricsPlus fallback"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">AI Song Identification <span class="experimental-chip">Experimental</span></div><div class="settings-desc">For unclear filenames or missing artists, ask Gemini to suggest a likely title and artist before searching for lyrics. Sends text metadata only—not the audio file—and requires the optional server API key.</div></div>
+                        <div class="settings-text"><div class="settings-label">AI Song Identification <span class="experimental-chip">Experimental</span></div><div class="settings-desc">For unclear filenames or missing artists, ask Gemini to suggest a likely title and artist before searching for lyrics. Only text metadata is sent to Google; audio files are never uploaded. Add one or more keys below.</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="aiSongIdentification" aria-label="Enable experimental AI song identification"></div>
                     </div>
+                    <div class="gemini-key-panel" aria-labelledby="gemini-key-heading">
+                        <div class="gemini-key-panel-heading">
+                            <div>
+                                <div class="settings-label" id="gemini-key-heading">Gemini API keys</div>
+                                <div class="settings-desc">Add up to four keys. Mujic tries the next key if one is rejected or rate-limited.</div>
+                            </div>
+                            <span class="setting-inline-value" id="gemini-key-count">0 / 4 saved</span>
+                        </div>
+                        <div id="gemini-key-list" class="gemini-key-list"></div>
+                        <div class="gemini-key-actions">
+                            <button class="btn" type="button" data-action="add-gemini-key">Add key</button>
+                            <button class="btn btn-primary" type="button" data-action="save-gemini-keys">Save keys</button>
+                            <button class="btn" type="button" data-action="test-gemini-keys">Test keys</button>
+                        </div>
+                        <p class="gemini-key-warning">Keys are saved in this browser’s IndexedDB and sent directly from this browser to Google when AI identification is used. There is no Mujic API proxy. Browser-stored keys are not secrets from anyone who can inspect this device or its browser profile; use only on a trusted personal device and never publish a filled-in key.</p>
+                        <p id="gemini-key-status" class="gemini-key-status" role="status" aria-live="polite"></p>
+                    </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Experimental feature notice</div><div class="settings-desc">AI guesses can be wrong. Results are checked against lyrics-provider metadata where possible. If the Gemini endpoint is unavailable, normal lyrics lookup continues.</div></div>
+                        <div class="settings-text"><div class="settings-label">Experimental feature notice</div><div class="settings-desc">AI matches are experimental and may be wrong. Results are checked against lyrics-provider metadata where possible. If all saved Gemini keys fail, normal lyrics lookup continues.</div></div>
                     </div>
                 </div>
 
@@ -780,7 +797,7 @@
 
     <script defer src="./js/vendor-loader.js"></script>
     <script defer src="./js/core.js"></script>
-    <script defer src="./js/backend.js"></script>
+    <script defer src="./js/storage.js"></script>
     <script defer src="./js/lyrics.js"></script>
     <script defer src="./js/dialogs.js"></script>
     <script defer src="./js/player.js"></script>

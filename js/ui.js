@@ -1,5 +1,60 @@
 /* Mujic UI layer: view rendering, sheets, dialogs, search and interactions. */
         const UI = {
+            geminiKeyDrafts: [],
+            collectGeminiKeyDrafts: () => {
+                const host = document.getElementById('gemini-key-list');
+                if (!host) return [...(UI.geminiKeyDrafts || [])];
+                return Array.from(host.querySelectorAll('[data-gemini-key-index]')).map(input => String(input.value || '').trim()).slice(0,4);
+            },
+            renderGeminiKeyManager: () => {
+                const host = document.getElementById('gemini-key-list'); if (!host) return;
+                if (!Array.isArray(UI.geminiKeyDrafts) || !UI.geminiKeyDrafts.length) UI.geminiKeyDrafts = Array.isArray(State.geminiApiKeys) && State.geminiApiKeys.length ? State.geminiApiKeys.slice(0,4) : [''];
+                UI.geminiKeyDrafts = UI.geminiKeyDrafts.slice(0,4);
+                host.innerHTML = UI.geminiKeyDrafts.map((key, index) => `<div class="gemini-key-entry"><label for="gemini-api-key-${index}">API key ${index + 1}</label><div class="gemini-key-input-wrap"><input id="gemini-api-key-${index}" type="password" data-gemini-key-index="${index}" value="${Utils.escapeHTML(key)}" maxlength="256" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste Gemini API key"><button class="icon-btn gemini-key-eye" type="button" data-action="toggle-gemini-key-visibility" data-index="${index}" aria-label="Show API key ${index + 1}"><span class="material-symbols-rounded" style="pointer-events:none;">visibility</span></button><button class="icon-btn gemini-key-remove" type="button" data-action="remove-gemini-key" data-index="${index}" aria-label="Remove API key ${index + 1}"><span class="material-symbols-rounded" style="pointer-events:none;">close</span></button></div></div>`).join('');
+                const count = document.getElementById('gemini-key-count'); if (count) count.textContent = `${UI.geminiKeyDrafts.filter(key => String(key || '').trim()).length} / 4 saved`;
+                const add = document.querySelector('[data-action="add-gemini-key"]'); if (add) add.disabled = UI.geminiKeyDrafts.length >= 4;
+            },
+            addGeminiKey: () => {
+                const current = UI.collectGeminiKeyDrafts();
+                if (current.length >= 4) { UI.showToast('You can add up to four Gemini API keys.', 'info'); return; }
+                current.push(''); UI.geminiKeyDrafts = current; UI.renderGeminiKeyManager();
+                document.getElementById(`gemini-api-key-${current.length - 1}`)?.focus();
+            },
+            removeGeminiKey: (index) => {
+                const current = UI.collectGeminiKeyDrafts();
+                if (index < 0 || index >= current.length) return;
+                current.splice(index, 1); UI.geminiKeyDrafts = current.length ? current : ['']; UI.renderGeminiKeyManager();
+            },
+            toggleGeminiKeyVisibility: (index, button) => {
+                const input = document.getElementById(`gemini-api-key-${index}`); if (!input) return;
+                const visible = input.type === 'password'; input.type = visible ? 'text' : 'password';
+                const icon = button?.querySelector('.material-symbols-rounded'); if (icon) icon.textContent = visible ? 'visibility_off' : 'visibility';
+                if (button) button.setAttribute('aria-label', `${visible ? 'Hide' : 'Show'} API key ${Number(index) + 1}`);
+            },
+            saveGeminiKeys: async () => {
+                const keys = [...new Set(UI.collectGeminiKeyDrafts().map(key => String(key || '').trim()).filter(Boolean))].slice(0,4);
+                State.geminiApiKeys = keys; State.geminiNextKeyIndex = 0;
+                try {
+                    await StorageAdapter.saveSettings(); UI.geminiKeyDrafts = keys.length ? keys.slice() : ['']; UI.renderGeminiKeyManager();
+                    const status = document.getElementById('gemini-key-status'); if (status) status.textContent = `Saved ${keys.length} key${keys.length === 1 ? '' : 's'} on this device.`;
+                    UI.showToast(`Saved ${keys.length} Gemini API key${keys.length === 1 ? '' : 's'} locally`, 'check_circle');
+                } catch (error) { UI.showToast('Unable to save Gemini keys in this browser.', 'error'); }
+            },
+            testGeminiKeys: async () => {
+                const keys = [...new Set(UI.collectGeminiKeyDrafts().map(key => String(key || '').trim()).filter(Boolean))].slice(0,4);
+                if (!keys.length) { UI.showToast('Add a Gemini API key first.', 'info'); return; }
+                const status = document.getElementById('gemini-key-status'); if (status) status.textContent = 'Testing keys with Google Gemini…';
+                const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
+                for (let i = 0; i < keys.length; i++) {
+                    try {
+                        const response = await LyricsFetcher.fetchWithTimeout(endpoint, 3500, { method: 'POST', mode: 'cors', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': keys[i] }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Reply with the single word OK.' }] }], generationConfig: { temperature: 0, responseMimeType: 'text/plain', maxOutputTokens: 8 } }) });
+                        if (response.ok) { if (status) status.textContent = `Key ${i + 1} is accepted by Gemini.`; UI.showToast(`Gemini key ${i + 1} works`, 'check_circle'); return; }
+                        if (status) status.textContent = `Key ${i + 1} returned HTTP ${response.status}; trying the next key…`;
+                    } catch (error) { if (status) status.textContent = `Key ${i + 1} timed out or could not connect; trying the next key…`; }
+                }
+                if (status) status.textContent = 'No key passed the test. Check the key, API access, quotas and internet connection.';
+                UI.showToast('No configured Gemini key passed the test.', 'error');
+            },
             init: () => { 
                 if (Utils.isIOS()) document.body.classList.add('ios');
                 UI.setupSettingsGroups(); UI.setupHistory(); UI.setupGestures(); UI.setupInstallPrompt(); UI.setupGlobalDelegation(); UI.updateStatsUI(); UI.loadChangeLog();
@@ -808,7 +863,7 @@
                 const monthly = document.getElementById('settings-monthly-stats'); if(monthly) monthly.innerText=`${s.month.plays} plays • ${Stats.formatMinutes(s.month.seconds)}`;
             },
             exportData: async (kind) => {
-                const settingKeys = ['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','aiSongIdentification','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','sleepTimer','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled'];
+                const settingKeys = ['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','aiSongIdentification','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','sleepTimer','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled'];
                 const settings = {}; settingKeys.forEach(key => { if (State[key] !== undefined) settings[key] = State[key]; });
                 let payload;
                 if (kind === 'settings') {
@@ -881,7 +936,14 @@
             },
             applySettings: () => {
                 const root = document.documentElement;
-                document.body.classList.toggle('low-end-mode', !!State.lowEndMode);
+                const cores = Number(navigator.hardwareConcurrency) || 0;
+                const memory = Number(navigator.deviceMemory) || 0;
+                const reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+                const constrainedDevice = (cores > 0 && cores <= 4) || (memory > 0 && memory <= 4) || reducedMotion;
+                const profile = ['auto','low-end','full'].includes(State.performanceProfile) ? State.performanceProfile : 'auto';
+                const lowEndActive = profile === 'low-end' || (profile === 'auto' && (constrainedDevice || State.lowEndMode));
+                State.lowEndModeActive = lowEndActive;
+                document.body.classList.toggle('low-end-mode', lowEndActive);
                 document.body.classList.remove('theme-light');
                 if (State.theme === 'light') document.body.classList.add('theme-light');
                 else if (State.theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches) { document.body.classList.add('theme-light'); }
@@ -1051,7 +1113,12 @@
                     
                     if (['toggle-play', 'next-track', 'prev-track'].includes(action)) e.stopPropagation();
                     
-                    if (action === 'switch-view') UI.switchView(btn.dataset.view);
+                    if (action === 'add-gemini-key') { e.preventDefault(); e.stopPropagation(); UI.addGeminiKey(); }
+                    else if (action === 'remove-gemini-key') { e.preventDefault(); e.stopPropagation(); UI.removeGeminiKey(Number(btn.dataset.index)); }
+                    else if (action === 'save-gemini-keys') { e.preventDefault(); e.stopPropagation(); await UI.saveGeminiKeys(); }
+                    else if (action === 'test-gemini-keys') { e.preventDefault(); e.stopPropagation(); await UI.testGeminiKeys(); }
+                    else if (action === 'toggle-gemini-key-visibility') { e.preventDefault(); e.stopPropagation(); UI.toggleGeminiKeyVisibility(Number(btn.dataset.index), btn); }
+                    else if (action === 'switch-view') UI.switchView(btn.dataset.view);
                     else if (action === 'open-settings-group') { e.preventDefault(); e.stopPropagation(); UI.openSettingsGroup(btn.dataset.group); }
                     else if (action === 'settings-group-back') { e.preventDefault(); e.stopPropagation(); UI.backSettingsGroup(); }
                     else if (action === 'switch-tab') UI.switchLibraryTab(btn.dataset.tab);
@@ -1177,9 +1244,10 @@
                         StorageAdapter.saveSettings(); UI.applySettings(); AudioAdapter.applySettings();
                         if (key === 'keepScreenAwake') AudioAdapter.setWakeLock(State.keepScreenAwake);
                         if (key === 'waveformStyle') UI.updateWaveformStyleUI();
+                        if (key === 'performanceProfile') UI.showToast(State.lowEndModeActive ? 'Low-end performance profile active.' : 'Full visual quality active.', 'speed');
                         if(key === 'librarySort' || key === 'librarySortDir') { Library.sortLibrary(); UI.renderLibrary(); }
                         if(key === 'showArtworkLists') UI.updateHighlights();
-                        if (key === 'aiSongIdentification' && State.aiSongIdentification) UI.showToast('Experimental AI identification is enabled. Track text metadata is sent to your configured Gemini service; audio is never uploaded.', 'auto_awesome');
+                        if (key === 'aiSongIdentification' && State.aiSongIdentification) UI.showToast(State.geminiApiKeys?.length ? 'Experimental AI identification enabled. Text metadata is sent directly to Google; audio is never uploaded.' : 'Add a Gemini API key in Settings before AI identification can run.', 'auto_awesome');
                         if(['crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','seekStep','lyricsPlusEnabled'].includes(key)) UI.showToast('Playback preferences updated', 'check_circle');
                     });
                 });

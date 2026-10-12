@@ -41,7 +41,7 @@
             
             volume: 1, muted: false, playbackRate: 1, eq: 'off', eqPreset: 'flat', eqBands: [0,0,0,0,0], shuffle: false, repeat: 0, 
             
-            theme: 'system', accentPreset: 'dynamic', accentColor: '#ffffff', surfaceTheme: 'oled', textScale: 'normal', layoutDensity: 'comfortable', lowEndMode: false, aiSongIdentification: false,
+            theme: 'system', accentPreset: 'dynamic', accentColor: '#ffffff', surfaceTheme: 'oled', textScale: 'normal', layoutDensity: 'comfortable', lowEndMode: false, lowEndModeActive: false, performanceProfile: 'auto', aiSongIdentification: false, geminiApiKeys: [], geminiNextKeyIndex: 0,
             interfaceStyle: 'subtle', cornerRadius: 'rounded', motion: 'full', lyricsStyle: 'apple',
             lyricsPosition: 'center', lyricsVerticalOffset: 0, lyricsFontSize: 'normal', lyricsLineSpacing: 'normal', lyricsWidth: 'standard', lyricsEmphasis: 'soft',
             playerBackground: 'artwork', playerArtworkMode: 'full', visualizerMode:'off', resumePlayback: false,
@@ -114,5 +114,5 @@
                 finally { ArtworkCache.colorPending.delete(key); }
             },
             clearAll: () => { State.artworkUrls.forEach(url => URL.revokeObjectURL(url)); State.artworkUrls.clear(); ArtworkCache.pending.clear(); ArtworkCache.colorCache.clear(); ArtworkCache.colorPending.clear(); },
-            warmLibrary: (tracks) => { const items=(tracks||[]).filter(t=>t.artworkId); let i=0; const pump=()=>{const b=items.slice(i,i+12);i+=b.length;b.forEach(t=>ArtworkCache.getUrl(t).catch(()=>{}));if(i<items.length)(window.requestIdleCallback||((cb)=>setTimeout(cb,60)))(pump);}; pump(); }
+            warmLibrary: (tracks) => { const items=(tracks||[]).filter(t=>t.artworkId); let i=0; const low=!!(State.lowEndModeActive||State.lowEndMode); const batchSize=low?3:8; const pump=()=>{const b=items.slice(i,i+batchSize);i+=b.length;b.forEach(t=>ArtworkCache.getUrl(t).catch(()=>{}));if(i<items.length)(window.requestIdleCallback||((cb)=>setTimeout(cb,low?220:80)))(pump);}; (window.requestIdleCallback||((cb)=>setTimeout(cb,low?220:80)))(pump); }
         };

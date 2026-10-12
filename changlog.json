@@ -1,8 +1,18 @@
 {
   "app": "Mujic",
-  "version": "12.0.4",
+  "version": "12.0.5",
   "updatedAt": "2026-10-11",
   "entries": [
+    {
+      "version": "12.0.5",
+      "date": "2026-10-11",
+      "title": "Local Gemini keys and performance profile",
+      "changes": [
+        "Added Settings key manager for up to four local Gemini API keys with hide/show, save, test and fallback rotation.",
+        "Removed the same-origin Gemini API proxy; AI song identification now calls Google Gemini directly from the browser.",
+        "Added automatic Low-End Performance Profile and reduced artwork warm-up bursts, duplicate Web Audio setup and waveform canvas work."
+      ]
+    },
     {
       "version": "12.0.4",
       "date": "2026-10-11",

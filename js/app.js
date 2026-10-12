@@ -4,6 +4,8 @@
                 UI.init(); 
                 try {
                     await StorageAdapter.init(); await StorageAdapter.loadSettings();
+                    UI.geminiKeyDrafts = Array.isArray(State.geminiApiKeys) && State.geminiApiKeys.length ? State.geminiApiKeys.slice(0,4) : [''];
+                    UI.renderGeminiKeyManager();
                     if (!State.eqPreset) State.eqPreset = State.eq === 'off' ? 'flat' : 'custom';
                     try { if (navigator.storage?.persist) navigator.storage.persist().catch(()=>{}); } catch(e) {}
                     UI.applySettings();
