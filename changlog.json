@@ -1,8 +1,20 @@
 {
   "app": "Mujic",
-  "version": "12.0.5",
-  "updatedAt": "2026-10-11",
+  "version": "12.0.6",
+  "updatedAt": "2026-10-12",
   "entries": [
+    {
+      "version": "12.0.6",
+      "date": "2026-10-12",
+      "title": "Navigation and settings polish",
+      "changes": [
+        "Added a compact Gemini API key help guide with setup steps and common error troubleshooting.",
+        "Added Favorite Artists beside Playlists on wide Home layouts and retained a compact stacked layout on phones.",
+        "Added horizontal swipes between Home, Library, Search and Settings without hijacking vertical scrolls, tracks, rails, controls or settings subpages.",
+        "Simplified the footer to “Made with ♥ by Machhar”.",
+        "Hid the waveform canvas and effect-only styling when Audio Waveform is Off; regular playback progress remains visible without glow."
+      ]
+    },
     {
       "version": "12.0.5",
       "date": "2026-10-11",

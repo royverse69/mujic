@@ -590,7 +590,7 @@
         .scrubber-track { position:relative; overflow:hidden; border-radius:999px; }
         .scrubber-visualizer { z-index:2 !important; opacity:1 !important; }
         .scrubber-bg { z-index:1 !important; }
-        .scrubber-fill { z-index:3 !important; background:color-mix(in srgb, var(--accent-color) 24%, transparent) !important; box-shadow:none !important; }
+        .scrubber-fill { z-index:3 !important; background:var(--accent-color) !important; opacity:.72; box-shadow:none !important; filter:none !important; }
         .scrubber-thumb { z-index:3 !important; }
         @media (max-width:767px) {
             .home-actions { display:flex; }
@@ -843,7 +843,6 @@ body.layout-spacious .editorial-section { margin-bottom:56px; }
 .scrubber-track.visualizer-active { background:transparent !important; }
 .scrubber-track.visualizer-active .scrubber-bg { background:transparent !important; border-color:transparent !important; overflow:hidden; }
 .scrubber-track.visualizer-active .scrubber-fill { background:transparent !important; box-shadow:none !important; }
-.track-row.playing, .track-row.playing .item-title { background:transparent !important; color:var(--text-primary) !important; font-weight:500 !important; box-shadow:none !important; border-color:transparent !important; }
 
 /* The active lyric line remains readable without scaling or clipping on small screens. */
 .lyric-line { max-width:100%; overflow-wrap:anywhere; text-wrap:pretty; }
@@ -960,3 +959,54 @@ body.low-end-mode .track-row, body.low-end-mode .art-card, body.low-end-mode .bt
 .gemini-key-status { min-height:1.2em; margin-top:8px; color:var(--text-secondary); font-size:12px; line-height:1.4; }
 body.low-end-mode .gemini-key-panel { background:var(--bg-surface); }
 body.low-end-mode .gemini-key-panel *, body.low-end-mode .gemini-key-panel *::before, body.low-end-mode .gemini-key-panel *::after { animation:none !important; transition:none !important; }
+
+
+/* v12.0.6 — compact key help, favorite artists and native-style page swipes */
+.home-collection-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:0 28px; min-width:0; }
+.home-collection-section { min-width:0; }
+.home-collection-section .horizontal-rail { min-width:0; }
+.favorite-artist-card .art-wrapper { position:relative; }
+.favorite-artist-card .favorite-artist-mark { position:absolute; right:7px; bottom:7px; width:25px; height:25px; display:flex; align-items:center; justify-content:center; font-size:15px; border-radius:50%; color:var(--text-primary); background:var(--bg-surface); border:1px solid var(--border-subtle); }
+@media (min-width:1024px) {
+  .home-collection-grid.has-favorite-artists { grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr); }
+  .home-collection-grid.has-favorite-artists .horizontal-rail { gap:12px; }
+  .home-collection-grid.has-favorite-artists .art-card { min-width:clamp(110px,10vw,150px); max-width:clamp(110px,10vw,150px); }
+}
+#main-content { touch-action:pan-y; overscroll-behavior-x:contain; }
+.app-footer { padding:18px 20px calc(28px + var(--safe-bottom)); text-align:center; color:var(--text-secondary); font-size:12px; letter-spacing:.01em; }
+.app-footer span { color:var(--accent-color); padding:0 2px; }
+.gemini-key-panel { margin:10px 0 14px; padding:12px; border:1px solid var(--border-subtle); border-radius:13px; background:var(--bg-elevated); box-shadow:none; }
+.gemini-key-panel-heading { align-items:flex-start; gap:8px; margin-bottom:10px; }
+.gemini-key-panel-heading .settings-label { font-size:14px; }
+.gemini-key-panel-heading .settings-desc { margin-top:3px; font-size:12px; }
+.gemini-key-count { white-space:nowrap; }
+.gemini-key-list { gap:8px; }
+.gemini-key-entry label { font-size:11px; }
+.gemini-key-input-wrap input { height:40px; }
+.gemini-key-actions { gap:7px; margin-top:10px; }
+.gemini-key-actions .btn { min-height:38px; padding:8px 10px; }
+.gemini-key-warning { margin:9px 0 0 !important; font-size:11px !important; line-height:1.4 !important; color:var(--text-tertiary) !important; overflow-wrap:anywhere; }
+.gemini-key-status { margin:6px 0 0 !important; font-size:11px !important; line-height:1.35 !important; }
+.gemini-help { margin-top:10px; border-top:1px solid var(--border-subtle); padding-top:9px; }
+.gemini-help > summary { list-style:none; display:flex; align-items:center; gap:7px; min-height:34px; cursor:pointer; color:var(--text-primary); font-size:12px; font-weight:650; }
+.gemini-help > summary::-webkit-details-marker { display:none; }
+.gemini-help > summary::after { content:'expand_more'; font-family:'Material Symbols Rounded'; margin-left:auto; font-size:19px; color:var(--text-secondary); }
+.gemini-help[open] > summary::after { content:'expand_less'; }
+.gemini-help > summary .material-symbols-rounded { color:var(--text-secondary); font-size:18px; }
+.gemini-help-content { padding:5px 2px 2px; color:var(--text-secondary); font-size:11px; line-height:1.45; }
+.gemini-help-content ol { padding-left:18px; margin:0 0 10px; }
+.gemini-help-content li { margin:0 0 5px; padding-left:2px; }
+.gemini-help-content a { color:var(--accent-color); text-underline-offset:2px; }
+.gemini-faq { display:flex; flex-direction:column; gap:2px; padding:8px 0; border-top:1px solid var(--border-subtle); }
+.gemini-faq strong { color:var(--text-primary); font-size:11px; }
+.gemini-faq span { color:var(--text-secondary); }
+.gemini-help-note { margin:8px 0 0 !important; font-size:10px !important; line-height:1.4 !important; color:var(--text-tertiary) !important; }
+.scrubber-track:not(.visualizer-active) .scrubber-visualizer { display:none !important; }
+.scrubber-track:not(.visualizer-active) { box-shadow:none !important; filter:none !important; }
+.scrubber-track:not(.visualizer-active) .scrubber-bg { background:rgba(255,255,255,.09) !important; border-color:rgba(255,255,255,.04) !important; box-shadow:none !important; }
+.scrubber-track:not(.visualizer-active) .scrubber-fill { background:var(--text-secondary) !important; opacity:.48; box-shadow:none !important; filter:none !important; }
+@media (max-width:520px) {
+  .gemini-key-panel { padding:11px; }
+  .gemini-key-actions .btn { flex:1 1 28%; min-width:0; font-size:12px; }
+  .home-collection-grid { gap:0; }
+}

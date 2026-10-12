@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.5-client-gemini">
+    <meta name="application-version" content="12.0.6-client-gemini">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -66,10 +66,17 @@
                 <input type="file" id="file-input" multiple accept="audio/*,.mp3,.m4a,.aac,.flac,.wav,.ogg,.oga,.opus,.webm,.aiff,.aif,.alac" style="display: none;">
                 
                 <div id="home-content">
-                    <div class="editorial-section">
-                        <h2 class="section-title">Your Playlists</h2>
-                        <div class="editorial-divider"></div>
-                        <div class="horizontal-rail" id="home-playlists-rail"></div>
+                    <div class="home-collection-grid" id="home-collection-grid">
+                        <div class="editorial-section home-collection-section">
+                            <h2 class="section-title">Your Playlists</h2>
+                            <div class="editorial-divider"></div>
+                            <div class="horizontal-rail" id="home-playlists-rail"></div>
+                        </div>
+                        <div class="editorial-section home-collection-section" id="home-fav-artists-section" style="display:none;">
+                            <h2 class="section-title">Favorite Artists</h2>
+                            <div class="editorial-divider"></div>
+                            <div class="horizontal-rail" id="home-fav-artists-rail"></div>
+                        </div>
                     </div>
                     
                     <div class="editorial-section" id="top-picks-section" style="display:none;">
@@ -379,14 +386,14 @@
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsPlusEnabled" aria-label="Enable LyricsPlus fallback"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">AI Song Identification <span class="experimental-chip">Experimental</span></div><div class="settings-desc">For unclear filenames or missing artists, ask Gemini to suggest a likely title and artist before searching for lyrics. Only text metadata is sent to Google; audio files are never uploaded. Add one or more keys below.</div></div>
+                        <div class="settings-text"><div class="settings-label">AI Song Identification <span class="experimental-chip">Experimental</span></div><div class="settings-desc">Suggest a title and artist for unclear tags. Audio stays on this device.</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="aiSongIdentification" aria-label="Enable experimental AI song identification"></div>
                     </div>
                     <div class="gemini-key-panel" aria-labelledby="gemini-key-heading">
                         <div class="gemini-key-panel-heading">
                             <div>
                                 <div class="settings-label" id="gemini-key-heading">Gemini API keys</div>
-                                <div class="settings-desc">Add up to four keys. Mujic tries the next key if one is rejected or rate-limited.</div>
+                                <div class="settings-desc">Up to four keys, tried in order.</div>
                             </div>
                             <span class="setting-inline-value" id="gemini-key-count">0 / 4 saved</span>
                         </div>
@@ -396,11 +403,24 @@
                             <button class="btn btn-primary" type="button" data-action="save-gemini-keys">Save keys</button>
                             <button class="btn" type="button" data-action="test-gemini-keys">Test keys</button>
                         </div>
-                        <p class="gemini-key-warning">Keys are saved in this browser’s IndexedDB and sent directly from this browser to Google when AI identification is used. There is no Mujic API proxy. Browser-stored keys are not secrets from anyone who can inspect this device or its browser profile; use only on a trusted personal device and never publish a filled-in key.</p>
+                        <p class="gemini-key-warning">Saved on this device. Anyone with access to this browser profile may inspect the keys.</p>
+                        <details class="gemini-help">
+                            <summary><span class="material-symbols-rounded" aria-hidden="true">help</span> Need help?</summary>
+                            <div class="gemini-help-content">
+                                <ol>
+                                    <li>Open <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio — API keys</a>.</li>
+                                    <li>Sign in, choose <strong>Create API key</strong>, and copy the key.</li>
+                                    <li>Return to Mujic, tap <strong>Add key</strong>, paste it, then tap <strong>Save keys</strong>.</li>
+                                    <li>Tap <strong>Test keys</strong>, then enable AI Song Identification above.</li>
+                                </ol>
+                                <div class="gemini-faq"><strong>Invalid key / 403</strong><span>Check that the key is copied completely and the Gemini API is available for its project.</span></div>
+                                <div class="gemini-faq"><strong>429 / quota</strong><span>Wait for quota to reset or add another key with its own available quota.</span></div>
+                                <div class="gemini-faq"><strong>Network error</strong><span>Check the connection, browser extensions and API availability. Lyrics lookup continues if AI is unavailable.</span></div>
+                                <div class="gemini-faq"><strong>Wrong song match</strong><span>AI matching is experimental. Check the title and artist; the original audio is never uploaded.</span></div>
+                                <p class="gemini-help-note">Keys are sent directly to Google and stored in this browser. Do not use a shared device or publish a filled-in key.</p>
+                            </div>
+                        </details>
                         <p id="gemini-key-status" class="gemini-key-status" role="status" aria-live="polite"></p>
-                    </div>
-                    <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Experimental feature notice</div><div class="settings-desc">AI matches are experimental and may be wrong. Results are checked against lyrics-provider metadata where possible. If all saved Gemini keys fail, normal lyrics lookup continues.</div></div>
                     </div>
                 </div>
 
@@ -544,10 +564,7 @@
                     <div class="settings-row"><div class="settings-text"><div class="settings-label">Refresh update log</div><div class="settings-desc">Reload the latest release notes.</div></div><div class="settings-control-group"><button class="btn" type="button" data-action="refresh-changelog">Refresh</button></div></div>
                 </div>
 
-                <div style="text-align: center; padding: 16px 24px 32px 24px; color: var(--text-tertiary); font-size: 13px;">
-                    <div style="font-weight: 500;">Version 12.0.4</div>
-                    <div style="margin-top: 6px;">Made by Machhar · Ashutosh Roy (Mackkar)</div>
-                </div>
+                <div class="app-footer">Made with <span aria-label="love">♥</span> by Machhar</div>
             </section>
         </main>
     </div>

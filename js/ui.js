@@ -143,18 +143,23 @@
                 } catch (error) {
                     // Keep the update page useful when launched from file:// or while offline.
                     const fallbackEntries = [
+                        { version: '12.0.6', date: '2026-10-12', title: 'Navigation and settings polish', changes: [
+                            'Added a compact Gemini API key help guide with key creation, paste/save instructions and common error tips.',
+                            'Added Favorite Artists beside Playlists on wide Home layouts and touch swipes between the four main tabs.',
+                            'Removed the old footer byline in favor of “Made with ♥ by Machhar” and cleared waveform visuals when disabled.'
+                        ]},
+                        { version: '12.0.5', date: '2026-10-11', title: 'Local Gemini keys and performance profile', changes: [
+                            'Added a key manager for up to four locally stored Gemini API keys, with test and fallback rotation.',
+                            'Removed the custom Gemini proxy and reduced waveform and artwork work on low-end devices.'
+                        ]},
                         { version: '12.0.4', date: '2026-10-11', title: 'Performance and settings polish', changes: [
                             'Grouped preferences into focused settings pages and moved lyrics styling into Lyrics Display.',
                             'Added Low-End Device Mode to reduce GPU-heavy blur, shadows and nonessential motion.',
-                            'Bundled release notes fallback so update history remains readable offline and in local preview.'
+                            'Bundled release notes fallback so update history remains readable offline.'
                         ]},
                         { version: '12.0.3', date: '2026-10-11', title: 'Waveform and lyrics refinement', changes: [
                             'Reduced seek waveform height and movement, and limited drawing to the played section.',
-                            'Added persisted lyrics position, text size, line spacing, width and emphasis preferences.'
-                        ]},
-                        { version: '12.0.2', date: '2026-10-11', title: 'Settings and local startup fixes', changes: [
-                            'Fixed settings category initialization and inline artwork fallback handling.',
-                            'Kept Gemini credentials on the same-origin server instead of browser code.'
+                            'Added saved lyrics position, text size, line spacing, width and emphasis preferences.'
                         ]}
                     ];
                     root.innerHTML = fallbackEntries.map(entry => `<article class="changelog-entry"><div class="changelog-entry-head"><strong>${Utils.escapeHTML(entry.title)}</strong><span>${Utils.escapeHTML(entry.date)}</span></div><div class="changelog-version">${Utils.escapeHTML(entry.version)}</div><ul>${entry.changes.map(item => `<li>${Utils.escapeHTML(item)}</li>`).join('')}</ul></article>`).join('');
@@ -263,6 +268,30 @@
                     </div>`;
                 }
                 rhPlaylists.innerHTML = plHtml;
+
+                const artistSection = document.getElementById('home-fav-artists-section');
+                const artistRail = document.getElementById('home-fav-artists-rail');
+                const collectionGrid = document.getElementById('home-collection-grid');
+                const favoriteArtists = [...new Set((State.favoriteArtists || []).map(name => String(name || '').trim()).filter(Boolean))]
+                    .map(name => ({ name, tracks: State.library.filter(track => (track.albumArtist || track.artist || '') === name) }))
+                    .filter(item => item.tracks.length > 0);
+                if (artistSection && artistRail) {
+                    if (favoriteArtists.length) {
+                        artistSection.style.display = 'block';
+                        artistRail.innerHTML = favoriteArtists.map(item => {
+                            const artTrack = item.tracks.find(track => track.artworkId) || item.tracks[0];
+                            const fallback = Utils.generateDefaultArt(artTrack?.title || item.name);
+                            return `<div class="art-card favorite-artist-card" data-action="open-artist" data-key1="${Utils.escapeHTML(item.name)}">
+                                <div class="art-wrapper"><img src="${fallback}" data-art-id="${artTrack?.artworkId || ''}" data-seed="${Utils.escapeHTML(item.name)}" class="lazy-art" alt="" onerror="this.onerror=null; this.src='${fallback}';"><span class="favorite-artist-mark material-symbols-rounded" aria-hidden="true">favorite</span></div>
+                                <div class="item-title">${Utils.escapeHTML(item.name)}</div><div class="item-subtitle">${item.tracks.length} tracks</div>
+                            </div>`;
+                        }).join('');
+                    } else {
+                        artistSection.style.display = 'none';
+                        artistRail.innerHTML = '';
+                    }
+                    if (collectionGrid) collectionGrid.classList.toggle('has-favorite-artists', favoriteArtists.length > 0);
+                }
 
                 const topSection = document.getElementById('top-picks-section');
                 const topRail = document.getElementById('home-top-picks-rail');
@@ -881,7 +910,23 @@
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
                 UI.showToast(`${kind === 'settings' ? 'Settings' : 'Listening stats'} exported`, 'download');
             },
-            updateVisualizerUI: () => { const waveLabels={default:'Default',wavy:'Wavy',slim:'Slim',squiggly:'Squiggly'}; const map={off:'Off',spectrum:'Spectrum Bars',wave:waveLabels[State.waveformStyle]||'Wavy',pulse:'Pulse',dots:'Dots',mirror:'Mirror Bars',aurora:'Pulse'}; const label=map[State.visualizerMode]||'Off'; const a=document.getElementById('visualizer-status-label'),b=document.getElementById('visualizer-summary-label'),c=document.getElementById('visualizer-settings-summary'); if(a)a.innerText=label;if(b)b.innerText=label;if(c)c.innerText=label; document.querySelectorAll('[data-action="set-visualizer"]').forEach(x=>{const on=x.dataset.val===(State.visualizerMode==='aurora'?'pulse':State.visualizerMode);x.classList.toggle('active-state',on);x.setAttribute('aria-pressed',String(on));}); const scrubber=document.getElementById('scrubber-bar'); if(scrubber) scrubber.classList.toggle('visualizer-active',State.visualizerMode!=='off' && State.isFullPlayerOpen); },
+            updateVisualizerUI: () => {
+                const waveLabels={default:'Default',wavy:'Wavy',slim:'Slim',squiggly:'Squiggly'};
+                const mode = State.visualizerMode === 'aurora' ? 'pulse' : State.visualizerMode;
+                const map={off:'Off',spectrum:'Spectrum Bars',wave:waveLabels[State.waveformStyle]||'Wavy',pulse:'Pulse',dots:'Dots',mirror:'Mirror Bars'};
+                const label=map[mode]||'Off';
+                const a=document.getElementById('visualizer-status-label'),b=document.getElementById('visualizer-summary-label'),c=document.getElementById('visualizer-settings-summary');
+                if(a)a.innerText=label;if(b)b.innerText=label;if(c)c.innerText=label;
+                document.querySelectorAll('[data-action="set-visualizer"]').forEach(x=>{const on=x.dataset.val===mode;x.classList.toggle('active-state',on);x.setAttribute('aria-pressed',String(on));});
+                const scrubber=document.getElementById('scrubber-bar');
+                const effectOn = mode !== 'off' && State.isFullPlayerOpen;
+                if(scrubber) {
+                    scrubber.classList.toggle('visualizer-active', effectOn);
+                    const canvas=scrubber.querySelector('.scrubber-visualizer');
+                    if(canvas) canvas.style.display = effectOn ? 'block' : 'none';
+                    if(!effectOn && canvas) { const ctx=canvas.getContext('2d'); if(ctx) ctx.clearRect(0,0,canvas.width,canvas.height); }
+                }
+            },
             updateWaveformStyleUI: () => {
                 const labels = { default:'Default', wavy:'Wavy', slim:'Slim', squiggly:'Squiggly' };
                 const style = labels[State.waveformStyle] ? State.waveformStyle : 'wavy';
@@ -1108,6 +1153,7 @@
                 document.addEventListener('contextmenu', (e) => { if(e.target.closest('.playlist-longpress-target') || e.target.closest('.home-track-longpress-target')) e.preventDefault(); });
 
                 document.body.addEventListener('click', async (e) => {
+                    if (State.suppressNextClickUntil && Date.now() < State.suppressNextClickUntil) { e.preventDefault(); e.stopPropagation(); State.suppressNextClickUntil = 0; return; }
                     const btn = e.target.closest('[data-action]'); if (!btn) return;
                     const action = btn.dataset.action;
                     
@@ -1256,6 +1302,31 @@
             },
             setupGestures: () => {
                 window.addEventListener('resize', () => { AudioAdapter.resizeVisualizer(); if (AudioAdapter.visualizerShouldRun()) AudioAdapter.renderScrubberVisualizerFrame(); });
+                // Native-style horizontal navigation between the four primary tabs. Vertical scrolling,
+                // nested rails, lyrics, inputs, controls and the expanded player keep their own gestures.
+                const mainContent = document.getElementById('main-content');
+                const primaryViews = ['home','library','search','settings'];
+                let navSwipeStart = null;
+                const swipeIgnoreSelector = 'input,textarea,select,a,.horizontal-rail,.tab-bar,.search-container,.settings-subpage:not(.hidden),.player-lyrics-container,.scrubber-wrap,.bottom-sheet,.dialog-box,[data-eq-band],.lyrics-offset-control';
+                mainContent?.addEventListener('pointerdown', (e) => {
+                    if (e.pointerType !== 'touch' || State.isFullPlayerOpen || !mainContent.contains(e.target)) { navSwipeStart = null; return; }
+                    const view = document.querySelector('.view.active');
+                    const viewId = view?.id?.replace('view-','');
+                    if (!primaryViews.includes(viewId) || e.target.closest(swipeIgnoreSelector)) { navSwipeStart = null; return; }
+                    navSwipeStart = {x:e.clientX, y:e.clientY, viewId, pointerId:e.pointerId};
+                }, {passive:true});
+                mainContent?.addEventListener('pointerup', (e) => {
+                    if (!navSwipeStart || e.pointerId !== navSwipeStart.pointerId) { navSwipeStart = null; return; }
+                    const start = navSwipeStart; navSwipeStart = null;
+                    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+                    if (Math.abs(dx) < 78 || Math.abs(dy) > 58 || Math.abs(dx) < Math.abs(dy) * 1.35) return;
+                    const idx = primaryViews.indexOf(start.viewId);
+                    const nextIdx = dx < 0 ? idx + 1 : idx - 1;
+                    if (nextIdx < 0 || nextIdx >= primaryViews.length) return;
+                    State.suppressNextClickUntil = Date.now() + 320;
+                    UI.switchView(primaryViews[nextIdx]);
+                }, {passive:true});
+                mainContent?.addEventListener('pointercancel', () => { navSwipeStart = null; }, {passive:true});
                 const sb = document.getElementById('scrubber-bar');
                 const updateScrubber = (e) => { 
                     const r = sb.getBoundingClientRect(); const x = e.clientX || (e.touches && e.touches[0].clientX);

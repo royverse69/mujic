@@ -1,7 +1,7 @@
-const CACHE_NAME = 'mujic-pwa-v12.0.4-settings-performance';
+const CACHE_NAME = 'mujic-pwa-v12.0.6-home-artists-swipe-help';
 const APP_SHELL = [
   './', './index.html', './manifest.webmanifest', './changlog.json', './css/app.css',
-  './js/vendor-loader.js', './js/core.js', './js/backend.js', './js/lyrics.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/app.js',
+  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/app.js',
   './icons/icon-192.png', './icons/icon-512.png'
 ];
 const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];
