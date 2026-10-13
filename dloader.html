@@ -13,13 +13,13 @@
 :root {
   color-scheme: dark;
   --bg: #050505;
-  --bg-elevated: #121212;
-  --border: #222222;
+  --bg-elevated: #151515;
+  --border: #262626;
   --text: #ffffff;
   --text-muted: #888888;
   --accent: #b8f36b;
   --accent-text: #000000;
-  --radius: 12px;
+  --radius: 16px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,69 +30,58 @@ button { cursor: pointer; transition: transform 0.1s, opacity 0.2s; }
 button:active { transform: scale(0.95); }
 button:disabled { opacity: 0.5; pointer-events: none; }
 
-/* Sticky Header */
+.header-wrapper {
+  position: sticky; top: max(16px, env(safe-area-inset-top)); z-index: 50;
+  padding: 0 12px; margin-bottom: 24px;
+}
 .header {
-  position: sticky; top: 0; z-index: 50;
-  background: rgba(5, 5, 5, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  padding: 12px 16px; border-bottom: 1px solid var(--border);
-  display: flex; flex-direction: column; gap: 12px;
+  background: rgba(18, 18, 18, 0.75); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  padding: 16px; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 14px;
+  max-width: 700px; margin: 0 auto;
 }
 .header-top { display: flex; justify-content: space-between; align-items: center; }
 .brand { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; color: var(--accent); }
 
 /* Format Toggle */
-.format-toggle { display: flex; background: var(--bg-elevated); border-radius: 99px; padding: 2px; border: 1px solid var(--border); }
-.format-btn { padding: 4px 12px; font-size: 11px; font-weight: 600; border-radius: 99px; color: var(--text-muted); transition: all 0.2s; }
+.format-toggle { display: flex; background: #000; border-radius: 99px; padding: 3px; border: 1px solid var(--border); }
+.format-btn { padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 99px; color: var(--text-muted); transition: all 0.2s; }
 .format-btn.active { background: var(--text); color: var(--bg); }
 
 /* Search Bar */
-.search-box { display: flex; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 99px; padding: 4px 4px 4px 16px; align-items: center; transition: border-color 0.2s; }
+.search-box { display: flex; background: #000; border: 1px solid var(--border); border-radius: 99px; padding: 6px 6px 6px 20px; align-items: center; transition: border-color 0.2s; }
 .search-box:focus-within { border-color: var(--accent); }
 .search-box input { flex: 1; outline: none; padding: 8px 0; font-size: 15px; min-width: 0; }
-.search-box input::placeholder { color: var(--text-muted); }
-.search-btn { background: var(--text); color: var(--bg); font-weight: 600; padding: 8px 20px; border-radius: 99px; font-size: 13px; }
+.search-box input::placeholder { color: #555; }
+.search-btn { background: var(--text); color: var(--bg); font-weight: 700; padding: 10px 24px; border-radius: 99px; font-size: 14px; }
 
-/* Main Content */
-main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12px 40px; display: flex; flex-direction: column; gap: 16px; }
-.status-area { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; }
+main { flex: 1; width: 100%; max-width: 724px; margin: 0 auto; padding: 0 12px 40px; display: flex; flex-direction: column; gap: 16px; }
+.status-area { display: flex; justify-content: space-between; align-items: center; padding: 0 8px; }
 .status-text { font-size: 12px; color: var(--text-muted); }
-.quality-tip { font-size: 11px; color: var(--accent); font-weight: 500; }
+.quality-tip { font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
-/* Results */
-#results { display: flex; flex-direction: column; gap: 8px; }
-.empty-state { text-align: center; color: var(--text-muted); padding: 40px 16px; font-size: 14px; }
+#results { display: flex; flex-direction: column; gap: 10px; }
+.empty-state { text-align: center; color: var(--text-muted); padding: 60px 16px; font-size: 14px; }
 
-/* Song Card */
-.song { display: flex; gap: 12px; align-items: center; padding: 8px; background: transparent; border-radius: var(--radius); transition: background 0.2s; }
+.song { display: flex; gap: 14px; align-items: center; padding: 10px; background: transparent; border-radius: 20px; transition: background 0.2s; }
 .song:hover { background: var(--bg-elevated); }
 
-/* Cover & Preview Player */
-.cover-wrap { position: relative; width: 52px; height: 52px; border-radius: 8px; overflow: hidden; background: #222; flex-shrink: 0; }
+.cover-wrap { position: relative; width: 56px; height: 56px; border-radius: 12px; overflow: hidden; background: #222; flex-shrink: 0; }
 .cover { width: 100%; height: 100%; object-fit: cover; display: block; }
-.play-btn { position: absolute; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: #fff; opacity: 1; }
-.play-btn svg { width: 22px; height: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+.play-btn { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: #fff; opacity: 1; transition: background 0.2s; }
+.play-btn svg { width: 24px; height: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
 .play-btn.loading svg { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Distraction Engine EQ (on cover) */
-.eq { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:flex-end; justify-content:center; gap:3px; padding-bottom:12px; }
-.eq i { width:4px; background:var(--accent); border-radius:2px; animation: eq .7s ease-in-out infinite alternate; transform-origin: bottom; }
-.eq i:nth-child(1){height:10px;animation-delay:-.1s} .eq i:nth-child(2){height:22px;animation-delay:-.4s}
-.eq i:nth-child(3){height:14px;animation-delay:-.2s} .eq i:nth-child(4){height:26px;animation-delay:-.5s}
-@keyframes eq { from{transform:scaleY(.25)} to{transform:scaleY(1)} }
-
-/* Metadata */
 .info { min-width: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; }
-.title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
-.artist { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.artist { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Download Actions */
-.dl-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; color: var(--accent); background: rgba(184, 243, 107, 0.1); flex-shrink: 0; }
-.dl-btn svg.icon { width: 18px; height: 18px; }
+.dl-btn { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; color: var(--accent); background: rgba(184, 243, 107, 0.1); flex-shrink: 0; }
+.dl-btn svg.icon { width: 22px; height: 22px; }
 
-/* Distraction Engine Progress Ring */
-.dl-btn.busy { position: relative; background: transparent; color: var(--text); font-size: 11px; font-weight: 700; }
-.dl-btn.busy svg.ring { position: absolute; inset: 0; width: 36px; height: 36px; transform: rotate(-90deg); }
+.dl-btn.busy { position: relative; background: transparent; color: var(--text); font-size: 12px; font-weight: 800; }
+.dl-btn.busy svg.ring { position: absolute; inset: 0; width: 44px; height: 44px; transform: rotate(-90deg); }
 .ring circle { fill: none; stroke-width: 3; }
 .ring .bg { stroke: var(--border); }
 .ring .fg { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 100.5; stroke-dashoffset: 100.5; transition: stroke-dashoffset .25s ease-out; }
@@ -100,87 +89,54 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
 .dl-btn.pop svg.icon { stroke: var(--accent-text); }
 @keyframes pop { 0%{transform:scale(.6)} 100%{transform:scale(1)} }
 
-/* Fact Bar */
+.eq { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:flex-end; justify-content:center; gap:3px; padding-bottom:14px; }
+.eq i { width:4px; background:var(--accent); border-radius:2px; animation: eq .7s ease-in-out infinite alternate; transform-origin: bottom; }
+.eq i:nth-child(1){height:10px;animation-delay:-.1s} .eq i:nth-child(2){height:22px;animation-delay:-.4s}
+.eq i:nth-child(3){height:14px;animation-delay:-.2s} .eq i:nth-child(4){height:26px;animation-delay:-.5s}
+@keyframes eq { from{transform:scaleY(.25)} to{transform:scaleY(1)} }
+
 #factBar { position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom)); transform:translate(-50%,30px);
-  width: min(92vw, 420px); background: rgba(18, 18, 18, 0.95); backdrop-filter: blur(8px); border:1px solid var(--border); border-radius:14px;
-  padding:12px 16px; font-size:13px; color:var(--text); opacity:0; pointer-events:none; transition:.3s; z-index:100; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  width: min(92vw, 420px); background: rgba(21, 21, 21, 0.95); backdrop-filter: blur(12px); border:1px solid rgba(255,255,255,0.1); border-radius:16px;
+  padding:14px 18px; font-size:13px; color:var(--text); opacity:0; pointer-events:none; transition:.4s cubic-bezier(0.16, 1, 0.3, 1); z-index:100; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
 #factBar.show { opacity:1; transform:translate(-50%,0); }
-#factBar b { color:var(--accent); display:block; font-size:11px; letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px; }
-#factBar span { display:block; transition:opacity .25s; }
-
-/* Footer */
-.footer-links { display: flex; justify-content: center; gap: 16px; padding: 24px 0; margin-top: auto; }
-.footer-links button { color: var(--text-muted); font-size: 11px; text-decoration: underline; text-underline-offset: 4px; }
-
-/* Modals */
-.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 200; }
-.modal.open { display: flex; }
-.modal-card { width: 100%; max-width: 400px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
-.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.modal-head h2 { font-size: 16px; font-weight: 700; }
-.modal-close { padding: 6px 12px; background: var(--border); border-radius: 99px; font-size: 12px; font-weight: 600; }
-.modal-body { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
-.modal-body ul { padding-left: 16px; margin: 8px 0; }
-.modal-body li { margin-bottom: 4px; }
+#factBar b { color:var(--accent); display:block; font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px; }
+#factBar span { display:block; transition:opacity .25s; line-height: 1.4; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="header-top">
-    <div class="brand">Mujic Dloader</div>
-    <div class="format-toggle">
-      <button id="fmtM4a" class="format-btn active">M4A (HQ)</button>
-      <button id="fmtMp3" class="format-btn">MP3</button>
+<div class="header-wrapper">
+  <div class="header">
+    <div class="header-top">
+      <div class="brand">Mujic Dloader</div>
+      <div class="format-toggle">
+        <button id="fmtM4a" class="format-btn active">M4A (HQ)</button>
+        <button id="fmtMp3" class="format-btn">MP3</button>
+      </div>
     </div>
-  </div>
-  <div class="search-box">
-    <input id="query" type="search" placeholder="Search track or artist..." autocomplete="off">
-    <button id="searchBtn" class="search-btn">Find</button>
+    <div class="search-box">
+      <input id="query" type="search" placeholder="Search track or artist..." autocomplete="off">
+      <button id="searchBtn" class="search-btn">Find</button>
+    </div>
   </div>
 </div>
 
 <main>
   <div class="status-area">
     <div id="status" class="status-text">Ready. Search to begin.</div>
-    <div id="qualityTip" class="quality-tip">Native Quality (Fastest)</div>
+    <div id="qualityTip" class="quality-tip">Native Quality</div>
   </div>
   <div id="results"><div class="empty-state">Find any track to preview or download offline.</div></div>
-  
-  <div class="footer-links">
-    <button data-modal="termsModal">Terms</button>
-    <button data-modal="privacyModal">Privacy</button>
-  </div>
 </main>
 
 <div id="factBar"></div>
-
-<div class="modal" id="termsModal">
-  <div class="modal-card">
-    <div class="modal-head"><h2>Terms</h2><button class="modal-close" data-close="termsModal">Close</button></div>
-    <div class="modal-body">
-      <p>Independent interface. Not affiliated with streaming services.</p>
-      <ul><li>Ensure downloads comply with applicable law.</li><li>Provided as-is.</li></ul>
-    </div>
-  </div>
-</div>
-
-<div class="modal" id="privacyModal">
-  <div class="modal-card">
-    <div class="modal-head"><h2>Privacy</h2><button class="modal-close" data-close="privacyModal">Close</button></div>
-    <div class="modal-body">
-      <p>Lightweight and private.</p>
-      <ul><li>No analytics. Processing happens locally in your browser.</li></ul>
-    </div>
-  </div>
-</div>
 
 <script>
 (() => {
   const BACKEND = "https://gaana-suno-varna-machhar-aajayega.onrender.com/";
   const $ = id => document.getElementById(id);
+  const SOURCE_TAG_TEXT = "downloaded from https://royverse69.github.io/mujic/dloader.html";
   
-  // Format state
   let currentFormat = localStorage.getItem('mujic_format') || 'm4a';
   const updateFormatUI = () => {
     $('fmtM4a').classList.toggle('active', currentFormat === 'm4a');
@@ -194,7 +150,6 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
   window.urlCache = new Map();
   fetch(BACKEND).catch(()=>{}); // Wake backend
 
-  // Icons
   const Icons = {
     play: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`,
     pause: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`,
@@ -224,7 +179,6 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
   }
   function hideFacts() { clearInterval(fact.timer); $("factBar").classList.remove("show"); }
 
-  // Progress UI hook
   function makeProgress(dlBtn, coverWrap) {
     dlBtn.className = "dl-btn busy"; dlBtn.disabled = false;
     dlBtn.innerHTML = `<svg class="ring" viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="16"/><circle class="fg" cx="18" cy="18" r="16"/></svg><span class="pct">0</span>`;
@@ -399,6 +353,7 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
       textItem("\u00A9gen", song.genre),
       textItem("\u00A9wrt", song.composer),
       textItem("cprt", song.copyright),
+      textItem("\u00A9cmt", SOURCE_TAG_TEXT), // Hidden source tag for M4A
       trk ? mk("trkn", dataAtom(0, new Uint8Array([0,0,(trk>>8)&255,trk&255,0,0,0,0]))) : null,
     ].filter(Boolean);
 
@@ -528,6 +483,12 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
     return concatBytes([new Uint8Array([1]), out]);
   }
   function frameId3(id, data) { return concatBytes([new TextEncoder().encode(id), be32(data.length), new Uint8Array([0,0]), data]); }
+  
+  // Custom TXXX Frame for hidden metadata
+  function txxxFrame(desc, val) {
+    const enc = new TextEncoder(); // Use ISO-8859-1 for ASCII text
+    return frameId3("TXXX", concatBytes([new Uint8Array([0]), enc.encode(desc), new Uint8Array([0]), enc.encode(val)]));
+  }
 
   async function tagMp3(mp3Blob, song, coverData) {
     const audio = new Uint8Array(await mp3Blob.arrayBuffer());
@@ -535,7 +496,8 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
       frameId3("TIT2", utf16(song.title)),
       frameId3("TPE1", utf16(song.artists)),
       frameId3("TALB", utf16(song.album)),
-      frameId3("TYER", utf16(song.year))
+      frameId3("TYER", utf16(song.year)),
+      txxxFrame("Source", SOURCE_TAG_TEXT) // Hidden source tag for MP3
     ];
 
     if (coverData) {
@@ -605,6 +567,7 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
   let currentPlayingId = null;
   let activePlayIcon = null;
 
+  // Stop immediately after 30 seconds to save data
   audioPlayer.addEventListener("timeupdate", () => {
     if (audioPlayer.currentTime >= 30) { audioPlayer.pause(); audioPlayer.currentTime = 0; resetPlayIcon(); }
   });
@@ -635,13 +598,20 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
       const playBtn = document.createElement("button");
       playBtn.className = "play-btn"; playBtn.innerHTML = Icons.play;
 
+      // Instant Play/Pause Toggle
       playBtn.onclick = async () => {
         if (currentPlayingId === s.id) {
-          if (!audioPlayer.paused) { audioPlayer.pause(); playBtn.innerHTML = Icons.play; } 
-          else { audioPlayer.play(); playBtn.innerHTML = Icons.pause; }
+          if (!audioPlayer.paused) { 
+            audioPlayer.pause(); 
+            playBtn.innerHTML = Icons.play; 
+          } else { 
+            audioPlayer.play(); 
+            playBtn.innerHTML = Icons.pause; 
+          }
           return;
         }
-        resetPlayIcon();
+        
+        resetPlayIcon(); // Reset any currently playing track
         playBtn.innerHTML = Icons.spinner; playBtn.classList.add("loading");
         try {
           const url = window.urlCache?.get(s.id) || await fetchAudioUrl(s.id, "96kbps"); 
@@ -668,7 +638,7 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
       let busy = false;
       dlBtn.onclick = async () => {
         if (busy) return; busy = true;
-        const ui = makeProgress(dlBtn, coverWrap);
+        const ui = makeProgress(dlBtn, coverWrap); // Instant UI feedback
         
         try {
           const urlP = window.urlCache?.get(s.id) || fetchAudioUrl(s.id, "320kbps");
@@ -686,8 +656,8 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
             ui.finish();
 
           } else {
-            // MP3 Pipeline
-            const audioBuffer = await urlP.then(u => fetchWithProgress(u, p => ui.set(p * 0.4))); // Download is 40%
+            // High-Speed Parallel MP3 Pipeline
+            const audioBuffer = await urlP.then(u => fetchWithProgress(u, p => ui.set(p * 0.4))); // Downloading takes ~40% of perceived wait
             const cover = await coverP;
             
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -695,7 +665,7 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
             const decoded = await ctx.decodeAudioData(audioBuffer.buffer.slice(0));
             ctx.close();
 
-            const mp3Blob = await convertToMp3(decoded, p => ui.set(40 + (p * 0.6))); // Encoding is 60%
+            const mp3Blob = await convertToMp3(decoded, p => ui.set(40 + (p * 0.6))); // Encoding covers the rest
             const finalBlob = await tagMp3(mp3Blob, s, cover);
             
             const a = document.createElement("a"), u = URL.createObjectURL(finalBlob);
@@ -713,7 +683,7 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
       root.append(card);
     });
 
-    // Prefetch latency hiding
+    // Prefetch first 5 streams to eliminate latency
     songs.slice(0, 5).forEach(raw => {
       const id = parseSong(raw).id;
       if (!window.urlCache.has(id)) {
@@ -754,11 +724,6 @@ main { flex: 1; width: 100%; max-width: 700px; margin: 0 auto; padding: 12px 12p
   $("searchBtn").onclick = performSearch;
   $("query").oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(performSearch, 500); };
   $("query").onkeydown = e => { if (e.key === "Enter") performSearch(); };
-
-  // Modals
-  document.querySelectorAll("[data-modal]").forEach(btn => btn.onclick = () => $(btn.dataset.modal).classList.add("open"));
-  document.querySelectorAll("[data-close]").forEach(btn => btn.onclick = () => $(btn.dataset.close).classList.remove("open"));
-  document.querySelectorAll(".modal").forEach(modal => modal.onclick = e => { if (e.target === modal) modal.classList.remove("open"); });
 
 })();
 </script>
