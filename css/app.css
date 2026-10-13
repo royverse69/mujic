@@ -325,8 +325,6 @@
         .sheet-option .material-symbols-rounded { color: var(--text-secondary); pointer-events: none;}
         .sheet-option.destructive .material-symbols-rounded { color: #ff453a; pointer-events: none;}
         .sheet-option-right { margin-left: auto; color: var(--text-secondary); font-size: 13px; pointer-events: none;}
-        .sheet-option[data-action="set-visualizer"].active-state { background:rgba(255,255,255,.075); color:var(--text-primary); }
-        .sheet-option[data-action="set-visualizer"].active-state::after { content:'✓'; margin-left:auto; color:var(--accent-color); font-weight:800; }
 
         .grid-view { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: var(--space-16); }
         .volume-container { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-8); width: 100%; touch-action: none; }
@@ -942,25 +940,6 @@ body.low-end-mode .art-wrapper img { transition: none !important; }
 body.low-end-mode .track-row, body.low-end-mode .art-card, body.low-end-mode .btn { transition: none !important; }
 
 
-/* v12.0.5 local Gemini key manager and low-end profile */
-.gemini-key-panel { margin:12px 14px 16px; padding:14px; border:1px solid var(--border-subtle); border-radius:14px; background:var(--bg-surface); }
-.gemini-key-panel-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
-.gemini-key-list { display:flex; flex-direction:column; gap:10px; }
-.gemini-key-entry { min-width:0; }
-.gemini-key-entry label { display:block; color:var(--text-secondary); font-size:12px; margin:0 0 5px 2px; }
-.gemini-key-input-wrap { display:flex; align-items:center; gap:5px; min-width:0; }
-.gemini-key-input-wrap input { flex:1; min-width:0; width:0; height:42px; padding:0 11px; border-radius:10px; border:1px solid var(--border-subtle); background:var(--bg-elevated); color:var(--text-primary); outline:none; font:13px var(--font-family); }
-.gemini-key-input-wrap input:focus { border-color:var(--accent-color); }
-.gemini-key-input-wrap .icon-btn { width:38px; height:38px; min-width:38px; }
-.gemini-key-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-.gemini-key-actions .btn { flex:1 1 auto; padding:9px 12px; min-height:38px; font-size:13px; }
-.gemini-key-actions .btn:disabled { opacity:.4; cursor:not-allowed; }
-.gemini-key-warning { margin-top:12px; color:var(--text-tertiary); font-size:11px; line-height:1.45; overflow-wrap:anywhere; }
-.gemini-key-status { min-height:1.2em; margin-top:8px; color:var(--text-secondary); font-size:12px; line-height:1.4; }
-body.low-end-mode .gemini-key-panel { background:var(--bg-surface); }
-body.low-end-mode .gemini-key-panel *, body.low-end-mode .gemini-key-panel *::before, body.low-end-mode .gemini-key-panel *::after { animation:none !important; transition:none !important; }
-
-
 /* v12.0.6 — compact key help, favorite artists and native-style page swipes */
 .home-collection-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:0 28px; min-width:0; }
 .home-collection-section { min-width:0; }
@@ -975,38 +954,93 @@ body.low-end-mode .gemini-key-panel *, body.low-end-mode .gemini-key-panel *::be
 #main-content { touch-action:pan-y; overscroll-behavior-x:contain; }
 .app-footer { padding:18px 20px calc(28px + var(--safe-bottom)); text-align:center; color:var(--text-secondary); font-size:12px; letter-spacing:.01em; }
 .app-footer span { color:var(--accent-color); padding:0 2px; }
-.gemini-key-panel { margin:10px 0 14px; padding:12px; border:1px solid var(--border-subtle); border-radius:13px; background:var(--bg-elevated); box-shadow:none; }
-.gemini-key-panel-heading { align-items:flex-start; gap:8px; margin-bottom:10px; }
-.gemini-key-panel-heading .settings-label { font-size:14px; }
-.gemini-key-panel-heading .settings-desc { margin-top:3px; font-size:12px; }
-.gemini-key-count { white-space:nowrap; }
-.gemini-key-list { gap:8px; }
-.gemini-key-entry label { font-size:11px; }
-.gemini-key-input-wrap input { height:40px; }
-.gemini-key-actions { gap:7px; margin-top:10px; }
-.gemini-key-actions .btn { min-height:38px; padding:8px 10px; }
-.gemini-key-warning { margin:9px 0 0 !important; font-size:11px !important; line-height:1.4 !important; color:var(--text-tertiary) !important; overflow-wrap:anywhere; }
-.gemini-key-status { margin:6px 0 0 !important; font-size:11px !important; line-height:1.35 !important; }
-.gemini-help { margin-top:10px; border-top:1px solid var(--border-subtle); padding-top:9px; }
-.gemini-help > summary { list-style:none; display:flex; align-items:center; gap:7px; min-height:34px; cursor:pointer; color:var(--text-primary); font-size:12px; font-weight:650; }
-.gemini-help > summary::-webkit-details-marker { display:none; }
-.gemini-help > summary::after { content:'expand_more'; font-family:'Material Symbols Rounded'; margin-left:auto; font-size:19px; color:var(--text-secondary); }
-.gemini-help[open] > summary::after { content:'expand_less'; }
-.gemini-help > summary .material-symbols-rounded { color:var(--text-secondary); font-size:18px; }
-.gemini-help-content { padding:5px 2px 2px; color:var(--text-secondary); font-size:11px; line-height:1.45; }
-.gemini-help-content ol { padding-left:18px; margin:0 0 10px; }
-.gemini-help-content li { margin:0 0 5px; padding-left:2px; }
-.gemini-help-content a { color:var(--accent-color); text-underline-offset:2px; }
-.gemini-faq { display:flex; flex-direction:column; gap:2px; padding:8px 0; border-top:1px solid var(--border-subtle); }
-.gemini-faq strong { color:var(--text-primary); font-size:11px; }
-.gemini-faq span { color:var(--text-secondary); }
-.gemini-help-note { margin:8px 0 0 !important; font-size:10px !important; line-height:1.4 !important; color:var(--text-tertiary) !important; }
 .scrubber-track:not(.visualizer-active) .scrubber-visualizer { display:none !important; }
 .scrubber-track:not(.visualizer-active) { box-shadow:none !important; filter:none !important; }
 .scrubber-track:not(.visualizer-active) .scrubber-bg { background:rgba(255,255,255,.09) !important; border-color:rgba(255,255,255,.04) !important; box-shadow:none !important; }
 .scrubber-track:not(.visualizer-active) .scrubber-fill { background:var(--text-secondary) !important; opacity:.48; box-shadow:none !important; filter:none !important; }
 @media (max-width:520px) {
-  .gemini-key-panel { padding:11px; }
-  .gemini-key-actions .btn { flex:1 1 28%; min-width:0; font-size:12px; }
   .home-collection-grid { gap:0; }
+}
+
+
+/* v12.0.9 — opaque menus and unified waveform rendering */
+.bottom-sheet, .bottom-sheet.glass-surface {
+  background: var(--bg-elevated) !important;
+  background-color: var(--bg-elevated) !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  opacity: 1 !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: 0 20px 48px rgba(0,0,0,.5) !important;
+}
+.bottom-sheet-overlay { background: rgba(0,0,0,.66) !important; }
+#mini-player .mini-progress-bar { height: 2px; transition: height .14s ease; }
+#mini-player.waveform-active .mini-progress-bar { height: 9px; background: transparent; }
+#mini-player.waveform-active .mini-progress-fill { opacity: 0; }
+.mini-visualizer { position:absolute; left:0; bottom:0; width:100%; height:9px; display:none; pointer-events:none; z-index:2; opacity:1; }
+#mini-player.waveform-active .mini-visualizer { display:block !important; }
+.waveform-style-option.active-state { background: var(--bg-active) !important; border-color: var(--accent-color) !important; }
+
+
+/* v12.0.11 — local-file changelog, touch-scrollable Home rails, clearer Equalizer label */
+#main-content { touch-action: auto !important; }
+.horizontal-rail {
+  display:flex; flex-direction:row; flex-wrap:nowrap;
+  overflow-x:auto !important; overflow-y:hidden !important;
+  -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+  touch-action:pan-x !important; scroll-snap-type:x mandatory;
+  scrollbar-width:none;
+}
+.horizontal-rail > .art-card { flex:0 0 140px; min-width:140px; max-width:140px; }
+.horizontal-rail > .top-pick-card { flex:0 0 156px; }
+.home-collection-section, .home-collection-section .horizontal-rail { width:100%; max-width:100%; min-width:0; }
+@media (max-width:767px) {
+  .horizontal-rail { gap:10px; }
+  .horizontal-rail > .art-card { flex:0 0 108px; min-width:108px; max-width:108px; }
+  .horizontal-rail > .top-pick-card { flex:0 0 108px; min-width:108px; max-width:108px; }
+}
+@media (max-width:380px) {
+  .horizontal-rail > .art-card, .horizontal-rail > .top-pick-card { flex-basis:102px; min-width:102px; max-width:102px; }
+}
+@media (min-width:768px) {
+  .horizontal-rail > .art-card { flex-basis:140px; min-width:140px; max-width:140px; }
+}
+
+
+/* v12.0.14 — visible preference state, responsive About links, and library picker */
+.settings-row .setting-inline-value {
+  display:inline-flex; align-items:center; justify-content:center; min-height:32px; max-width:132px;
+  padding:5px 10px; border:1px solid var(--border-subtle); border-radius:999px;
+  background:var(--bg-hover); color:var(--text-primary); font-size:12px; font-weight:600;
+  line-height:1.2; text-align:center; white-space:nowrap;
+}
+.waveform-style-option { transition:background .16s ease,border-color .16s ease,box-shadow .16s ease; }
+.waveform-style-option.active-state { background:color-mix(in srgb,var(--accent-color) 13%,var(--bg-elevated)) !important; border-color:var(--accent-color) !important; box-shadow:inset 3px 0 0 var(--accent-color),0 0 0 1px color-mix(in srgb,var(--accent-color) 14%,transparent); }
+.waveform-style-option.active-state > span:nth-child(2) { color:var(--text-primary); font-weight:700; }
+.waveform-style-option.active-state .style-check { opacity:1; color:var(--accent-color); font-variation-settings:'FILL' 1; }
+.about-mujic-copy { padding:0 20px 18px; color:var(--text-secondary); font-size:14px; line-height:1.55; overflow-wrap:anywhere; }
+.about-project-links { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:0 20px 20px; }
+.about-project-links .btn { display:inline-flex; align-items:center; justify-content:center; gap:9px; text-decoration:none; flex:0 1 auto; white-space:nowrap; }
+.github-brand-icon { width:19px; height:19px; display:block; flex:0 0 19px; }
+.search-no-results { padding:20px 4px 28px; }
+.search-download-cta { display:inline-flex; align-items:center; justify-content:center; gap:10px; margin-top:14px; text-decoration:none !important; -webkit-appearance:none; appearance:none; }
+.search-download-cta .material-symbols-rounded { pointer-events:none; }
+.playlist-track-picker-sheet { gap:8px; }
+.playlist-track-picker-header { margin-bottom:4px; }
+.playlist-track-picker-search-wrap { margin:0 0 4px; flex:0 0 auto; }
+.playlist-track-picker-list { display:flex; flex-direction:column; gap:3px; min-height:80px; max-height:min(48dvh,480px); overflow:auto; overscroll-behavior:contain; }
+.playlist-select-row { display:flex; align-items:center; gap:12px; min-height:58px; padding:7px 9px; border:1px solid transparent; border-radius:10px; cursor:pointer; }
+.playlist-select-row:has(input:checked) { background:color-mix(in srgb,var(--accent-color) 10%,var(--bg-elevated)); border-color:color-mix(in srgb,var(--accent-color) 35%,var(--border-subtle)); }
+.playlist-track-checkbox { flex:0 0 auto; width:20px; height:20px; accent-color:var(--accent-color); }
+.playlist-picker-note { display:flex; flex:0 0 38px; width:38px; height:38px; align-items:center; justify-content:center; background:var(--bg-hover); border-radius:9px; color:var(--text-secondary); }
+.playlist-select-row .track-meta { min-width:0; }
+.playlist-track-picker-actions { display:flex; justify-content:flex-end; gap:10px; flex:0 0 auto; padding-top:8px; border-top:1px solid var(--border-subtle); }
+.playlist-picker-empty { padding:22px 10px; }
+@media (max-width:520px) {
+  .about-mujic-copy { padding:0 14px 14px; font-size:13px; }
+  .about-project-links { padding:0 14px 16px; gap:8px; }
+  .about-project-links .btn { flex:1 1 auto; min-width:0; padding:10px 12px; font-size:13px; }
+  .settings-row .setting-inline-value { max-width:108px; padding:5px 8px; }
+  .playlist-track-picker-list { max-height:45dvh; }
 }

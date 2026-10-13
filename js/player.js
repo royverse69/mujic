@@ -203,14 +203,20 @@
             },
             setWaveformStyle: (style) => {
                 const valid = ['default','wavy','slim','squiggly'];
+                if (style === 'off') {
+                    State.visualizerMode = 'off'; StorageAdapter.saveSettings();
+                    UI.updateWaveformStyleUI(); UI.updateVisualizerUI(); AudioAdapter.stopVisualizerLoop(); AudioAdapter.resizeVisualizer();
+                    const canvas=document.getElementById('scrubber-visualizer');
+                    if(canvas){const ctx=canvas.getContext('2d');if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);canvas.style.display='none';}
+                    UI.closeSheets(); return;
+                }
                 State.waveformStyle = valid.includes(style) ? style : 'wavy';
-                // Choosing a style always selects the Audio Waveform effect, even if another mode was active.
-                State.visualizerMode = 'wave';
-                StorageAdapter.saveSettings(); UI.updateWaveformStyleUI(); UI.updateVisualizerUI(); AudioAdapter.resizeVisualizer();
-                AudioAdapter.initWebAudio().then(() => {
-                    AudioAdapter.renderScrubberVisualizerFrame();
+                State.visualizerMode = 'wave'; StorageAdapter.saveSettings(); UI.updateWaveformStyleUI(); UI.updateVisualizerUI(); AudioAdapter.resizeVisualizer();
+                const miniVisible = !!document.getElementById('mini-player')?.classList.contains('visible');
+                if (State.isFullPlayerOpen || miniVisible || State.isPlaying) AudioAdapter.initWebAudio().then(() => {
+                    AudioAdapter.resizeVisualizer(); UI.updateVisualizerUI(); AudioAdapter.renderScrubberVisualizerFrame();
                     if (AudioAdapter.visualizerShouldRun()) AudioAdapter.startVisualizerLoop();
-                }).catch(() => UI.showToast('Audio waveform is unavailable in this browser.', 'info'));
+                }).catch(() => UI.showToast('Audio Waveform is unavailable in this browser.', 'info'));
                 UI.closeSheets();
             },
             setPlaybackRate: (r) => { 
@@ -244,36 +250,44 @@
             },
             resizeVisualizer: () => {
                 const dpr=(State.lowEndModeActive || State.lowEndMode) ? 1 : Math.min(window.devicePixelRatio||1,1.5);
-                const sc=document.getElementById('scrubber-visualizer');
-                if(!sc) return;
-                const rect=sc.getBoundingClientRect();
-                const cssWidth=Math.max(1,Math.floor(rect.width));
-                const cssHeight=Math.max(12,Math.min(20,Math.floor(rect.height||18)));
-                const pixelWidth=Math.max(1,Math.floor(cssWidth*dpr));
-                const pixelHeight=Math.max(1,Math.floor(cssHeight*dpr));
-                if(sc.width!==pixelWidth) sc.width=pixelWidth;
-                if(sc.height!==pixelHeight) sc.height=pixelHeight;
-                // Keep the CSS viewport compact even when a stale canvas had a 150px intrinsic height.
-                sc.style.height=`${cssHeight}px`;
+                [document.getElementById('scrubber-visualizer'), document.getElementById('mini-visualizer')].filter(Boolean).forEach(sc => {
+                    const rect=sc.getBoundingClientRect();
+                    const cssWidth=Math.max(1,Math.floor(rect.width || sc.parentElement?.clientWidth || 1));
+                    const cssHeight=sc.id === 'mini-visualizer' ? 9 : 18;
+                    const pixelWidth=Math.max(1,Math.floor(cssWidth*dpr));
+                    const pixelHeight=Math.max(1,Math.floor(cssHeight*dpr));
+                    if(sc.width!==pixelWidth) sc.width=pixelWidth;
+                    if(sc.height!==pixelHeight) sc.height=pixelHeight;
+                    sc.style.height=`${cssHeight}px`;
+                });
             },
-            visualizerShouldRun: () => !!(State.isFullPlayerOpen && State.visualizerMode !== 'off' && State.isPlaying && AudioAdapter.analyser),
+            visualizerShouldRun: () => {
+                const miniVisible=!!document.getElementById('mini-player')?.classList.contains('visible');
+                return !!(State.visualizerMode === 'wave' && State.isPlaying && AudioAdapter.analyser && (State.isFullPlayerOpen || miniVisible));
+            },
             stopVisualizerLoop: () => {
                 if(AudioAdapter.visualizerRAF){ cancelAnimationFrame(AudioAdapter.visualizerRAF); AudioAdapter.visualizerRAF=0; }
                 AudioAdapter.visualizerLastFrameAt=0;
-                // Keep a static timeline/wave while paused; clear only when the player/effect is actually closed.
-                if(State.visualizerMode !== 'off' && State.isFullPlayerOpen && AudioAdapter.analyser) AudioAdapter.renderScrubberVisualizerFrame();
+                const fullVisible=State.isFullPlayerOpen;
+                const miniVisible=!!document.getElementById('mini-player')?.classList.contains('visible');
+                if(State.visualizerMode !== 'off' && AudioAdapter.analyser && (fullVisible || miniVisible)) AudioAdapter.renderScrubberVisualizerFrame();
                 else {
-                    const sc=document.getElementById('scrubber-visualizer');
-                    if(sc){ const x=sc.getContext('2d'); if(x) x.clearRect(0,0,sc.width,sc.height); }
+                    [document.getElementById('scrubber-visualizer'), document.getElementById('mini-visualizer')].filter(Boolean).forEach(sc=>{ const x=sc.getContext('2d'); if(x) x.clearRect(0,0,sc.width,sc.height); });
                 }
             },
             renderVisualizerFrame: () => {},
             renderScrubberVisualizerFrame: () => {
-                const c=document.getElementById('scrubber-visualizer'); if(!c) return;
+                [document.getElementById('scrubber-visualizer'), document.getElementById('mini-visualizer')].filter(Boolean).forEach(canvas => AudioAdapter.renderSingleWaveformCanvas(canvas));
+            },
+            renderSingleWaveformCanvas: (c) => {
+                if(!c) return;
                 const ctx=c.getContext('2d'); if(!ctx) return;
-                const effectEnabled=!!(State.isFullPlayerOpen && State.visualizerMode !== 'off' && AudioAdapter.analyser);
-                const dpr=Math.min(window.devicePixelRatio||1,2), w=c.width/dpr,h=c.height/dpr;
-                ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+                const canvasVisible = c.id === 'mini-visualizer' ? !!document.getElementById('mini-player')?.classList.contains('visible') : State.isFullPlayerOpen;
+                const effectEnabled=!!(canvasVisible && State.visualizerMode === 'wave' && AudioAdapter.analyser);
+                const rect=c.getBoundingClientRect();
+                const w=Math.max(1,rect.width || c.clientWidth || 1), h=Math.max(1,rect.height || c.clientHeight || 1);
+                const scaleX=c.width/w, scaleY=c.height/h;
+                ctx.setTransform(scaleX,0,0,scaleY,0,0); ctx.clearRect(0,0,w,h);
                 if(!effectEnabled || !AudioAdapter.analyser || w<=0 || h<=0 || !State.duration) return;
                 const progress=Math.max(0,Math.min(1,Number(State.currentTime)/Number(State.duration)));
                 const playedW=Math.max(0,w*progress);
@@ -394,22 +408,11 @@
                 AudioAdapter.visualizerRAF=requestAnimationFrame(frame);
             },
             drawVisualizerFrame: () => {
-                if(!AudioAdapter.visualizerShouldRun()){ AudioAdapter.stopVisualizerLoop(); return; }
-                AudioAdapter.renderScrubberVisualizerFrame(); AudioAdapter.startVisualizerLoop();
+                if (!AudioAdapter.analyser || State.visualizerMode !== 'wave') { AudioAdapter.stopVisualizerLoop(); return; }
+                AudioAdapter.resizeVisualizer(); AudioAdapter.renderScrubberVisualizerFrame();
+                if (AudioAdapter.visualizerShouldRun()) AudioAdapter.startVisualizerLoop(); else AudioAdapter.stopVisualizerLoop();
             },
-            setVisualizer: (mode) => {
-                const valid=['off','spectrum','wave','pulse','dots','mirror'];
-                const normalized = mode === 'aurora' ? 'pulse' : mode;
-                State.visualizerMode=valid.includes(normalized)?normalized:'off';
-                StorageAdapter.saveSettings(); UI.updateVisualizerUI(); AudioAdapter.resizeVisualizer();
-                if(State.visualizerMode==='off') AudioAdapter.stopVisualizerLoop();
-                else AudioAdapter.initWebAudio().then(() => {
-                    AudioAdapter.resizeVisualizer();
-                    AudioAdapter.renderScrubberVisualizerFrame();
-                    if (AudioAdapter.visualizerShouldRun()) AudioAdapter.startVisualizerLoop();
-                }).catch(()=>UI.showToast('Audio waveform is unavailable in this browser.', 'info'));
-                UI.closeSheets();
-            },
+            setVisualizer: (mode) => AudioAdapter.setWaveformStyle(mode === 'off' ? 'off' : (State.waveformStyle || 'wavy')),
             promptOutputDevice: async () => {
                 if(typeof navigator.mediaDevices === 'undefined' || typeof AudioAdapter.audio.setSinkId !== 'function') {
                     UI.showToast("Output selection not supported on this browser", "info"); UI.closeSheets(); return;

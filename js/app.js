@@ -1,11 +1,9 @@
 /* Mujic app bootstrap, lifecycle and PWA registration. */
         const App = {
             init: async () => {
-                UI.init(); 
                 try {
+                    UI.init();
                     await StorageAdapter.init(); await StorageAdapter.loadSettings();
-                    UI.geminiKeyDrafts = Array.isArray(State.geminiApiKeys) && State.geminiApiKeys.length ? State.geminiApiKeys.slice(0,4) : [''];
-                    UI.renderGeminiKeyManager();
                     if (!State.eqPreset) State.eqPreset = State.eq === 'off' ? 'flat' : 'custom';
                     try { if (navigator.storage?.persist) navigator.storage.persist().catch(()=>{}); } catch(e) {}
                     UI.applySettings();
@@ -59,7 +57,7 @@
             if (document.readyState !== 'loading' && UI.updateInstallUI) UI.updateInstallUI();
         });
         window.addEventListener('resize', () => AudioAdapter.resizeVisualizer());
-        window.addEventListener('DOMContentLoaded', App.init);
+        window.addEventListener('DOMContentLoaded', async () => { await App.init(); setTimeout(() => UI.checkForUpdates(false), 1800); });
 
         // PWA registration is same-origin only; the app itself remains fully functional as a normal web app.
         if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.7-gemini-model-fix">
+    <meta name="application-version" content="12.0.14">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -71,11 +71,6 @@
                             <h2 class="section-title">Your Playlists</h2>
                             <div class="editorial-divider"></div>
                             <div class="horizontal-rail" id="home-playlists-rail"></div>
-                        </div>
-                        <div class="editorial-section home-collection-section" id="home-fav-artists-section" style="display:none;">
-                            <h2 class="section-title">Favorite Artists</h2>
-                            <div class="editorial-divider"></div>
-                            <div class="horizontal-rail" id="home-fav-artists-rail"></div>
                         </div>
                     </div>
                     
@@ -295,13 +290,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="settings-row clickable" data-action="show-sheet" data-target="visualizer-sheet">
-                        <div class="settings-text"><div class="settings-label">Audio Waveform</div><div class="settings-desc">Optional, audio-reactive animation on the played section of the seek bar</div></div>
-                        <div class="settings-control-group"><span class="setting-inline-value" id="visualizer-settings-summary">Off</span><span class="material-symbols-rounded settings-chevron">chevron_right</span></div>
-                    </div>
                     <div class="settings-row clickable" data-action="show-sheet" data-target="waveform-style-sheet">
-                        <div class="settings-text"><div class="settings-label">Seek bar effect style</div><div class="settings-desc">Choose the shape and weight of the audio waveform</div></div>
-                        <div class="settings-control-group"><span class="setting-inline-value" id="waveform-style-summary">Wavy</span><span class="material-symbols-rounded settings-chevron">chevron_right</span></div>
+                        <div class="settings-text"><div class="settings-label">Audio Waveform</div><div class="settings-desc">Choose Off, Default, Wavy, Slim or Squiggly for the played section of the seek bar</div></div>
+                        <div class="settings-control-group"><span class="setting-inline-value" id="visualizer-settings-summary">Off</span><span class="material-symbols-rounded settings-chevron">chevron_right</span></div>
                     </div>
                 </div>
                 
@@ -386,42 +377,8 @@
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsPlusEnabled" aria-label="Enable LyricsPlus fallback"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">AI Song Identification <span class="experimental-chip">Experimental</span></div><div class="settings-desc">Suggest a title and artist for unclear tags. Audio stays on this device.</div></div>
-                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="aiSongIdentification" aria-label="Enable experimental AI song identification"></div>
-                    </div>
-                    <div class="gemini-key-panel" aria-labelledby="gemini-key-heading">
-                        <div class="gemini-key-panel-heading">
-                            <div>
-                                <div class="settings-label" id="gemini-key-heading">Gemini API keys</div>
-                                <div class="settings-desc">Up to four keys. Uses Gemini Interactions with current Flash models and compatible fallbacks; newer Gemini Auth keys are supported.</div>
-                            </div>
-                            <span class="setting-inline-value" id="gemini-key-count">0 / 4 saved</span>
-                        </div>
-                        <div id="gemini-key-list" class="gemini-key-list"></div>
-                        <div class="gemini-key-actions">
-                            <button class="btn" type="button" data-action="add-gemini-key">Add key</button>
-                            <button class="btn btn-primary" type="button" data-action="save-gemini-keys">Save keys</button>
-                            <button class="btn" type="button" data-action="test-gemini-keys">Test keys</button>
-                        </div>
-                        <p class="gemini-key-warning">Saved on this device. Use localhost or HTTPS; browser-stored keys are visible to anyone with access to this browser profile.</p>
-                        <details class="gemini-help">
-                            <summary><span class="material-symbols-rounded" aria-hidden="true">help</span> Need help?</summary>
-                            <div class="gemini-help-content">
-                                <ol>
-                                    <li>Open <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio — API keys</a>.</li>
-                                    <li>Create a current <strong>Gemini Auth API key</strong> and copy the entire value. New Google AI Studio keys use the Auth type; older Standard keys stopped working in September 2026.</li>
-                                    <li>Return to Mujic, tap <strong>Add key</strong>, paste it, then tap <strong>Save keys</strong>.</li>
-                                    <li>Tap <strong>Test keys</strong>. After a successful test, enable AI Song Identification above.</li>
-                                </ol>
-                                <div class="gemini-faq"><strong>400 / 401 — Key rejected</strong><span>Replace older Standard keys with a new Gemini Auth API key made in Google AI Studio. Remove copied quotes/spaces, then Save keys and Test keys again.</span></div>
-                                <div class="gemini-faq"><strong>403 — Permission denied</strong><span>Check that the key is active, the project has Gemini API access, and key restrictions allow this app origin.</span></div>
-                                <div class="gemini-faq"><strong>429 / quota</strong><span>Wait for quota to reset or add another key with its own available quota.</span></div>
-                                <div class="gemini-faq"><strong>Network / timeout</strong><span>Run Mujic with start-mujic.bat at http://localhost:3000 or use HTTPS. Direct file:// launches can block browser API requests. Check extensions and connectivity.</span></div>
-                                <div class="gemini-faq"><strong>Wrong song match</strong><span>AI matching is experimental. Check the title and artist; the original audio is never uploaded.</span></div>
-                                <p class="gemini-help-note">Keys are sent directly to Google and stored in this browser. Do not use a shared device or publish a filled-in key.</p>
-                            </div>
-                        </details>
-                        <p id="gemini-key-status" class="gemini-key-status" role="status" aria-live="polite"></p>
+                        <div class="settings-text"><div class="settings-label">AI Song Identification</div><div class="settings-desc">Experimental song identification is not available in this release.</div></div>
+                        <div class="settings-control-group"><span class="setting-inline-value">Coming soon</span></div>
                     </div>
                 </div>
 
@@ -523,6 +480,11 @@
                         <div class="settings-text"><div class="settings-label">Export Listening Stats</div><div class="settings-desc">Save your listening history and play statistics as JSON.</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="export-stats" type="button">Export JSON</button></div>
                     </div>
+                    <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Import Data</div><div class="settings-desc">Restore a Mujic settings or listening-stats JSON export.</div></div>
+                        <div class="settings-control-group"><button class="btn" data-action="import-data" type="button">Import JSON</button></div>
+                    </div>
+                    <input type="file" id="data-import-input" accept=".json,application/json" hidden>
                 </div>
 
                 <div class="settings-section">
@@ -530,6 +492,10 @@
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Install Mujic</div><div class="settings-desc" id="install-pwa-desc">Install Mujic as a standalone app.</div></div>
                         <div class="settings-control-group"><button class="btn btn-primary" id="install-pwa-btn" data-action="install-pwa" type="button">Install</button></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Check for updates</div><div class="settings-desc">Get notified when a newer Mujic release is available.</div></div>
+                        <div class="settings-control-group"><button class="btn" data-action="check-updates" type="button">Check</button></div>
                     </div>
                 </div>
 
@@ -551,11 +517,23 @@
 
                 <div class="settings-section">
                     <h2 class="section-title">Extras</h2>
-                   <div class="settings-row clickable" onclick="window.open('dloader.html', '_blank')">
+                    <div class="settings-row clickable" onclick="window.open('https://ganasunloo.netlify.app/', '_blank')">
                         <div class="settings-text">
                             <div class="settings-label">Download High-Quality Songs <span class="material-symbols-rounded" style="font-size: 16px;">open_in_new</span></div>
-                            <div class="settings-desc">Visit https://royverse69.github.io/mujic/dloader.html for free downloads</div>
+                            <div class="settings-desc">Visit ganasunloo.netlify.app for free downloads</div>
                         </div>
+                    </div>
+                </div>
+
+                <div class="settings-section" id="settings-about-section">
+                    <h2 class="section-title">About Mujic</h2>
+                    <div class="about-mujic-copy">Mujic was created by Ashutosh Roy (Machhar) out of curiosity and the need for a simple, lightweight player for music already on your device. There are many music apps, some with more features, but this one is special because it grew from a personal need. Thanks for being part of the journey. If you enjoy Mujic, please consider starring the open-source project on GitHub.</div>
+                    <div class="about-project-links">
+                        <a class="btn about-github-link" href="https://github.com/royverse69/mujic" target="_blank" rel="noopener noreferrer">
+                            <svg class="github-brand-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.54v-1.9c-3.1.67-3.76-1.31-3.76-1.31-.5-1.28-1.24-1.62-1.24-1.62-1.02-.7.08-.69.08-.69 1.13.08 1.72 1.16 1.72 1.16 1 1.72 2.62 1.22 3.26.93.1-.73.39-1.22.71-1.5-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.16-3-.12-.29-.5-1.42.11-2.96 0 0 .95-.3 3.05 1.15a10.62 10.62 0 0 1 5.55 0c2.1-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.67.11 2.96.72.78 1.16 1.78 1.16 3 0 4.29-2.61 5.24-5.1 5.51.4.35.76 1.03.76 2.08v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg>
+                            <span>View on GitHub</span>
+                        </a>
+                        <a class="btn btn-primary" href="https://github.com/royverse69/mujic" target="_blank" rel="noopener noreferrer"><span class="material-symbols-rounded" aria-hidden="true">star</span><span>Star project</span></a>
                     </div>
                 </div>
 
@@ -663,7 +641,7 @@
             <span class="material-symbols-rounded">speed</span><span>Playback Speed</span><span class="sheet-option-right" id="speed-status-label">1x</span>
         </div>
         <div class="sheet-option" data-action="show-sheet" data-target="eq-sheet">
-            <span class="material-symbols-rounded">equalizer</span><span>Bass Boost</span><span class="sheet-option-right" id="eq-status-label">Off</span>
+            <span class="material-symbols-rounded">equalizer</span><span>Equalizer</span><span class="sheet-option-right" id="eq-status-label">Flat</span>
         </div>
         <div class="sheet-option" data-action="prompt-output">
             <span class="material-symbols-rounded">speaker</span><span>Audio Output</span>
@@ -736,7 +714,7 @@
         </div>
         <div class="eq-presets" role="group" aria-label="Equalizer presets">
             <button type="button" class="eq-preset" data-action="set-eq-preset" data-val="flat" aria-pressed="false">Flat</button>
-            <button type="button" class="eq-preset" data-action="set-eq-preset" data-val="bass" aria-pressed="false">Bass Boost</button>
+            <button type="button" class="eq-preset" data-action="set-eq-preset" data-val="bass" aria-pressed="false">Bass</button>
             <button type="button" class="eq-preset" data-action="set-eq-preset" data-val="vocal" aria-pressed="false">Vocal</button>
             <button type="button" class="eq-preset" data-action="set-eq-preset" data-val="rock" aria-pressed="false">Rock</button>
             <button type="button" class="eq-preset" data-action="set-eq-preset" data-val="treble" aria-pressed="false">Treble</button>
@@ -753,23 +731,10 @@
         </div>
     </div>
 
-    <div class="bottom-sheet glass-surface" id="visualizer-sheet">
-        <div class="sheet-handle"></div>
-        <div class="sheet-header" style="justify-content:space-between;">
-            <div><div class="sheet-title">Audio Waveform</div><div class="sheet-subtitle">Playback seek bar</div></div>
-            <span class="sheet-subtitle" id="visualizer-summary-label">Off</span>
-        </div>
-        <div class="sheet-option" data-action="set-visualizer" data-val="off"><span class="material-symbols-rounded">visibility_off</span><span>Off</span><span class="sheet-option-right">Seek bar only</span></div>
-        <div class="sheet-option" data-action="set-visualizer" data-val="spectrum"><span class="material-symbols-rounded">graphic_eq</span><span>Spectrum Bars</span><span class="sheet-option-right">Live</span></div>
-        <div class="sheet-option" data-action="set-visualizer" data-val="wave"><span class="material-symbols-rounded">waves</span><span>Audio Waveform</span><span class="sheet-option-right">Smooth</span></div>
-        <div class="sheet-option" data-action="set-visualizer" data-val="pulse"><span class="material-symbols-rounded">monitor_heart</span><span>Pulse</span><span class="sheet-option-right">Beat</span></div>
-        <div class="sheet-option" data-action="set-visualizer" data-val="dots"><span class="material-symbols-rounded">more_horiz</span><span>Dots</span><span class="sheet-option-right">Minimal</span></div>
-        <div class="sheet-option" data-action="set-visualizer" data-val="mirror"><span class="material-symbols-rounded">equalizer</span><span>Mirror Bars</span><span class="sheet-option-right">Symmetric</span></div>
-    </div>
-
     <div class="bottom-sheet glass-surface" id="waveform-style-sheet">
         <div class="sheet-handle"></div>
-        <div class="sheet-header"><div class="sheet-title-area"><div class="sheet-title">Seek bar effect style</div><div class="sheet-subtitle">Audio waveform appearance</div></div></div>
+        <div class="sheet-header"><div class="sheet-title-area"><div class="sheet-title">Audio Waveform</div><div class="sheet-subtitle" id="waveform-style-sheet-summary">Off</div></div></div>
+        <button type="button" class="waveform-style-option" data-action="set-waveform-style" data-val="off" aria-pressed="false"><span class="waveform-style-preview off"><svg viewBox="0 0 120 24" aria-hidden="true"><path class="preview-track" d="M4 12H116"/><path class="preview-active" d="M4 12H48"/><path class="preview-thumb" d="M52 3V21"/></svg></span><span>Off</span><span class="material-symbols-rounded style-check">check</span></button>
         <button type="button" class="waveform-style-option" data-action="set-waveform-style" data-val="default" aria-pressed="false"><span class="waveform-style-preview default"><svg viewBox="0 0 120 24" aria-hidden="true"><path class="preview-track" d="M4 12H116"/><path class="preview-active" d="M4 12H48"/><path class="preview-thumb" d="M52 3V21"/></svg></span><span>Default</span><span class="material-symbols-rounded style-check">check</span></button>
         <button type="button" class="waveform-style-option" data-action="set-waveform-style" data-val="wavy" aria-pressed="false"><span class="waveform-style-preview wavy"><svg viewBox="0 0 120 24" aria-hidden="true"><path class="preview-track" d="M4 12H116"/><path class="preview-wave" d="M4 12C12 12 13 6 21 6S30 18 38 18S47 6 55 6S64 18 72 18S81 6 89 6S98 18 106 18S112 12 116 12"/></svg></span><span>Wavy</span><span class="material-symbols-rounded style-check">check</span></button>
         <button type="button" class="waveform-style-option" data-action="set-waveform-style" data-val="slim" aria-pressed="false"><span class="waveform-style-preview slim"><svg viewBox="0 0 120 24" aria-hidden="true"><path class="preview-track" d="M4 12H116"/><path class="preview-active" d="M4 12H76"/></svg></span><span>Slim</span><span class="material-symbols-rounded style-check">check</span></button>
@@ -797,6 +762,16 @@
         <div class="sheet-option" data-action="rename-playlist-sheet"><span class="material-symbols-rounded">edit</span><span>Rename Playlist</span></div>
         <div class="sheet-option" data-action="import-playlist-songs"><span class="material-symbols-rounded">library_add</span><span>Import Songs</span><span class="sheet-option-right">Multiple</span></div>
         <div class="sheet-option destructive" data-action="delete-playlist-sheet"><span class="material-symbols-rounded">delete</span><span>Delete Playlist</span></div>
+    </div>
+
+    <div class="bottom-sheet glass-surface playlist-track-picker-sheet" id="playlist-track-picker-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header playlist-track-picker-header">
+            <div class="sheet-title-area"><div class="sheet-title">Add songs from your library</div><div class="sheet-subtitle" id="playlist-track-picker-status">Choose existing songs to add.</div></div>
+        </div>
+        <div class="search-container playlist-track-picker-search-wrap"><span class="material-symbols-rounded" aria-hidden="true">search</span><input id="playlist-track-picker-search" type="search" placeholder="Search your library" autocomplete="off" aria-label="Search existing songs"></div>
+        <div class="playlist-track-picker-list" id="playlist-track-picker-list"></div>
+        <div class="playlist-track-picker-actions"><button type="button" class="btn" data-action="close-sheets">Cancel</button><button type="button" class="btn btn-primary" data-action="save-playlist-selected-songs">Add selected</button></div>
     </div>
 
     <div class="bottom-sheet glass-surface" id="add-playlist-sheet">

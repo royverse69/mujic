@@ -1,116 +1,73 @@
 /* Mujic UI layer: view rendering, sheets, dialogs, search and interactions. */
         const UI = {
-            geminiKeyDrafts: [],
-            collectGeminiKeyDrafts: () => {
-                const host = document.getElementById('gemini-key-list');
-                if (!host) return [...(UI.geminiKeyDrafts || [])];
-                return Array.from(host.querySelectorAll('[data-gemini-key-index]')).map(input => String(input.value || '').trim()).slice(0,4);
+            // History URL mutation is not consistently supported for file:// pages (Windows users
+            // often open index.html directly). Keep browser-history helpers guarded so navigation
+            // can never abort the rest of startup on those origins.
+            supportsUrlHistory: () => location.protocol === 'http:' || location.protocol === 'https:',
+            pushHistoryState: (state, hash) => {
+                if (!UI.supportsUrlHistory()) return false;
+                try { history.pushState(state, '', `${location.pathname}${location.search}${hash || ''}`); return true; }
+                catch (error) { console.warn('Navigation history is unavailable; continuing without URL history.', error); return false; }
             },
-            renderGeminiKeyManager: () => {
-                const host = document.getElementById('gemini-key-list'); if (!host) return;
-                if (!Array.isArray(UI.geminiKeyDrafts) || !UI.geminiKeyDrafts.length) UI.geminiKeyDrafts = Array.isArray(State.geminiApiKeys) && State.geminiApiKeys.length ? State.geminiApiKeys.slice(0,4) : [''];
-                UI.geminiKeyDrafts = UI.geminiKeyDrafts.slice(0,4);
-                host.innerHTML = UI.geminiKeyDrafts.map((key, index) => `<div class="gemini-key-entry"><label for="gemini-api-key-${index}">API key ${index + 1}</label><div class="gemini-key-input-wrap"><input id="gemini-api-key-${index}" type="password" data-gemini-key-index="${index}" value="${Utils.escapeHTML(key)}" maxlength="256" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste Gemini API key"><button class="icon-btn gemini-key-eye" type="button" data-action="toggle-gemini-key-visibility" data-index="${index}" aria-label="Show API key ${index + 1}"><span class="material-symbols-rounded" style="pointer-events:none;">visibility</span></button><button class="icon-btn gemini-key-remove" type="button" data-action="remove-gemini-key" data-index="${index}" aria-label="Remove API key ${index + 1}"><span class="material-symbols-rounded" style="pointer-events:none;">close</span></button></div></div>`).join('');
-                const count = document.getElementById('gemini-key-count'); if (count) count.textContent = `${UI.geminiKeyDrafts.filter(key => String(key || '').trim()).length} / 4 saved`;
-                const add = document.querySelector('[data-action="add-gemini-key"]'); if (add) add.disabled = UI.geminiKeyDrafts.length >= 4;
+            replaceHistoryState: (state, hash) => {
+                if (!UI.supportsUrlHistory()) return false;
+                try { history.replaceState(state, '', `${location.pathname}${location.search}${hash || ''}`); return true; }
+                catch (error) { console.warn('Navigation history is unavailable; continuing without URL history.', error); return false; }
             },
-            addGeminiKey: () => {
-                const current = UI.collectGeminiKeyDrafts();
-                if (current.length >= 4) { UI.showToast('You can add up to four Gemini API keys.', 'info'); return; }
-                current.push(''); UI.geminiKeyDrafts = current; UI.renderGeminiKeyManager();
-                document.getElementById(`gemini-api-key-${current.length - 1}`)?.focus();
-            },
-            removeGeminiKey: (index) => {
-                const current = UI.collectGeminiKeyDrafts();
-                if (index < 0 || index >= current.length) return;
-                current.splice(index, 1); UI.geminiKeyDrafts = current.length ? current : ['']; UI.renderGeminiKeyManager();
-            },
-            toggleGeminiKeyVisibility: (index, button) => {
-                const input = document.getElementById(`gemini-api-key-${index}`); if (!input) return;
-                const visible = input.type === 'password'; input.type = visible ? 'text' : 'password';
-                const icon = button?.querySelector('.material-symbols-rounded'); if (icon) icon.textContent = visible ? 'visibility_off' : 'visibility';
-                if (button) button.setAttribute('aria-label', `${visible ? 'Hide' : 'Show'} API key ${Number(index) + 1}`);
-            },
-            persistGeminiKeys: async (keys) => {
-                if (!StorageAdapter.db) throw new Error('Local storage is not ready yet. Reload Mujic after it finishes loading.');
-                const cleanKeys = [...new Set((keys || []).map(key => String(key || '').trim().replace(/^['\"]|['\"]$/g, '')).filter(Boolean))].slice(0,4);
-                const previousKeys = Array.isArray(State.geminiApiKeys) ? State.geminiApiKeys.slice() : [];
-                State.geminiApiKeys = cleanKeys;
-                State.geminiNextKeyIndex = 0;
-                try {
-                    const writeResult = await StorageAdapter.saveSettings();
-                    if (writeResult !== 'app_state') throw new Error('IndexedDB did not confirm the settings write.');
-                    const stored = await StorageAdapter._get('settings', 'app_state');
-                    const storedKeys = Array.isArray(stored?.geminiApiKeys) ? stored.geminiApiKeys.map(k => String(k || '').trim()).filter(Boolean).slice(0,4) : [];
-                    if (JSON.stringify(storedKeys) !== JSON.stringify(cleanKeys)) throw new Error('Saved keys could not be verified in IndexedDB.');
-                    return cleanKeys;
-                } catch (error) {
-                    State.geminiApiKeys = previousKeys;
-                    throw error;
-                }
-            },
-            saveGeminiKeys: async () => {
-                const keys = UI.collectGeminiKeyDrafts();
-                const status = document.getElementById('gemini-key-status');
-                if (status) status.textContent = 'Saving keys on this device…';
-                try {
-                    const savedKeys = await UI.persistGeminiKeys(keys);
-                    UI.geminiKeyDrafts = savedKeys.length ? savedKeys.slice() : [''];
-                    UI.renderGeminiKeyManager();
-                    if (status) status.textContent = `Saved and verified ${savedKeys.length} key${savedKeys.length === 1 ? '' : 's'} in this browser.`;
-                    UI.showToast(`Saved ${savedKeys.length} Gemini API key${savedKeys.length === 1 ? '' : 's'} locally`, 'check_circle');
-                } catch (error) {
-                    if (status) status.textContent = `Keys were not saved. ${error?.message || 'Check browser storage permissions and try again.'}`;
-                    UI.showToast('Unable to verify Gemini keys were saved. Check browser storage permissions.', 'error');
-                }
-            },
-            testGeminiKeys: async () => {
-                const keys = [...new Set(UI.collectGeminiKeyDrafts().map(key => String(key || '').trim().replace(/^['\"]|['\"]$/g, '')).filter(Boolean))].slice(0,4);
-                const status = document.getElementById('gemini-key-status');
-                if (!keys.length) {
-                    if (status) status.textContent = 'Add a Gemini API key, then test it.';
-                    UI.showToast('Add a Gemini API key first.', 'info'); return;
-                }
-                try {
-                    await UI.persistGeminiKeys(keys);
-                    UI.geminiKeyDrafts = keys.slice(); UI.renderGeminiKeyManager();
-                } catch (error) {
-                    if (status) status.textContent = `Cannot test keys because they were not saved locally. ${error?.message || ''}`;
-                    UI.showToast('Save the keys in browser storage before testing.', 'error'); return;
-                }
-                if (status) status.textContent = `Testing ${keys.length} saved key${keys.length === 1 ? '' : 's'} with Google Gemini…`;
-                const failures = [];
-                const startedAt = Date.now();
-                for (let i = 0; i < keys.length; i++) {
-                    if (Date.now() - startedAt > 18000) {
-                        failures.push('Stopped after 18 seconds to keep the app responsive. Test the remaining keys separately.');
-                        break;
-                    }
-                    if (status) status.textContent = `Testing key ${i + 1} of ${keys.length}…`;
-                    try {
-                        const result = await LyricsFetcher.requestGemini(keys[i], 'Reply with exactly OK and no other words.', { json: false, timeout: Math.min(7000, 18000 - (Date.now() - startedAt)) });
-                        if (!result?.text) throw new Error('Google returned an empty response.');
-                        if (status) status.textContent = `Key ${i + 1} works with ${result.model}. AI song identification can use this key.`;
-                        UI.showToast(`Gemini key ${i + 1} works (${result.model})`, 'check_circle');
-                        return;
-                    } catch (error) {
-                        const hint = LyricsFetcher.geminiErrorHint(error);
-                        failures.push(`Key ${i + 1}: ${hint}`);
-                    }
-                }
-                const summary = failures.join(' ');
-                if (status) status.textContent = `No key passed the Gemini test. ${summary || 'Check API access, quota and connection.'}`;
-                UI.showToast('Gemini test failed. See the message below the key controls for the specific reason.', 'error');
-            },
-            init: () => { 
+            init: () => {
                 if (Utils.isIOS()) document.body.classList.add('ios');
-                UI.setupSettingsGroups(); UI.setupHistory(); UI.setupGestures(); UI.setupInstallPrompt(); UI.setupGlobalDelegation(); UI.updateStatsUI(); UI.loadChangeLog();
+                // Initialize each subsystem independently. A failure in history, gestures, or a
+                // nonessential panel must not prevent the global navigation handlers from binding.
+                const initSteps = [
+                    ['settings grouping', UI.setupSettingsGroups],
+                    ['navigation history', UI.setupHistory],
+                    ['touch gestures', UI.setupGestures],
+                    ['PWA install prompt', UI.setupInstallPrompt],
+                    ['global interactions', UI.setupGlobalDelegation],
+                    ['listening stats', UI.updateStatsUI],
+                    ['release notes', UI.loadChangeLog]
+                ];
+                for (const [label, initialize] of initSteps) {
+                    try { initialize.call(UI); }
+                    catch (error) { console.error(`Mujic ${label} initialization failed; continuing startup.`, error); }
+                }
                 setTimeout(() => { const g = document.getElementById('greeting-text'); if (g) g.classList.add('hidden'); }, 25000);
                 const persistResume = () => {
                     if (State.resumePlayback && State.currentTrackId) { State.resumePosition = State.currentTime; State.lastPositionSave = Date.now(); StorageAdapter.saveSettings(); }
                 };
                 window.addEventListener('beforeunload', persistResume);
                 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') persistResume(); });
+            },
+            checkForUpdates: async (manual = false) => {
+                if (!['http:', 'https:'].includes(location.protocol)) {
+                    if (manual) UI.showToast('Run Mujic through localhost or HTTPS to check for updates.', 'info');
+                    return false;
+                }
+                const parseVersion = value => String(value || '').trim().split(/[+-]/)[0].split('.').map(part => Math.max(0, Number.parseInt(part, 10) || 0));
+                const compareVersions = (a,b) => { const aa=parseVersion(a),bb=parseVersion(b); for(let i=0;i<Math.max(aa.length,bb.length);i++){const d=(aa[i]||0)-(bb[i]||0);if(d)return d;}return 0; };
+                const current = document.querySelector('meta[name="application-version"]')?.content?.split('-')[0] || '0.0.0';
+                try {
+                    const response = await fetch(`./VERSION?check=${Date.now()}`, { cache:'no-store' });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const latest = (await response.text()).trim().split(/[\r\n]/)[0];
+                    if (!/^\d+(?:\.\d+){1,3}$/.test(latest)) throw new Error('The VERSION file is invalid.');
+                    if (compareVersions(latest, current) <= 0) {
+                        if (manual) UI.showToast(`Mujic ${current} is up to date.`, 'check_circle');
+                        return false;
+                    }
+                    const dismissed = sessionStorage.getItem('mujic-update-dismissed');
+                    if (!manual && dismissed === latest) return false;
+                    const accept = await Dialog.show({ type:'confirm', title:'Mujic update available', message:`Mujic ${latest} is available (you have ${current}). Update now to load the latest fixes?`, confirmText:'Update now' });
+                    if (!accept) { sessionStorage.setItem('mujic-update-dismissed', latest); return true; }
+                    UI.showToast(`Updating Mujic to ${latest}…`, 'system_update');
+                    try { const registration = await navigator.serviceWorker?.getRegistration(); if (registration) await registration.update(); } catch(e) {}
+                    setTimeout(() => location.reload(), 450);
+                    return true;
+                } catch (error) {
+                    if (manual) UI.showToast(`Couldn't check for updates. ${error?.message || 'Check your connection.'}`, 'error');
+                    else console.warn('Mujic update check failed', error);
+                    return false;
+                }
             },
             setupSettingsGroups: () => {
                 const root = document.getElementById('view-settings');
@@ -125,9 +82,9 @@
                 const defs = [
                     {id:'appearance', title:'UI & Customization', description:'Themes, accent colours, surfaces, corners and motion', icon:'palette', headings:['Appearance']},
                     {id:'player', title:'Player & Audio', description:'Waveform, playback, equalizer and audio effects', icon:'graphic_eq', headings:['Player','Playback','Playback Effects']},
-                    {id:'lyrics', title:'Lyrics & AI', description:'Lyrics providers, position, typography and experimental song identification', icon:'lyrics', headings:['Lyrics Providers','Lyrics Display']},
+                    {id:'lyrics', title:'Lyrics', description:'Lyrics providers, position and typography', icon:'lyrics', headings:['Lyrics Providers','Lyrics Display']},
                     {id:'library', title:'Library & Listening', description:'Sort, listening stats, exports and stored files', icon:'library_music', headings:['Library','Your Listening','Data Export','Storage']},
-                    {id:'app', title:'App & About', description:'Installation, project links, release notes and app information', icon:'apps', headings:['App','Extras','Change & Update Log']}
+                    {id:'app', title:'App & About', description:'Installation, project links, release notes and app information', icon:'apps', headings:['App','Extras','About Mujic','Change & Update Log']}
                 ];
                 const pages = document.createElement('div'); pages.id = 'settings-pages';
                 for (const def of defs) {
@@ -162,13 +119,13 @@
                 const overview=document.getElementById('settings-overview'); if(overview) overview.classList.toggle('hidden',!!selected);
                 root.querySelectorAll('.settings-subpage').forEach(page=>{ const match=page.dataset.settingsGroup===selected; page.classList.toggle('active',match); page.classList.toggle('hidden',!match); });
                 State.settingsGroup=selected;
-                if(selected && !fromHistory) history.pushState({mujic:true, view:'settings', player:false, sheet:null, settingsGroup:selected}, '', `${location.pathname}${location.search}#settings`);
-                if(!selected && !fromHistory && history.state?.mujic && history.state?.settingsGroup) history.replaceState({mujic:true, view:'settings', player:false, sheet:null, settingsGroup:null}, '', `${location.pathname}${location.search}#settings`);
+                if(selected && !fromHistory) UI.pushHistoryState({mujic:true, view:'settings', player:false, sheet:null, settingsGroup:selected}, '#settings');
+                if(!selected && !fromHistory && history.state?.mujic && history.state?.settingsGroup) UI.replaceHistoryState({mujic:true, view:'settings', player:false, sheet:null, settingsGroup:null}, '#settings');
                 const main=document.getElementById('main-content'); if(main) main.scrollTop=0;
             },
             openSettingsGroup: (group) => { UI.setSettingsGroup(group, false); if (group === 'app') UI.loadChangeLog(); },
             backSettingsGroup: () => {
-                if (history.state?.mujic && history.state?.settingsGroup) history.back();
+                if (UI.supportsUrlHistory() && history.state?.mujic && history.state?.settingsGroup) { try { history.back(); } catch (error) { UI.setSettingsGroup(null, true); } }
                 else UI.setSettingsGroup(null, true);
             },
             loadChangeLog: async (force = false) => {
@@ -176,6 +133,9 @@
                 if (!root || (root.dataset.loaded === '1' && !force)) return;
                 root.innerHTML = '<div class="changelog-empty">Loading release notes…</div>';
                 try {
+                    // file:// origins cannot fetch sibling JSON files in Chrome/Edge. Use the
+                    // already bundled fallback below instead of raising CORS/ERR_FAILED on startup.
+                    if (location.protocol === 'file:') throw new Error('Use bundled release notes for local-file mode');
                     const changelogUrl = force ? `./changlog.json?refresh=${Date.now()}` : './changlog.json';
                     const response = await fetch(changelogUrl, { cache: force ? 'no-store' : 'default' });
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -190,6 +150,43 @@
                 } catch (error) {
                     // Keep the update page useful when launched from file:// or while offline.
                     const fallbackEntries = [
+                        { version: '12.0.14', date: '2026-10-13', title: 'About, Search and playlist picker polish', changes: [
+                            'Added a proper GitHub brand icon and responsive About links for narrow screens.',
+                            'Search empty state opens the music downloader in a new tab with the encoded search query.',
+                            'Playlist Add Songs selects from tracks already in the library instead of opening the device picker.',
+                            'Improved visible selected-state styling for Audio Waveform options.'
+                        ]},
+                        { version: '12.0.13', date: '2026-10-13', title: 'Restored Settings and core interactions', changes: [
+                            'Restored missing action dispatch for song rows, Settings categories, library tabs, transport controls, history and playlist management.',
+                            'Search playback now falls back to the full library when there is only one matching song, so Next can continue playing.',
+                            'Wrapped delegated actions in error handling and guarded optional gesture controls to prevent silent UI failures.'
+                        ]},
+                        { version: '12.0.12', date: '2026-10-13', title: 'Startup and local-file navigation recovery', changes: [
+                            'Guarded history URL writes on file:// launches so a SecurityError cannot stop navigation handlers from initializing.',
+                            'Initialized UI subsystems independently so one optional UI failure cannot prevent main navigation from binding.',
+                            'Moved UI initialization inside the app bootstrap error boundary.'
+                        ]},
+                        { version: '12.0.11', date: '2026-10-13', title: 'Home rail scrolling and launch reliability', changes: [
+                            'Prevented a changelog fetch from file:// origins so the browser uses bundled release notes instead of logging a CORS failure.',
+                            'Made Home playlist and Top Picks rails horizontally touch-scrollable with non-shrinking cards.',
+                            'Renamed the player shortcut to Equalizer and the Bass preset label to Bass.'
+                        ]},
+                        { version: '12.0.10', date: '2026-10-13', title: 'Unified Audio Waveform settings and release consistency', changes: [
+                            'Merged waveform activation and waveform style into one settings row that opens the correct selector.',
+                            'Synchronized the application version, published VERSION and service-worker cache for reliable updates.',
+                            'Kept Gemini song identification marked Coming soon with no active key manager or API calls.'
+                        ]},
+                        { version: '12.0.9', date: '2026-10-13', title: 'Unified player effects, update flow and data import', changes: [
+                            'Merged Audio Waveform and seek-bar styling into one persistent setting and kept the effect stable across full and mini-player transitions.',
+                            'Made mobile sheets opaque, removed active Gemini key/API support in favor of a coming-soon notice, and cleaned obsolete key storage.',
+                            'Added automatic update notification, retained JSON settings/listening-data import, clarified Search empty states, and updated About links.'
+                        ]},
+                        { version: '12.0.8', date: '2026-10-13', title: 'Unified Audio Waveform and streamlined navigation', changes: [
+                            'Combined the seek-bar effect and Audio Waveform into one setting with Off, Default, Wavy, Slim and Squiggly styles.',
+                            'Favorite Artists now appears inside Your Playlists; search offers a music download link when no local results match.',
+                            'Added a version update prompt, JSON settings/listening-data import, and a clearer About page with GitHub links.',
+                            'Removed the experimental Gemini integration and purged saved Gemini keys from older settings data.'
+                        ]},
                         { version: '12.0.7', date: '2026-10-12', title: 'Gemini API compatibility and key validation', changes: [
                             'Switched to gemini-3.8-flash first with compatible stable Flash model fallbacks if Google reports a model is unavailable.',
                             'Unified Gemini identification and Test keys requests, added detailed Google error messages, increased request timeout, and restored normal origin/referrer behavior for restricted keys.',
@@ -227,7 +224,7 @@
                 const validViews = ['home', 'library', 'search', 'settings', 'context-detail'];
                 const hashView = location.hash.startsWith('#') ? location.hash.slice(1) : '';
                 const initialView = validViews.includes(hashView) ? hashView : 'home';
-                if (!history.state || !history.state.mujic) history.replaceState({ mujic:true, view:initialView, player:false, sheet:null }, '', `${location.pathname}${location.search}#${initialView}`);
+                if (UI.supportsUrlHistory() && (!history.state || !history.state.mujic)) UI.replaceHistoryState({ mujic:true, view:initialView, player:false, sheet:null }, `#${initialView}`);
                 window.addEventListener('popstate', (e) => UI.handlePopState(e.state));
             },
             handlePopState: (state) => {
@@ -238,7 +235,7 @@
                 if (s.sheet) UI.showSheet(s.sheet, true); else UI.closeSheets(true);
             },
             goBack: () => {
-                if (history.state && history.state.mujic) { history.back(); return; }
+                if (UI.supportsUrlHistory() && history.state && history.state.mujic) { try { history.back(); return; } catch (error) {} }
                 UI.switchView(UI._prevView || 'library', true);
             },
             switchView: (vid, fromHistory = false) => {
@@ -247,7 +244,7 @@
                 if (!preservePlayer) UI.closeFullPlayer(true);
                 if (!fromHistory) {
                     const current = document.querySelector('.view.active');
-                    if (!current || current.id !== `view-${vid}`) history.pushState({ mujic:true, view:vid, player:false, sheet:null }, '', `${location.pathname}${location.search}#${vid}`);
+                    if (!current || current.id !== `view-${vid}`) UI.pushHistoryState({ mujic:true, view:vid, player:false, sheet:null }, `#${vid}`);
                 }
                 document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); });
                 document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -319,31 +316,20 @@
                         <div class="item-subtitle">${p.tracks.length} tracks</div>
                     </div>`;
                 }
-                rhPlaylists.innerHTML = plHtml;
-
-                const artistSection = document.getElementById('home-fav-artists-section');
-                const artistRail = document.getElementById('home-fav-artists-rail');
-                const collectionGrid = document.getElementById('home-collection-grid');
                 const favoriteArtists = [...new Set((State.favoriteArtists || []).map(name => String(name || '').trim()).filter(Boolean))]
                     .map(name => ({ name, tracks: State.library.filter(track => (track.albumArtist || track.artist || '') === name) }))
                     .filter(item => item.tracks.length > 0);
-                if (artistSection && artistRail) {
-                    if (favoriteArtists.length) {
-                        artistSection.style.display = 'block';
-                        artistRail.innerHTML = favoriteArtists.map(item => {
-                            const artTrack = item.tracks.find(track => track.artworkId) || item.tracks[0];
-                            const fallback = Utils.generateDefaultArt(artTrack?.title || item.name);
-                            return `<div class="art-card favorite-artist-card" data-action="open-artist" data-key1="${Utils.escapeHTML(item.name)}">
-                                <div class="art-wrapper"><img src="${fallback}" data-art-id="${artTrack?.artworkId || ''}" data-seed="${Utils.escapeHTML(item.name)}" class="lazy-art" alt="" onerror="this.onerror=null; this.src='${fallback}';"><span class="favorite-artist-mark material-symbols-rounded" aria-hidden="true">favorite</span></div>
-                                <div class="item-title">${Utils.escapeHTML(item.name)}</div><div class="item-subtitle">${item.tracks.length} tracks</div>
-                            </div>`;
-                        }).join('');
-                    } else {
-                        artistSection.style.display = 'none';
-                        artistRail.innerHTML = '';
-                    }
-                    if (collectionGrid) collectionGrid.classList.toggle('has-favorite-artists', favoriteArtists.length > 0);
+                for (const item of favoriteArtists) {
+                    const artTrack = item.tracks.find(track => track.artworkId) || item.tracks[0];
+                    const fallback = Utils.generateDefaultArt(artTrack?.title || item.name);
+                    plHtml += `<div class="art-card favorite-artist-card" data-action="open-artist" data-key1="${Utils.escapeHTML(item.name)}">
+                        <div class="art-wrapper"><img src="${fallback}" data-art-id="${artTrack?.artworkId || ''}" data-seed="${Utils.escapeHTML(item.name)}" class="lazy-art" alt="" onerror="this.onerror=null; this.src='${fallback}';"><span class="favorite-artist-mark material-symbols-rounded" aria-hidden="true">favorite</span></div>
+                        <div class="item-title">${Utils.escapeHTML(item.name)}</div><div class="item-subtitle">${item.tracks.length} tracks</div>
+                    </div>`;
                 }
+                rhPlaylists.innerHTML = plHtml;
+                const collectionGrid = document.getElementById('home-collection-grid');
+                if (collectionGrid) collectionGrid.classList.toggle('has-favorite-artists', favoriteArtists.length > 0);
 
                 const topSection = document.getElementById('top-picks-section');
                 const topRail = document.getElementById('home-top-picks-rail');
@@ -703,43 +689,48 @@
                 if (albums.size) htmlOut += `<div class="section-title" style="padding:16px 16px 0;">Albums</div><div class="track-list">${[...albums.values()].map(a => { const def=Utils.generateDefaultArt(a.track.title); return `<div class="track-row" data-action="open-album" data-key1="${Utils.escapeHTML(a.name)}" data-key2="${Utils.escapeHTML(a.artist)}"><img src="${def}" data-art-id="${a.track.artworkId||''}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';"><div class="track-meta"><div class="item-title">${Utils.escapeHTML(a.name)}</div><div class="item-subtitle">${Utils.escapeHTML(a.artist)}</div></div><span class="material-symbols-rounded" style="color:var(--text-tertiary)">chevron_right</span></div>`; }).join('')}</div>`;
                 if (playlists.length) htmlOut += `<div class="section-title" style="padding:16px 16px 0;">Playlists</div><div class="track-list">${playlists.map(p => `<div class="track-row" data-action="open-playlist" data-key1="${Utils.escapeHTML(p.id)}"><div class="track-art-small art-placeholder" style="background-image:url('${Utils.defaultArt}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">queue_music</span></div><div class="track-meta"><div class="item-title">${Utils.escapeHTML(p.name)}</div><div class="item-subtitle">${p.tracks.length} tracks</div></div><span class="material-symbols-rounded" style="color:var(--text-tertiary)">chevron_right</span></div>`).join('')}</div>`;
                 if (songs.length) htmlOut += `<div class="section-title" style="padding:16px 16px 0;">Songs</div><div class="track-list">${songs.map(t => UI.buildTrackRow(t, 'search')).join('')}</div>`;
-                c.innerHTML = htmlOut || `<div class="empty-state"><div class="empty-desc">No results found.</div></div>`;
+                c.innerHTML = htmlOut || `<div class="search-no-results"><div class="empty-title">No matching songs found</div><div class="empty-desc">Mujic couldn't find “${Utils.escapeHTML(e.target.value || '')}” in your local library.</div><button type="button" class="btn btn-primary search-download-cta" data-action="find-music-online">Find music online <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span></button></div>`;
                 UI.lazyLoadArtwork();
             }, 300),
-            showMiniPlayer: () => { document.getElementById('mini-player').classList.add('visible'); },
+            showMiniPlayer: () => { const mini=document.getElementById('mini-player'); if(mini) mini.classList.add('visible'); UI.updateVisualizerUI(); AudioAdapter.resizeVisualizer(); if(State.visualizerMode==='wave' && State.isPlaying) AudioAdapter.initWebAudio().then(()=>{AudioAdapter.resizeVisualizer();AudioAdapter.renderScrubberVisualizerFrame();if(AudioAdapter.visualizerShouldRun())AudioAdapter.startVisualizerLoop();}).catch(()=>{}); },
             openFullPlayer: (fromHistory = false) => { 
                 if (!State.isFullPlayerOpen) {
                     State.isFullPlayerOpen = true; const fp = document.getElementById('full-player'); fp.style.pointerEvents = 'auto'; fp.setAttribute('aria-hidden','false'); fp.classList.add('active'); document.body.classList.add('player-open');
-                    if (!fromHistory) history.pushState({ mujic:true, view:(document.querySelector('.view.active')?.id || 'view-home').replace('view-',''), player:true, sheet:null }, '', `${location.pathname}${location.search}#player`);
+                    if (!fromHistory) UI.pushHistoryState({ mujic:true, view:(document.querySelector('.view.active')?.id || 'view-home').replace('view-',''), player:true, sheet:null }, '#player');
                 }
                 if (State.isLyricsMode && State.currentLyrics && State.currentLyrics.isSynced) UI.syncLyrics(State.currentTime);
-                AudioAdapter.resizeVisualizer();
                 AudioAdapter.setWakeLock(State.keepScreenAwake);
                 UI.updateVisualizerUI();
-                AudioAdapter.renderScrubberVisualizerFrame();
-                if (State.visualizerMode !== 'off' && State.isPlaying) AudioAdapter.startVisualizerLoop();
+                if (State.visualizerMode === 'wave') {
+                    AudioAdapter.initWebAudio().then(() => {
+                        AudioAdapter.resizeVisualizer(); AudioAdapter.renderScrubberVisualizerFrame();
+                        if (AudioAdapter.visualizerShouldRun()) AudioAdapter.startVisualizerLoop();
+                    }).catch(() => UI.updateVisualizerUI());
+                } else {
+                    AudioAdapter.stopVisualizerLoop(); AudioAdapter.resizeVisualizer();
+                }
             },
             closeFullPlayer: (fromHistory=false) => {
                 const shouldGoBack = !fromHistory && State.isFullPlayerOpen && history.state?.mujic && history.state?.player && !history.state?.sheet;
                 State.isFullPlayerOpen=false; clearTimeout(State.lyricsTimeout); State.isLyricsMode=false; State.currentLyrics=null; State.activeLyricIndex=-1; State.statsLastAudioTime = Number(AudioAdapter.audio.currentTime) || State.statsLastAudioTime; AudioAdapter.stopVisualizerLoop();
                 const track=document.getElementById('scrubber-bar'); if(track) track.classList.remove('visualizer-active');
-                const fp=document.getElementById('full-player'); fp.classList.remove('active'); fp.style.pointerEvents='none'; fp.setAttribute('aria-hidden','true'); document.body.classList.remove('player-open','lyrics-mode','immersive-lyrics');
+                const fp=document.getElementById('full-player'); fp.classList.remove('active'); fp.style.pointerEvents='none'; fp.setAttribute('aria-hidden','true'); document.body.classList.remove('player-open','lyrics-mode','immersive-lyrics'); UI.updateVisualizerUI();
                 document.getElementById('lyrics-btn')?.classList.remove('active-state');
                 const ib=document.querySelector('.immersive-btn'); if(ib) ib.innerHTML='<span class="material-symbols-rounded">fullscreen</span>';
                 AudioAdapter.drawVisualizerFrame();
                 AudioAdapter.setWakeLock(false);
-                if (shouldGoBack) history.back();
+                if (shouldGoBack && UI.supportsUrlHistory()) history.back();
             },
             showSheet: (id, fromHistory = false) => { 
                 UI.closeSheets(true); document.getElementById('sheet-overlay').classList.add('active'); 
                 const sheet = document.getElementById(id); if (sheet) { sheet.classList.add('active'); UI.updatePlayerSettingsLabels(); UI.updateVisualizerUI(); if (id === 'eq-sheet') UI.updateEQUI(); }
                 if (!fromHistory) {
                     const view = (document.querySelector('.view.active')?.id || 'view-home').replace('view-','');
-                    history.pushState({ mujic:true, view, player:State.isFullPlayerOpen, sheet:id }, '', `${location.pathname}${location.search}#sheet-${id}`);
+                    UI.pushHistoryState({ mujic:true, view, player:State.isFullPlayerOpen, sheet:id }, `#sheet-${id}`);
                 }
             },
             closeSheets: (fromHistory = false) => { 
-                if (!fromHistory && history.state?.mujic && history.state?.sheet) { history.back(); return; }
+                if (!fromHistory && UI.supportsUrlHistory() && history.state?.mujic && history.state?.sheet) { history.back(); return; }
                 document.getElementById('sheet-overlay').classList.remove('active'); 
                 document.querySelectorAll('.bottom-sheet').forEach(s => s.classList.remove('active')); 
                 if (State.dialogResolve) { State.dialogResolve(false); State.dialogResolve = null; }
@@ -912,7 +903,7 @@
                 });
                 const preset = State.eqPreset || (State.eq === 'off' ? 'flat' : 'custom');
                 const sum = bands.reduce((a,b)=>a+Number(b||0),0);
-                const labelMap = { flat:'Flat', bass:'Bass Boost', vocal:'Vocal', rock:'Rock', treble:'Treble', custom:'Custom' };
+                const labelMap = { flat:'Flat', bass:'Bass', vocal:'Vocal', rock:'Rock', treble:'Treble', custom:'Custom' };
                 const label = labelMap[preset] || 'Custom';
                 const summary = document.getElementById('eq-summary-label');
                 if(summary) summary.innerText = preset === 'custom' ? `Custom ${sum > 0 ? '+' : ''}${sum} dB` : label;
@@ -943,8 +934,73 @@
                 }
                 const monthly = document.getElementById('settings-monthly-stats'); if(monthly) monthly.innerText=`${s.month.plays} plays • ${Stats.formatMinutes(s.month.seconds)}`;
             },
+            importData: async (file) => {
+                if (!file) return;
+                try {
+                    if (file.size > 10 * 1024 * 1024) throw new Error('Choose a JSON export smaller than 10 MB.');
+                    const data = JSON.parse(await file.text());
+                    if (!data || data.app !== 'Mujic' || (!data.settings && !data.playStats && !Array.isArray(data.playHistory))) {
+                        throw new Error('This file is not a supported Mujic settings or listening-data export.');
+                    }
+                    const settings = data.settings && typeof data.settings === 'object' && !Array.isArray(data.settings) ? data.settings : null;
+                    const hasStats = data.playStats && typeof data.playStats === 'object' && data.playStats.days && typeof data.playStats.days === 'object';
+                    const hasHistory = Array.isArray(data.playHistory);
+                    const confirmed = await Dialog.show({ type:'confirm', title:'Import Mujic data', message:`Import ${settings ? 'settings' : ''}${settings && (hasStats || hasHistory) ? ' and ' : ''}${hasStats || hasHistory ? 'listening data' : ''}? Imported settings replace matching preferences. Listening-data imports replace current listening statistics/history. Your songs and audio files are not changed.`, confirmText:'Import data' });
+                    if (!confirmed) return;
+
+                    if (settings) {
+                        const allowed = new Set(['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lowEndModeActive']);
+                        const boolKeys = new Set(['lowEndMode','resumePlayback','showArtworkLists','muted','shuffle','crossfade','skipSilence','instantSkipSilence','loudnessControl','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','keepScreenAwake','lyricsPlusEnabled']);
+                        const stringEnums = {
+                            theme:['system','light','dark'], accentPreset:['dynamic','custom','default'], surfaceTheme:['oled','graphite','midnight-blue','warm-espresso','forest'], textScale:['compact','normal','large'], layoutDensity:['compact','comfortable','spacious'], performanceProfile:['auto','low-end','full'], lyricsStyle:['apple','spotify','neon'], lyricsPosition:['upper','center','lower'], lyricsFontSize:['compact','normal','large','extra-large'], lyricsLineSpacing:['compact','normal','relaxed'], lyricsWidth:['narrow','standard','wide'], lyricsEmphasis:['soft','standard','strong','off'], interfaceStyle:['subtle','glass','solid'], cornerRadius:['sharp','rounded','pill'], motion:['full','reduced'], playerBackground:['artwork','solid','black'], playerArtworkMode:['full','contained'], librarySort:['dateAdded','title','artist','album'], librarySortDir:['asc','desc'], loudnessLevel:['soft','balanced','strong'], eq:['off','low','med','high'], eqPreset:['flat','bass','vocal','rock','treble','custom']
+                        };
+                        for (const [key,value] of Object.entries(settings)) {
+                            if (!allowed.has(key)) continue;
+                            if (boolKeys.has(key)) { if (typeof value === 'boolean') State[key] = value; continue; }
+                            if (stringEnums[key]) { if (typeof value === 'string' && stringEnums[key].includes(value)) State[key] = value; continue; }
+                            if (key === 'eqBands') { if (Array.isArray(value) && value.length === 5 && value.every(v => Number.isFinite(Number(v)))) State.eqBands = value.map(v => Math.max(-12,Math.min(12,Number(v)))); continue; }
+                            if (key === 'visualizerMode') { State.visualizerMode = value === 'off' ? 'off' : 'wave'; continue; }
+                            if (key === 'waveformStyle') { if (['default','wavy','slim','squiggly'].includes(value)) State.waveformStyle = value; continue; }
+                            if (typeof value === 'number' && Number.isFinite(value)) {
+                                if (['volume'].includes(key)) State[key] = Math.max(0,Math.min(1,value));
+                                else if (key === 'playbackRate') State[key] = Math.max(0.5,Math.min(3,value));
+                                else if (key === 'lyricsVerticalOffset') State[key] = Math.max(-8,Math.min(8,value));
+                                else if (key === 'lyricsWidth') continue;
+                                else State[key] = value;
+                            }
+                            if (key === 'accentColor' && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) State.accentColor = value;
+                        }
+                        State.lowEndModeActive = State.lowEndMode || State.performanceProfile === 'low-end';
+                    }
+                    if (hasStats) {
+                        const days = {};
+                        for (const [day,record] of Object.entries(data.playStats.days).slice(0,2500)) {
+                            if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !record || typeof record !== 'object') continue;
+                            const tracks = {};
+                            if (record.tracks && typeof record.tracks === 'object') Object.entries(record.tracks).slice(0,1000).forEach(([id,n]) => { const count=Number(n); if(id && Number.isFinite(count) && count>=0) tracks[String(id).slice(0,180)]=Math.floor(count); });
+                            days[day] = { plays:Math.max(0,Math.floor(Number(record.plays)||0)), seconds:Math.max(0,Number(record.seconds)||0), tracks };
+                        }
+                        State.playStats = { days };
+                    }
+                    if (hasHistory) await StorageAdapter.replacePlayHistory(data.playHistory);
+                    await StorageAdapter.saveSettings();
+                    UI.applySettings(); AudioAdapter.applySettings(); AudioAdapter.resizeVisualizer();
+                    UI.updateVisualizerUI(); UI.updateWaveformStyleUI(); UI.updatePlayerSettingsLabels(); UI.updateEQUI(); UI.updateStatsUI(); UI.updateStatsSettings?.();
+                    if (hasHistory) {
+                        const entries = await StorageAdapter.getRecentPlayHistory(151);
+                        State.playHistory = entries.slice(0,150); State.playHistoryOffset = State.playHistory.length; State.playHistoryHasMore = entries.length > 150;
+                        State.history = [...new Set(entries.map(entry => entry.trackId).filter(id => id && State.library.some(track => track.id === id)))].slice(0,100);
+                    }
+                    UI.renderHome();
+                    UI.showToast('Mujic data imported.', 'check_circle');
+                } catch (error) {
+                    UI.showToast(`Import failed: ${error?.message || 'This JSON file could not be imported.'}`, 'error');
+                } finally {
+                    const input = document.getElementById('data-import-input'); if(input) input.value='';
+                }
+            },
             exportData: async (kind) => {
-                const settingKeys = ['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','aiSongIdentification','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','sleepTimer','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled'];
+                const settingKeys = ['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','sleepTimer','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled'];
                 const settings = {}; settingKeys.forEach(key => { if (State[key] !== undefined) settings[key] = State[key]; });
                 let payload;
                 if (kind === 'settings') {
@@ -963,35 +1019,96 @@
                 UI.showToast(`${kind === 'settings' ? 'Settings' : 'Listening stats'} exported`, 'download');
             },
             updateVisualizerUI: () => {
-                const waveLabels={default:'Default',wavy:'Wavy',slim:'Slim',squiggly:'Squiggly'};
-                const mode = State.visualizerMode === 'aurora' ? 'pulse' : State.visualizerMode;
-                const map={off:'Off',spectrum:'Spectrum Bars',wave:waveLabels[State.waveformStyle]||'Wavy',pulse:'Pulse',dots:'Dots',mirror:'Mirror Bars'};
-                const label=map[mode]||'Off';
-                const a=document.getElementById('visualizer-status-label'),b=document.getElementById('visualizer-summary-label'),c=document.getElementById('visualizer-settings-summary');
-                if(a)a.innerText=label;if(b)b.innerText=label;if(c)c.innerText=label;
-                document.querySelectorAll('[data-action="set-visualizer"]').forEach(x=>{const on=x.dataset.val===mode;x.classList.toggle('active-state',on);x.setAttribute('aria-pressed',String(on));});
-                const scrubber=document.getElementById('scrubber-bar');
-                const effectOn = mode !== 'off' && State.isFullPlayerOpen;
-                if(scrubber) {
-                    scrubber.classList.toggle('visualizer-active', effectOn);
-                    const canvas=scrubber.querySelector('.scrubber-visualizer');
-                    if(canvas) canvas.style.display = effectOn ? 'block' : 'none';
-                    if(!effectOn && canvas) { const ctx=canvas.getContext('2d'); if(ctx) ctx.clearRect(0,0,canvas.width,canvas.height); }
-                }
-            },
-            updateWaveformStyleUI: () => {
                 const labels = { default:'Default', wavy:'Wavy', slim:'Slim', squiggly:'Squiggly' };
-                const style = labels[State.waveformStyle] ? State.waveformStyle : 'wavy';
-                const label = labels[style];
-                const a = document.getElementById('waveform-style-summary'); if (a) a.innerText = label;
-                document.querySelectorAll('[data-action="set-waveform-style"]').forEach(el => { const active = el.dataset.val === style; el.classList.toggle('active-state', active); el.setAttribute('aria-pressed', String(active)); });
+                const enabled = State.visualizerMode === 'wave';
+                const label = enabled ? (labels[State.waveformStyle] || 'Wavy') : 'Off';
+                ['waveform-style-summary','waveform-style-sheet-summary','visualizer-settings-summary','visualizer-status-label','visualizer-summary-label','visualizer-settings-summary'].forEach(id => {
+                    const el = document.getElementById(id); if (el) el.textContent = label;
+                });
+                document.querySelectorAll('[data-action="set-waveform-style"]').forEach(el => {
+                    const active = el.dataset.val === 'off' ? !enabled : (enabled && el.dataset.val === State.waveformStyle);
+                    el.classList.toggle('active-state', active); el.setAttribute('aria-pressed', String(active));
+                });
+                const fullPlayer = document.getElementById('full-player');
+                const miniPlayer = document.getElementById('mini-player');
+                const fullActive = !!(enabled && State.isFullPlayerOpen && fullPlayer?.classList.contains('active'));
+                const miniActive = !!(enabled && miniPlayer?.classList.contains('visible'));
+                const scrubber = document.getElementById('scrubber-bar');
+                if (scrubber) {
+                    scrubber.classList.toggle('visualizer-active', fullActive);
+                    const canvas = document.getElementById('scrubber-visualizer');
+                    if (canvas) canvas.style.display = fullActive ? 'block' : 'none';
+                    if (!fullActive && canvas) { const ctx = canvas.getContext('2d'); if (ctx) ctx.clearRect(0,0,canvas.width,canvas.height); }
+                }
+                if (miniPlayer) miniPlayer.classList.toggle('waveform-active', miniActive);
+                const miniCanvas = document.getElementById('mini-visualizer');
+                if (miniCanvas) {
+                    miniCanvas.style.display = miniActive ? 'block' : 'none';
+                    if (!miniActive) { const ctx = miniCanvas.getContext('2d'); if (ctx) ctx.clearRect(0,0,miniCanvas.width,miniCanvas.height); }
+                }
+                if (enabled && AudioAdapter.visualizerShouldRun()) AudioAdapter.startVisualizerLoop();
+                else if (!enabled) AudioAdapter.stopVisualizerLoop();
             },
+            updateWaveformStyleUI: () => { UI.updateVisualizerUI(); },
             openPlaylistActions: (pid) => {
                 const p = State.playlists.find(x => x.id === pid); if (!p) return;
                 State.playlistActionTargetId = pid;
                 const title = document.getElementById('playlist-action-title'); if(title) title.innerText = p.name;
                 const subtitle = document.getElementById('playlist-action-subtitle'); if(subtitle) subtitle.innerText = `${p.tracks.length} tracks`;
                 UI.showSheet('playlist-actions-sheet');
+            },
+            openPlaylistTrackPicker: (pid) => {
+                const playlist = State.playlists.find(item => item.id === pid);
+                if (!playlist) { UI.showToast('Open a playlist first.', 'info'); return; }
+                State.playlistImportTargetId = pid;
+                const search = document.getElementById('playlist-track-picker-search');
+                if (search) search.value = '';
+                UI.renderPlaylistTrackPicker();
+                // Close the previous sheet visually without starting an asynchronous history.back();
+                // this avoids racing a pending popstate against the new picker sheet.
+                UI.closeSheets(true);
+                UI.showSheet('playlist-track-picker-sheet');
+            },
+            renderPlaylistTrackPicker: () => {
+                const list = document.getElementById('playlist-track-picker-list');
+                const status = document.getElementById('playlist-track-picker-status');
+                const search = String(document.getElementById('playlist-track-picker-search')?.value || '').trim().toLocaleLowerCase();
+                const playlist = State.playlists.find(item => item.id === State.playlistImportTargetId);
+                if (!list || !playlist) return;
+                const available = State.library.filter(track => !playlist.tracks.includes(track.id));
+                const matches = available.filter(track => !search || [track.title, track.artist, track.album, track.fileName].some(value => String(value || '').toLocaleLowerCase().includes(search)));
+                // Keep the initial picker lightweight on large libraries; searching narrows the list.
+                const limit = search ? 300 : 120;
+                const shown = matches.slice(0, limit);
+                if (status) status.textContent = matches.length > limit ? `Showing ${limit} of ${matches.length} songs. Search to narrow the list.` : `${matches.length} song${matches.length === 1 ? '' : 's'} available`;
+                if (!shown.length) {
+                    const title = !State.library.length ? 'Your library is empty' : (available.length ? 'No matching songs' : 'All songs are already in this playlist');
+                    const description = !State.library.length ? 'Add music to your Mujic library first, then choose tracks here.' : (available.length ? 'Try another title, artist, album or filename.' : 'Every song in your library is already in this playlist.');
+                    list.innerHTML = `<div class="empty-state playlist-picker-empty"><div class="empty-title">${title}</div><div class="empty-desc">${description}</div></div>`;
+                    return;
+                }
+                list.innerHTML = shown.map(track => `
+                    <label class="playlist-select-row" data-song-search="${Utils.escapeHTML(`${track.title} ${track.artist} ${track.album || ''} ${track.fileName || ''}`.toLocaleLowerCase())}">
+                        <input type="checkbox" class="playlist-track-checkbox" data-playlist-track-select="${Utils.escapeHTML(track.id)}">
+                        <span class="material-symbols-rounded playlist-picker-note" aria-hidden="true">music_note</span>
+                        <span class="track-meta"><span class="item-title">${Utils.escapeHTML(track.title || 'Unknown title')}</span><span class="item-subtitle">${Utils.escapeHTML(track.artist || 'Unknown artist')}${track.album && track.album !== 'Unknown Album' ? ` · ${Utils.escapeHTML(track.album)}` : ''}</span></span>
+                    </label>`).join('');
+            },
+            savePlaylistTrackPicker: async () => {
+                const pid = State.playlistImportTargetId;
+                const playlist = State.playlists.find(item => item.id === pid);
+                const list = document.getElementById('playlist-track-picker-list');
+                if (!playlist || !list) { UI.showToast('Playlist no longer exists.', 'error'); UI.closeSheets(); return; }
+                const selected = [...list.querySelectorAll('[data-playlist-track-select]:checked')].map(input => input.dataset.playlistTrackSelect).filter(id => State.library.some(track => track.id === id));
+                const unique = selected.filter(id => !playlist.tracks.includes(id));
+                if (!unique.length) { UI.showToast('Select at least one song to add.', 'info'); return; }
+                playlist.tracks.push(...unique);
+                await StorageAdapter.savePlaylist(playlist);
+                if (State.currentPlaylistId === pid || (State.currentContextType === 'playlist' && State.currentPlaylistId === pid)) UI.refreshPlaylistDetail(pid);
+                UI.renderPlaylists(); UI.renderHome();
+                State.playlistImportTargetId = null;
+                UI.closeSheets();
+                UI.showToast(`Added ${unique.length} song${unique.length === 1 ? '' : 's'} to ${playlist.name}.`, 'playlist_add_check');
             },
             refreshPlaylistActions: (pid) => {
                 const actions = document.getElementById('detail-context-actions'); if (!actions) return;
@@ -1148,7 +1265,12 @@
                     const activateNav = (e) => {
                         const item = e.target.closest('.nav-item[data-view]');
                         if (!item) return;
-                        const now = Date.now(); if (item.dataset.lastNavActivation && now - Number(item.dataset.lastNavActivation) < 350) return;
+                        const now = Date.now();
+                        if (item.dataset.lastNavActivation && now - Number(item.dataset.lastNavActivation) < 350) {
+                            // A touch pointerup is followed by a synthetic click on many phones.
+                            // Swallow that duplicate instead of letting it reach body delegation.
+                            e.preventDefault(); e.stopPropagation(); return;
+                        }
                         item.dataset.lastNavActivation = String(now);
                         e.preventDefault(); e.stopPropagation();
                         UI.switchView(item.dataset.view);
@@ -1205,69 +1327,148 @@
                 document.addEventListener('contextmenu', (e) => { if(e.target.closest('.playlist-longpress-target') || e.target.closest('.home-track-longpress-target')) e.preventDefault(); });
 
                 document.body.addEventListener('click', async (e) => {
+                    try {
                     if (State.suppressNextClickUntil && Date.now() < State.suppressNextClickUntil) { e.preventDefault(); e.stopPropagation(); State.suppressNextClickUntil = 0; return; }
                     const btn = e.target.closest('[data-action]'); if (!btn) return;
                     const action = btn.dataset.action;
-                    
+
+                    // Central action dispatcher: the previous build omitted core actions here
+                    // (song rows, Settings categories, history, playlist actions and transport).
+                    // The UI looked normal, but most taps had no handler. Keep this dispatch
+                    // explicit, and isolate failures so one action cannot break future taps.
+                    try {
+                        switch (action) {
+                            case 'switch-view':
+                                e.preventDefault(); e.stopPropagation(); UI.switchView(btn.dataset.view); return;
+                            case 'open-settings-group':
+                                e.preventDefault(); e.stopPropagation(); UI.openSettingsGroup(btn.dataset.group); return;
+                            case 'settings-group-back':
+                                e.preventDefault(); e.stopPropagation(); UI.backSettingsGroup(); return;
+                            case 'switch-tab':
+                                e.preventDefault(); e.stopPropagation(); UI.switchLibraryTab(btn.dataset.tab); return;
+                            case 'click-file-input': {
+                                e.preventDefault(); e.stopPropagation();
+                                const fileInput = document.getElementById('file-input');
+                                if (fileInput) fileInput.click();
+                                return;
+                            }
+                            case 'show-history':
+                                e.preventDefault(); e.stopPropagation(); UI.showHistorySheet(); return;
+                            case 'load-older-history':
+                                e.preventDefault(); e.stopPropagation(); await UI.loadOlderHistory(); return;
+                            case 'open-artist':
+                                e.preventDefault(); e.stopPropagation(); await UI.openContextView('artist', btn.dataset.key1); return;
+                            case 'open-album':
+                                e.preventDefault(); e.stopPropagation(); await UI.openContextView('album', btn.dataset.key1, btn.dataset.key2); return;
+                            case 'open-playlist':
+                                e.preventDefault(); e.stopPropagation(); await UI.openContextView('playlist', btn.dataset.key1); return;
+                            case 'open-favorites':
+                                e.preventDefault(); e.stopPropagation(); await UI.openContextView('favorites'); return;
+                            case 'play-track': {
+                                e.preventDefault(); e.stopPropagation();
+                                const row = btn.closest('.home-track-longpress-target');
+                                if (row?.dataset.longPressTriggered === '1') { row.dataset.longPressTriggered = '0'; return; }
+                                const id = btn.dataset.id;
+                                if (!id || !State.library.some(track => track.id === id)) { UI.showToast('This track is no longer in your library.', 'error'); return; }
+                                const contextName = btn.dataset.context || 'library';
+                                let list = State.library;
+                                if (contextName === 'search') {
+                                    const matches = Array.isArray(State.searchResults) ? State.searchResults.filter(track => State.library.some(item => item.id === track.id)) : [];
+                                    // A single search hit should not create a one-track dead-end queue.
+                                    list = matches.length > 1 ? matches : State.library;
+                                } else if ((contextName === 'playlist' || contextName === 'context') && Array.isArray(State.currentContextView) && State.currentContextView.some(track => track.id === id)) {
+                                    list = State.currentContextView;
+                                }
+                                let index = list.findIndex(track => track.id === id);
+                                if (index < 0) { list = State.library; index = list.findIndex(track => track.id === id); }
+                                if (index >= 0) Player.playContext(list, index);
+                                return;
+                            }
+                            case 'play-context-all':
+                                e.preventDefault(); e.stopPropagation(); Player.playContext(State.currentContextView || [], 0); return;
+                            case 'shuffle-context-all':
+                                e.preventDefault(); e.stopPropagation(); Player.shuffleContext(State.currentContextView || []); return;
+                            case 'shuffle-all':
+                                e.preventDefault(); e.stopPropagation(); Player.shuffleContext(State.library || []); return;
+                            case 'create-playlist':
+                                e.preventDefault(); e.stopPropagation(); await Playlists.promptCreate(); return;
+                            case 'rename-playlist':
+                                e.preventDefault(); e.stopPropagation(); await Playlists.rename(btn.dataset.key1); return;
+                            case 'delete-playlist':
+                                e.preventDefault(); e.stopPropagation(); await Playlists.delete(btn.dataset.key1); return;
+                            case 'move-playlist':
+                                e.preventDefault(); e.stopPropagation(); await Playlists.movePlaylist(btn.dataset.key1, btn.dataset.direction); return;
+                            case 'open-playlist-from-sheet': {
+                                e.preventDefault(); e.stopPropagation();
+                                const pid = State.playlistActionTargetId;
+                                UI.closeSheets(); if (pid) await UI.openContextView('playlist', pid);
+                                return;
+                            }
+                            case 'rename-playlist-sheet':
+                                e.preventDefault(); e.stopPropagation(); await Playlists.rename(State.playlistActionTargetId); UI.closeSheets(); return;
+                            case 'delete-playlist-sheet':
+                                e.preventDefault(); e.stopPropagation(); await Playlists.delete(State.playlistActionTargetId); UI.closeSheets(); return;
+                            case 'import-playlist-songs': {
+                                e.preventDefault(); e.stopPropagation();
+                                const pid = State.currentContextType === 'playlist' ? State.currentPlaylistId : State.playlistActionTargetId;
+                                if (!pid) { UI.showToast('Open a playlist first.', 'info'); return; }
+                                UI.openPlaylistTrackPicker(pid);
+                                return;
+                            }
+                            case 'save-playlist-selected-songs':
+                                e.preventDefault(); e.stopPropagation(); await UI.savePlaylistTrackPicker(); return;
+                            case 'find-music-online': {
+                                e.preventDefault(); e.stopPropagation();
+                                const input = document.getElementById('search-input');
+                                const rawQuery = String(input?.value || '').trim();
+                                if (!rawQuery) { UI.showToast('Enter a song, artist or album to search online.', 'info'); return; }
+                                const query = /\bsong\b/i.test(rawQuery) ? rawQuery : `${rawQuery} song`;
+                                const targetUrl = `https://royverse69.github.io/mujic/dloader.html?q=${encodeURIComponent(query)}`;
+                                const opened = window.open(targetUrl, '_blank');
+                                if (opened) opened.opener = null;
+                                else UI.showToast('Allow pop-ups to open the music downloader.', 'info');
+                                return;
+                            }
+                            case 'track-options':
+                                e.preventDefault(); e.stopPropagation(); await UI.openTrackOptions(btn.dataset.id); return;
+                            case 'toggle-favorite':
+                                e.preventDefault(); e.stopPropagation(); Player.toggleFavorite(); return;
+                            case 'toggle-fav-artist': {
+                                e.preventDefault(); e.stopPropagation();
+                                const artist = btn.dataset.artist || '';
+                                State.favoriteArtists ||= [];
+                                const idx = State.favoriteArtists.indexOf(artist);
+                                if (idx >= 0) State.favoriteArtists.splice(idx, 1); else State.favoriteArtists.push(artist);
+                                await StorageAdapter.saveSettings(); UI.renderHome();
+                                await UI.openContextView('artist', artist);
+                                return;
+                            }
+                            case 'toggle-shuffle':
+                                e.preventDefault(); e.stopPropagation(); Player.toggleShuffle(); return;
+                            case 'toggle-repeat':
+                                e.preventDefault(); e.stopPropagation(); Player.toggleRepeat(); return;
+                            case 'toggle-play':
+                                e.preventDefault(); e.stopPropagation(); Player.togglePlay(); return;
+                            case 'next-track':
+                                e.preventDefault(); e.stopPropagation(); Player.next(); return;
+                            case 'prev-track':
+                                e.preventDefault(); e.stopPropagation(); Player.previous(); return;
+                            case 'toggle-lyrics':
+                                e.preventDefault(); e.stopPropagation(); UI.toggleLyricsMode(); return;
+                            case 'toggle-immersive-lyrics':
+                                e.preventDefault(); e.stopPropagation(); UI.toggleImmersiveLyrics(); return;
+                            case 'go-back':
+                                e.preventDefault(); e.stopPropagation(); UI.goBack(); return;
+                        }
+                    } catch (actionError) {
+                        console.error(`Mujic action failed: ${action}`, actionError);
+                        UI.showToast(`Couldn't complete ${action.replace(/-/g, ' ')}. Please try again.`, 'error');
+                        return;
+                    }
+
                     if (['toggle-play', 'next-track', 'prev-track'].includes(action)) e.stopPropagation();
                     
-                    if (action === 'add-gemini-key') { e.preventDefault(); e.stopPropagation(); UI.addGeminiKey(); }
-                    else if (action === 'remove-gemini-key') { e.preventDefault(); e.stopPropagation(); UI.removeGeminiKey(Number(btn.dataset.index)); }
-                    else if (action === 'save-gemini-keys') { e.preventDefault(); e.stopPropagation(); await UI.saveGeminiKeys(); }
-                    else if (action === 'test-gemini-keys') { e.preventDefault(); e.stopPropagation(); await UI.testGeminiKeys(); }
-                    else if (action === 'toggle-gemini-key-visibility') { e.preventDefault(); e.stopPropagation(); UI.toggleGeminiKeyVisibility(Number(btn.dataset.index), btn); }
-                    else if (action === 'switch-view') UI.switchView(btn.dataset.view);
-                    else if (action === 'open-settings-group') { e.preventDefault(); e.stopPropagation(); UI.openSettingsGroup(btn.dataset.group); }
-                    else if (action === 'settings-group-back') { e.preventDefault(); e.stopPropagation(); UI.backSettingsGroup(); }
-                    else if (action === 'switch-tab') UI.switchLibraryTab(btn.dataset.tab);
-                    else if (action === 'go-back') UI.goBack();
-                    else if (action === 'click-file-input') document.getElementById('file-input').click();
-                    else if (action === 'play-track') {
-                        if (btn.dataset.longPressTriggered === '1') { delete btn.dataset.longPressTriggered; return; }
-                        const isLibraryContext = btn.dataset.context === 'library' || btn.dataset.context === 'home';
-                        const isSearchContext = btn.dataset.context === 'search';
-                        let ctxList = isLibraryContext ? State.library : (isSearchContext ? State.searchResults : State.currentContextView);
-                        if (isSearchContext) {
-                            const seen = new Set();
-                            ctxList = [...State.searchResults, ...State.library].filter(t => { if (!t || seen.has(t.id)) return false; seen.add(t.id); return true; });
-                        }
-                        const tIdx = ctxList.findIndex(x => x.id === btn.dataset.id);
-                        Player.playContext(ctxList, tIdx > -1 ? tIdx : 0);
-                    }
-                    else if (action === 'track-options') { e.stopPropagation(); UI.openTrackOptions(btn.dataset.id); }
-                    else if (action === 'open-album') UI.openContextView('album', btn.dataset.key1, btn.dataset.key2);
-                    else if (action === 'open-artist') UI.openContextView('artist', btn.dataset.key1);
-                    else if (action === 'open-playlist') { if (btn.dataset.longPressTriggered === '1') { delete btn.dataset.longPressTriggered; e.preventDefault(); e.stopPropagation(); return; } UI.openContextView('playlist', btn.dataset.key1); }
-                    else if (action === 'show-history') UI.showHistorySheet();
-                    else if (action === 'load-older-history') { e.stopPropagation(); UI.loadOlderHistory(); }
-                    else if (action === 'open-favorites') UI.openContextView('favorites');
-                    else if (action === 'create-playlist') Playlists.promptCreate();
-                    else if (action === 'delete-playlist') { e.stopPropagation(); Playlists.delete(btn.dataset.key1); }
-                    else if (action === 'rename-playlist') { e.stopPropagation(); Playlists.rename(btn.dataset.key1); }
-                    else if (action === 'open-playlist-from-sheet') { const pid=State.playlistActionTargetId; UI.closeSheets(); if(pid) UI.openContextView('playlist',pid); }
-                    else if (action === 'rename-playlist-sheet') { const pid=State.playlistActionTargetId; UI.closeSheets(); if(pid) Playlists.rename(pid); }
-                    else if (action === 'delete-playlist-sheet') { const pid=State.playlistActionTargetId; UI.closeSheets(); if(pid) Playlists.delete(pid); }
-                    else if (action === 'import-playlist-songs') { const pid = State.playlistActionTargetId || State.currentPlaylistId; if(pid){ State.playlistImportTargetId=pid; UI.closeSheets(); setTimeout(()=>document.getElementById('file-input').click(),80); } }
-                    else if (action === 'move-playlist') { e.stopPropagation(); Playlists.movePlaylist(btn.dataset.key1, btn.dataset.direction); }
-                    else if (action === 'play-context-all') Player.playContext(State.currentContextView, 0);
-                    else if (action === 'shuffle-context-all') Player.shuffleContext(State.currentContextView);
-                    else if (action === 'shuffle-all') Player.shuffleContext(State.library);
-                    else if (action === 'toggle-play') Player.togglePlay();
-                    else if (action === 'next-track') Player.next();
-                    else if (action === 'prev-track') Player.previous();
-                    else if (action === 'toggle-shuffle') Player.toggleShuffle();
-                    else if (action === 'toggle-repeat') Player.toggleRepeat();
-                    else if (action === 'toggle-favorite') Player.toggleFavorite();
-                    else if (action === 'toggle-lyrics') UI.toggleLyricsMode();
-                    else if (action === 'toggle-immersive-lyrics') { e.stopPropagation(); UI.toggleImmersiveLyrics(); }
-                    else if (action === 'toggle-fav-artist') {
-                        e.stopPropagation(); const artist = btn.dataset.artist;
-                        const idx = State.favoriteArtists.indexOf(artist);
-                        if (idx > -1) State.favoriteArtists.splice(idx, 1); else State.favoriteArtists.push(artist);
-                        StorageAdapter.saveSettings(); UI.showToast(idx > -1 ? "Removed from favorites" : "Added to favorites", "favorite");
-                        UI.openContextView('artist', artist);
-                    }
-                    else if (action === 'toggle-mute') AudioAdapter.toggleMute();
+                    if (action === 'toggle-mute') AudioAdapter.toggleMute();
                     else if (action === 'show-sheet') { e.stopPropagation(); UI.showSheet(btn.dataset.target); }
                     else if (action === 'close-sheets') UI.closeSheets();
                     else if (action === 'prompt-output') AudioAdapter.promptOutputDevice();
@@ -1275,7 +1476,6 @@
                     else if (action === 'set-speed') AudioAdapter.setPlaybackRate(btn.dataset.val);
                     else if (action === 'set-eq') AudioAdapter.setEQ(btn.dataset.val);
                     else if (action === 'set-eq-preset') AudioAdapter.setEQPreset(btn.dataset.val);
-                    else if (action === 'set-visualizer') { e.stopPropagation(); AudioAdapter.setVisualizer(btn.dataset.val); }
                     else if (action === 'set-waveform-style') { e.stopPropagation(); AudioAdapter.setWaveformStyle(btn.dataset.val); }
                     else if (action === 'move-queue') { e.stopPropagation(); Player.moveQueue(parseInt(btn.dataset.index), btn.dataset.direction); }
                     else if (action === 'clear-queue') Player.clearQueue();
@@ -1307,6 +1507,8 @@
                     }
                     else if (action === 'export-settings') UI.exportData('settings');
                     else if (action === 'export-stats') UI.exportData('stats');
+                    else if (action === 'import-data') { e.preventDefault(); e.stopPropagation(); document.getElementById('data-import-input')?.click(); }
+                    else if (action === 'check-updates') { e.preventDefault(); e.stopPropagation(); UI.checkForUpdates(true); }
                     else if (action === 'refresh-changelog') { e.stopPropagation(); UI.loadChangeLog(true); }
                     else if (action === 'reset-appearance') UI.resetAppearance();
                     else if (action === 'seek-lyric') { AudioAdapter.seek(parseFloat(btn.dataset.time)); }
@@ -1331,6 +1533,10 @@
                         const confirmed = await Dialog.show({ type: 'confirm', title: 'Remove Track', message: 'Remove this track from your library?', confirmText: 'Remove', destructive: true });
                         if(confirmed) Library.removeTrack(State.actionTargetId); 
                     }
+                    } catch (error) {
+                        console.error('Mujic delegated click handler failed:', error);
+                        try { UI.showToast('That action could not be completed. Please try again.', 'error'); } catch (_) {}
+                    }
                 });
 
                 document.querySelectorAll('.settings-control').forEach(el => {
@@ -1342,15 +1548,18 @@
                         StorageAdapter.saveSettings(); UI.applySettings(); AudioAdapter.applySettings();
                         if (key === 'keepScreenAwake') AudioAdapter.setWakeLock(State.keepScreenAwake);
                         if (key === 'waveformStyle') UI.updateWaveformStyleUI();
+                        if (key === 'visualizerMode') UI.updateVisualizerUI();
                         if (key === 'performanceProfile') UI.showToast(State.lowEndModeActive ? 'Low-end performance profile active.' : 'Full visual quality active.', 'speed');
                         if(key === 'librarySort' || key === 'librarySortDir') { Library.sortLibrary(); UI.renderLibrary(); }
                         if(key === 'showArtworkLists') UI.updateHighlights();
-                        if (key === 'aiSongIdentification' && State.aiSongIdentification) UI.showToast(State.geminiApiKeys?.length ? 'Experimental AI identification enabled. Text metadata is sent directly to Google; audio is never uploaded.' : 'Add a Gemini API key in Settings before AI identification can run.', 'auto_awesome');
                         if(['crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','seekStep','lyricsPlusEnabled'].includes(key)) UI.showToast('Playback preferences updated', 'check_circle');
                     });
                 });
                 
-                window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (State.theme === 'system') UI.applySettings(); });
+                const colorSchemeQuery = window.matchMedia?.('(prefers-color-scheme: light)');
+                const onColorSchemeChange = () => { if (State.theme === 'system') UI.applySettings(); };
+                if (colorSchemeQuery?.addEventListener) colorSchemeQuery.addEventListener('change', onColorSchemeChange);
+                else if (colorSchemeQuery?.addListener) colorSchemeQuery.addListener(onColorSchemeChange);
             },
             setupGestures: () => {
                 window.addEventListener('resize', () => { AudioAdapter.resizeVisualizer(); if (AudioAdapter.visualizerShouldRun()) AudioAdapter.renderScrubberVisualizerFrame(); });
@@ -1384,23 +1593,28 @@
                     const r = sb.getBoundingClientRect(); const x = e.clientX || (e.touches && e.touches[0].clientX);
                     const p = Math.max(0, Math.min(1, (x - r.left) / r.width)); AudioAdapter.seek(p * State.duration); 
                 };
-                sb.addEventListener('pointerdown', e => { sb.setPointerCapture(e.pointerId); updateScrubber(e); });
-                sb.addEventListener('pointermove', e => { if(sb.hasPointerCapture(e.pointerId)) updateScrubber(e); });
-                sb.addEventListener('pointerup', e => { sb.releasePointerCapture(e.pointerId); });
-                sb.addEventListener('pointercancel', e => { sb.releasePointerCapture(e.pointerId); });
+                if (sb) {
+                    sb.addEventListener('pointerdown', e => { if (!sb.setPointerCapture) return; sb.setPointerCapture(e.pointerId); updateScrubber(e); });
+                    sb.addEventListener('pointermove', e => { if(sb.hasPointerCapture?.(e.pointerId)) updateScrubber(e); });
+                    sb.addEventListener('pointerup', e => { if(sb.hasPointerCapture?.(e.pointerId)) sb.releasePointerCapture(e.pointerId); });
+                    sb.addEventListener('pointercancel', e => { if(sb.hasPointerCapture?.(e.pointerId)) sb.releasePointerCapture(e.pointerId); });
+                }
                 
                 const vb = document.getElementById('volume-slider-track');
                 const updateVolume = (e) => { 
                     const r = vb.getBoundingClientRect(); const x = e.clientX || (e.touches && e.touches[0].clientX);
                     const p = Math.max(0, Math.min(1, (x - r.left) / r.width)); AudioAdapter.setVolume(p); 
                 };
-                vb.addEventListener('pointerdown', e => { vb.setPointerCapture(e.pointerId); updateVolume(e); });
-                vb.addEventListener('pointermove', e => { if(vb.hasPointerCapture(e.pointerId)) updateVolume(e); });
-                vb.addEventListener('pointerup', e => { vb.releasePointerCapture(e.pointerId); });
+                if (vb) {
+                    vb.addEventListener('pointerdown', e => { if (!vb.setPointerCapture) return; vb.setPointerCapture(e.pointerId); updateVolume(e); });
+                    vb.addEventListener('pointermove', e => { if(vb.hasPointerCapture?.(e.pointerId)) updateVolume(e); });
+                    vb.addEventListener('pointerup', e => { if(vb.hasPointerCapture?.(e.pointerId)) vb.releasePointerCapture(e.pointerId); });
+                    vb.addEventListener('pointercancel', e => { if(vb.hasPointerCapture?.(e.pointerId)) vb.releasePointerCapture(e.pointerId); });
+                }
                 
                 let sy = 0, sx = 0; const fp = document.getElementById('full-player');
-                fp.addEventListener('touchstart', e => { sy = e.touches[0].clientY; sx = e.touches[0].clientX; }, {passive:true});
-                fp.addEventListener('touchend', e => { 
+                fp?.addEventListener('touchstart', e => { sy = e.touches[0].clientY; sx = e.touches[0].clientX; }, {passive:true});
+                fp?.addEventListener('touchend', e => { 
                     const dy = e.changedTouches[0].clientY - sy; const dx = Math.abs(e.changedTouches[0].clientX - sx);
                     if(dy > 120 && dy > dx && !e.target.closest('.player-lyrics-container') && !e.target.closest('.scrubber-wrap')) {
                          UI.closeFullPlayer(); 
@@ -1410,7 +1624,9 @@
                 document.querySelectorAll('[data-eq-band]').forEach(input => {
                     input.addEventListener('input', (e) => { AudioAdapter.setEQBand(e.target.dataset.eqBand, e.target.value); });
                 });
-                document.getElementById('file-input').addEventListener('change', (e) => Library.importFiles(e, State.playlistImportTargetId));
-                document.getElementById('search-input').addEventListener('input', UI.handleSearch);
+                document.getElementById('file-input')?.addEventListener('change', (e) => Library.importFiles(e, State.playlistImportTargetId));
+                document.getElementById('data-import-input')?.addEventListener('change', (e) => UI.importData(e.target.files?.[0]));
+                document.getElementById('playlist-track-picker-search')?.addEventListener('input', () => UI.renderPlaylistTrackPicker());
+                document.getElementById('search-input')?.addEventListener('input', UI.handleSearch);
             }
         };

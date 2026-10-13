@@ -1,8 +1,71 @@
 {
   "app": "Mujic",
-  "version": "12.0.7",
-  "updatedAt": "2026-10-12",
+  "version": "12.0.14",
+  "updatedAt": "2026-10-13",
   "entries": [
+    {
+      "version": "12.0.14",
+      "date": "2026-10-13",
+      "title": "About, Search and playlist picker polish",
+      "changes": [
+        "Added a proper GitHub brand icon and responsive About links that remain readable on narrow screens.",
+        "Search empty-state action now opens the music downloader in a new tab and passes the entered query as an encoded q parameter.",
+        "Playlist Add Songs now selects multiple tracks already imported into the Mujic library instead of opening the device file picker.",
+        "Made the selected Audio Waveform style easier to identify in its settings sheet and displayed the current style as a consistent value pill."
+      ]
+    },
+    {
+      "version": "12.0.13",
+      "date": "2026-10-13",
+      "title": "Restored navigation, Settings and core tap actions",
+      "changes": [
+        "Fixed the root interaction regression: the delegated action handler was missing the dispatch cases for playback rows, Settings categories, library tabs, history, playlist actions and transport controls.",
+        "Restored actions for playing tracks, opening artists/albums/playlists, toggling lyrics, shuffle/repeat/favorite, opening Settings subpages, importing playlist songs, and renaming/deleting/reordering playlists.",
+        "Search playback now falls back to the full library queue when only one track matches, so Next does not get stuck at a one-track queue.",
+        "Added action-level error reporting and guarded optional pointer controls so missing UI elements cannot interrupt unrelated interactions."
+      ]
+    },
+    {
+      "version": "12.0.12",
+      "date": "2026-10-13",
+      "title": "Startup and local-file navigation recovery",
+      "changes": [
+        "Guarded browser-history URL writes on file:// launches so a SecurityError cannot stop navigation handlers from initializing.",
+        "Made UI subsystems initialize independently; a settings, history, gesture or optional-panel failure no longer prevents main navigation from binding.",
+        "Moved UI initialization inside the application bootstrap error boundary so unexpected startup failures are caught and reported instead of leaving a silent frozen screen."
+      ]
+    },
+    {
+      "version": "12.0.11",
+      "date": "2026-10-13",
+      "title": "Home rail scrolling and launch reliability",
+      "changes": [
+        "Prevented the changelog loader from fetching changlog.json from file://, avoiding a guaranteed browser CORS error and using bundled release notes in local-file mode.",
+        "Made Home playlist and Top Picks rails horizontally scrollable on touch devices by allowing horizontal gestures and preventing cards from shrinking to fit.",
+        "Renamed the player shortcut to Equalizer and shortened the Bass preset label while preserving the underlying equalizer settings and audio processing."
+      ]
+    },
+    {
+      "version": "12.0.10",
+      "date": "2026-10-13",
+      "title": "Unified Audio Waveform settings and release consistency",
+      "changes": [
+        "Merged waveform activation and waveform style into one settings row that opens the actual waveform-style sheet.",
+        "Fixed version metadata so update checks compare the installed build with the published VERSION instead of prompting for the current release.",
+        "Bumped the service-worker cache for this patch so previously installed PWAs can receive the corrected interface.",
+        "Updated the About copy to credit Ashutosh Roy (Machhar); Gemini song identification remains Coming soon with no active key manager or API calls."
+      ]
+    },
+    {
+      "version": "12.0.9",
+      "date": "2026-10-13",
+      "title": "Unified Audio Waveform and playback reliability",
+      "changes": [
+        "Combined Audio Waveform activation and seek-bar styling under one persistent setting, with the selected effect continuing on both full and mini player while enabled.",
+        "Made mobile menus opaque and removed active Gemini key/API functionality; AI Song Identification remains marked Coming soon.",
+        "Kept Favorite Artists inside Your Playlists, and retained update prompts, JSON settings/listening-data import, Search download fallback and GitHub About links."
+      ]
+    },
     {
       "version": "12.0.7",
       "date": "2026-10-12",

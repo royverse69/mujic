@@ -69,6 +69,23 @@
                 request.onerror = () => resolve(list);
             }),
             getAllPlayHistory: () => StorageAdapter._getAll('playHistory'),
+            replacePlayHistory: async (entries) => {
+                if (!StorageAdapter.db || !StorageAdapter.db.objectStoreNames.contains('playHistory')) throw new Error('Play-history storage is unavailable.');
+                const tx = StorageAdapter.db.transaction('playHistory', 'readwrite');
+                const store = tx.objectStore('playHistory');
+                const clean = (Array.isArray(entries) ? entries : []).slice(-10000).map(entry => ({
+                    trackId: entry?.trackId != null ? String(entry.trackId).slice(0,180) : null,
+                    title: String(entry?.title || 'Unknown Title').slice(0,240),
+                    artist: String(entry?.artist || 'Unknown Artist').slice(0,240),
+                    album: String(entry?.album || '').slice(0,240),
+                    playedAt: Number.isFinite(Number(entry?.playedAt)) ? Math.max(0, Number(entry.playedAt)) : Date.now()
+                }));
+                await new Promise((resolve,reject) => {
+                    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error || new Error('Could not import play history')); tx.onabort = () => reject(tx.error || new Error('Play-history import aborted'));
+                    store.clear(); clean.forEach(entry => store.add(entry));
+                });
+                return clean.length;
+            },
             getArtworkBytes: async () => { const arts=await StorageAdapter._getAll('artworks'); return arts.reduce((n,b)=>n+(b?.size||0),0); },
             getBinaryStorageBytes: async () => {
                 const sumStore = (storeName) => new Promise(resolve => {
@@ -84,7 +101,7 @@
                 const s = { 
                     favorites: State.favorites, favoriteArtists: State.favoriteArtists, history: State.history, queue: State.queue, 
                     currentTrackId: State.currentTrackId, volume: State.volume, muted: State.muted, repeat: State.repeat, shuffle: State.shuffle, 
-                    rate: State.playbackRate, eq: State.eq, eqPreset: State.eqPreset, eqBands: State.eqBands, theme: State.theme, accentPreset: State.accentPreset, accentColor: State.accentColor, surfaceTheme: State.surfaceTheme, textScale: State.textScale, layoutDensity: State.layoutDensity, lowEndMode: State.lowEndMode, performanceProfile: State.performanceProfile, aiSongIdentification: State.aiSongIdentification, geminiApiKeys: (Array.isArray(State.geminiApiKeys) ? State.geminiApiKeys : []).map(k => String(k || '').trim()).filter(Boolean).slice(0,4), geminiNextKeyIndex: Number(State.geminiNextKeyIndex) || 0,
+                    rate: State.playbackRate, eq: State.eq, eqPreset: State.eqPreset, eqBands: State.eqBands, theme: State.theme, accentPreset: State.accentPreset, accentColor: State.accentColor, surfaceTheme: State.surfaceTheme, textScale: State.textScale, layoutDensity: State.layoutDensity, lowEndMode: State.lowEndMode, performanceProfile: State.performanceProfile,
                     interfaceStyle: State.interfaceStyle, cornerRadius: State.cornerRadius, motion: State.motion, lyricsStyle: State.lyricsStyle,
                     lyricsPosition: State.lyricsPosition, lyricsVerticalOffset: State.lyricsVerticalOffset, lyricsFontSize: State.lyricsFontSize, lyricsLineSpacing: State.lyricsLineSpacing, lyricsWidth: State.lyricsWidth, lyricsEmphasis: State.lyricsEmphasis,
                     playerBackground: State.playerBackground, playerArtworkMode: State.playerArtworkMode, visualizerMode: State.visualizerMode,
@@ -101,6 +118,7 @@
             },
             loadSettings: async () => {
                 const s = await StorageAdapter._get('settings', 'app_state');
+                if (s && ('geminiApiKeys' in s || 'geminiNextKeyIndex' in s || 'aiSongIdentification' in s)) { delete s.geminiApiKeys; delete s.geminiNextKeyIndex; delete s.aiSongIdentification; await StorageAdapter._put('settings', s, 'app_state'); }
                 if(s) {
                     State.favorites = s.favorites || []; State.favoriteArtists = s.favoriteArtists || []; State.history = s.history || [];
                     State.queue = s.queue || []; State.currentTrackId = s.currentTrackId || null;
@@ -117,8 +135,8 @@
                         State.eqBands = legacy[State.eq] || [0,0,0,0,0];
                     }
                     
-                    if(s.theme !== undefined) State.theme = s.theme; if(s.accentPreset !== undefined) State.accentPreset = s.accentPreset; if(s.lowEndMode !== undefined) State.lowEndMode = !!s.lowEndMode; if(s.performanceProfile !== undefined && ['auto','low-end','full'].includes(s.performanceProfile)) State.performanceProfile = s.performanceProfile; if(s.aiSongIdentification !== undefined) State.aiSongIdentification = !!s.aiSongIdentification; if(Array.isArray(s.geminiApiKeys)) State.geminiApiKeys = [...new Set(s.geminiApiKeys.map(k => String(k || '').trim()).filter(k => k && k.length <= 256))].slice(0,4); if(s.geminiNextKeyIndex !== undefined) State.geminiNextKeyIndex = Math.max(0, Number(s.geminiNextKeyIndex) || 0);
-                    if(s.accentColor !== undefined) State.accentColor = s.accentColor; if(s.surfaceTheme !== undefined && ['oled','graphite','midnight','warm','forest'].includes(s.surfaceTheme)) State.surfaceTheme = s.surfaceTheme; if(s.textScale !== undefined && ['compact','normal','large'].includes(s.textScale)) State.textScale=s.textScale; if(s.layoutDensity !== undefined && ['compact','comfortable','spacious'].includes(s.layoutDensity)) State.layoutDensity=s.layoutDensity; if(s.aiSongIdentification !== undefined) State.aiSongIdentification = !!s.aiSongIdentification; if(s.interfaceStyle !== undefined) State.interfaceStyle = s.interfaceStyle;
+                    if(s.theme !== undefined) State.theme = s.theme; if(s.accentPreset !== undefined) State.accentPreset = s.accentPreset; if(s.lowEndMode !== undefined) State.lowEndMode = !!s.lowEndMode; if(s.performanceProfile !== undefined && ['auto','low-end','full'].includes(s.performanceProfile)) State.performanceProfile = s.performanceProfile;
+                    if(s.accentColor !== undefined) State.accentColor = s.accentColor; if(s.surfaceTheme !== undefined && ['oled','graphite','midnight','warm','forest'].includes(s.surfaceTheme)) State.surfaceTheme = s.surfaceTheme; if(s.textScale !== undefined && ['compact','normal','large'].includes(s.textScale)) State.textScale=s.textScale; if(s.layoutDensity !== undefined && ['compact','comfortable','spacious'].includes(s.layoutDensity)) State.layoutDensity=s.layoutDensity; if(s.interfaceStyle !== undefined) State.interfaceStyle = s.interfaceStyle;
                     if(s.cornerRadius !== undefined) State.cornerRadius = s.cornerRadius; if(s.motion !== undefined) State.motion = s.motion;
                     if(s.lyricsStyle !== undefined && ['apple','spotify','neon'].includes(s.lyricsStyle)) State.lyricsStyle = s.lyricsStyle;
                     if(s.lyricsPosition !== undefined && ['upper','center','lower'].includes(s.lyricsPosition)) State.lyricsPosition=s.lyricsPosition;
@@ -128,8 +146,7 @@
                     if(s.lyricsWidth !== undefined && ['narrow','standard','wide'].includes(s.lyricsWidth)) State.lyricsWidth=s.lyricsWidth;
                     if(s.lyricsEmphasis !== undefined && ['soft','standard','strong','off'].includes(s.lyricsEmphasis)) State.lyricsEmphasis=s.lyricsEmphasis;
                     if(s.playerBackground !== undefined) State.playerBackground = s.playerBackground;
-                    if(s.playerArtworkMode !== undefined) State.playerArtworkMode = s.playerArtworkMode; if(s.visualizerMode !== undefined) State.visualizerMode = s.visualizerMode;
-                    if(State.visualizerMode === 'aurora') State.visualizerMode = 'pulse';
+                    if(s.playerArtworkMode !== undefined) State.playerArtworkMode = s.playerArtworkMode; if(s.visualizerMode !== undefined) State.visualizerMode = s.visualizerMode === 'off' ? 'off' : 'wave';
                     if(s.resumePlayback !== undefined) State.resumePlayback = s.resumePlayback;
                     if(s.resumePosition !== undefined) State.resumePosition = Number(s.resumePosition) || 0;
                     if(s.librarySort !== undefined) State.librarySort = s.librarySort; if(s.librarySortDir !== undefined) State.librarySortDir = s.librarySortDir;

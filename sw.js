@@ -1,6 +1,6 @@
-const CACHE_NAME = 'mujic-pwa-v12.0.7-gemini-model-key-fix';
+const CACHE_NAME = 'mujic-pwa-v12.0.14-about-search-playlist-picker';
 const APP_SHELL = [
-  './', './index.html', './manifest.webmanifest', './changlog.json', './css/app.css',
+  './', './index.html', './VERSION', './manifest.webmanifest', './changlog.json', './css/app.css',
   './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/app.js',
   './icons/icon-192.png', './icons/icon-512.png'
 ];
