@@ -807,6 +807,13 @@ main { flex: 1; width: 100%; max-width: 724px; margin: 0 auto; padding: 0 16px 4
   document.querySelectorAll(".modal").forEach(modal => modal.onclick = e => { if (e.target === modal) modal.classList.remove("open"); });
 
 })();
+
+const initialQuery = new URLSearchParams(window.location.search).get("q");
+
+if (initialQuery && initialQuery.trim()) {
+  $("query").value = initialQuery.trim();
+  search(initialQuery.trim());
+}
 </script>
 </body>
 </html>
