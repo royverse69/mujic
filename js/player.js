@@ -1,4 +1,3 @@
-/* ©royverse69 */
 /* Mujic player engine: Web Audio graph, transport, Media Session and queue. */
         const AudioAdapter = {
             audio: new Audio(), ctx: null, source: null, analyser:null, eqFilter:null, eqFilters:[], compressor:null, masterGain:null,
@@ -254,7 +253,7 @@
                 [document.getElementById('scrubber-visualizer'), document.getElementById('mini-visualizer')].filter(Boolean).forEach(sc => {
                     const rect=sc.getBoundingClientRect();
                     const cssWidth=Math.max(1,Math.floor(rect.width || sc.parentElement?.clientWidth || 1));
-                    const cssHeight=sc.id === 'mini-visualizer' ? 9 : 18;
+                    const cssHeight = sc.id === 'mini-visualizer' ? 9 : (State.waveformStyle === 'default' ? 28 : 18);
                     const pixelWidth=Math.max(1,Math.floor(cssWidth*dpr));
                     const pixelHeight=Math.max(1,Math.floor(cssHeight*dpr));
                     if(sc.width!==pixelWidth) sc.width=pixelWidth;
@@ -281,117 +280,111 @@
                 [document.getElementById('scrubber-visualizer'), document.getElementById('mini-visualizer')].filter(Boolean).forEach(canvas => AudioAdapter.renderSingleWaveformCanvas(canvas));
             },
             renderSingleWaveformCanvas: (c) => {
-                if(!c) return;
-                const ctx=c.getContext('2d'); if(!ctx) return;
-                const canvasVisible = c.id === 'mini-visualizer' ? !!document.getElementById('mini-player')?.classList.contains('visible') : State.isFullPlayerOpen;
-                const effectEnabled=!!(canvasVisible && State.visualizerMode === 'wave' && AudioAdapter.analyser);
-                const rect=c.getBoundingClientRect();
-                const w=Math.max(1,rect.width || c.clientWidth || 1), h=Math.max(1,rect.height || c.clientHeight || 1);
-                const scaleX=c.width/w, scaleY=c.height/h;
-                ctx.setTransform(scaleX,0,0,scaleY,0,0); ctx.clearRect(0,0,w,h);
-                if(!effectEnabled || !AudioAdapter.analyser || w<=0 || h<=0 || !State.duration) return;
-                const progress=Math.max(0,Math.min(1,Number(State.currentTime)/Number(State.duration)));
-                const playedW=Math.max(0,w*progress);
-                const accent=getComputedStyle(document.body).getPropertyValue('--accent-color').trim()||'#fff';
-                const freq=(AudioAdapter.visualizerFreqData && AudioAdapter.visualizerFreqData.length===AudioAdapter.analyser.frequencyBinCount) ? AudioAdapter.visualizerFreqData : (AudioAdapter.visualizerFreqData=new Uint8Array(AudioAdapter.analyser.frequencyBinCount));
-                if (!AudioAdapter.visualizerSmooth || AudioAdapter.visualizerSmooth.length !== freq.length) AudioAdapter.visualizerSmooth = new Float32Array(freq.length);
-                const smooth=AudioAdapter.visualizerSmooth;
-                const mode=State.visualizerMode==='aurora'?'pulse':State.visualizerMode;
-                ctx.lineCap='round'; ctx.lineJoin='round';
-                // Draw only the unplayed timeline here. CSS hides the stock track/fill while an effect is active,
-                // so no grey baseline can show through the played waveform.
-                if (playedW < w) {
-                    ctx.strokeStyle='rgba(255,255,255,.24)'; ctx.globalAlpha=1; ctx.lineWidth=2;
-                    ctx.beginPath(); ctx.moveTo(Math.max(0,playedW),h*.5); ctx.lineTo(w,h*.5); ctx.stroke();
-                }
-                if (playedW < 1) { ctx.globalAlpha=1; return; }
-                ctx.save(); ctx.beginPath(); ctx.rect(0,0,playedW,h); ctx.clip();
+                if (!c) return;
+                const ctx = c.getContext('2d'); if (!ctx) return;
+                const isMini = c.id === 'mini-visualizer';
+                const canvasVisible = isMini ? !!document.getElementById('mini-player')?.classList.contains('visible') : State.isFullPlayerOpen;
+                const effectEnabled = !!(canvasVisible && State.visualizerMode === 'wave' && AudioAdapter.analyser);
+                const rect = c.getBoundingClientRect();
+                const w = Math.max(1, rect.width || c.clientWidth || 1), h = Math.max(1, rect.height || c.clientHeight || 1);
+                ctx.setTransform(c.width / w, 0, 0, c.height / h, 0, 0);
+                ctx.clearRect(0, 0, w, h);
+                // The dot is drawn on this canvas while the effect is on, so the wave and the dot can never drift apart.
+                if (c.parentElement && !isMini) c.parentElement.classList.toggle('wave-live', effectEnabled);
+                if (!effectEnabled || !State.duration) return;
 
-                if(mode==='wave'){
-                    const waveformStyle = ['default','wavy','slim','squiggly'].includes(State.waveformStyle) ? State.waveformStyle : 'wavy';
-                    if (waveformStyle === 'default') {
-                        ctx.strokeStyle=accent; ctx.globalAlpha=.96; ctx.lineWidth=1.8;
-                        ctx.beginPath(); ctx.moveTo(0,h*.5); ctx.lineTo(playedW,h*.5); ctx.stroke();
-                        ctx.restore(); ctx.shadowBlur=0; ctx.globalAlpha=1; return;
+                const bank = AudioAdapter._wf || (AudioAdapter._wf = {});
+                const st = bank[c.id] || (bank[c.id] = { p: -1, last: 0, phase: 0, lift: 1, env: 0, accent: '#fff', accentAt: 0 });
+                const now = performance.now();
+                const dt = st.last ? Math.min(0.05, (now - st.last) / 1000) : 1 / 60;
+                st.last = now;
+                if (now - st.accentAt > 400) {
+                    st.accent = getComputedStyle(document.body).getPropertyValue('--accent-color').trim() || '#fff';
+                    st.accentAt = now;
+                }
+
+                // 1) Smooth progress: advance by the clock every frame, then ease toward the real audio time.
+                //    timeupdate only fires ~4 times a second, which is what made the old bar step.
+                const dur = Number(State.duration) || 1;
+                const live = Number(AudioAdapter.audio.currentTime);
+                const target = Math.max(0, Math.min(1, (Number.isFinite(live) ? live : Number(State.currentTime) || 0) / dur));
+                const playing = !!State.isPlaying;
+                if (st.p < 0 || !playing || Math.abs(target - st.p) > 0.02) st.p = target;      // paused or seeked: snap
+                else {
+                    st.p += dt * (AudioAdapter.audio.playbackRate || 1) / dur;                   // glide
+                    st.p += (target - st.p) * (1 - Math.exp(-dt * 8));                           // gently correct drift
+                }
+
+                // 2) The dot sits at x1. The wave is forced to land exactly on (x1, mid), so both ends are always connected.
+                const R = isMini ? 0 : 6.5;
+                const x1 = Math.max(R, Math.min(w - R, st.p * w));
+                const mid = h / 2;
+                const style = ['default', 'wavy', 'slim', 'squiggly'].includes(State.waveformStyle) ? State.waveformStyle : 'wavy';
+                ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = 1;
+
+                if (x1 < w) {                                                                    // unplayed track
+                    ctx.strokeStyle = 'rgba(255,255,255,.24)'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(x1, mid); ctx.lineTo(w, mid); ctx.stroke();
+                }
+
+                // Share one inexpensive spectrum sample across all waveform styles.
+                // The Default preset uses it to shape a crisp, compact bar waveform;
+                // playback, seeking and audio processing remain unchanged.
+                let freq = null;
+                if (playing && AudioAdapter.analyser) {
+                    const an = AudioAdapter.analyser;
+                    freq = (AudioAdapter.visualizerFreqData && AudioAdapter.visualizerFreqData.length === an.frequencyBinCount)
+                        ? AudioAdapter.visualizerFreqData : (AudioAdapter.visualizerFreqData = new Uint8Array(an.frequencyBinCount));
+                    an.getByteFrequencyData(freq);
+                    const n = Math.min(12, freq.length); let e = 0;
+                    for (let i = 0; i < n; i++) e += freq[i] / 255;
+                    st.env += (Math.min(1, e / n * 1.35) - st.env) * (1 - Math.exp(-dt * 6));
+                } else {
+                    st.env += (0 - st.env) * (1 - Math.exp(-dt * 4));
+                }
+
+                ctx.strokeStyle = st.accent;
+                if (style === 'default') {
+                    const spacingTarget = isMini ? 3.6 : 6.4;
+                    const barCount = Math.max(1, Math.floor(x1 / spacingTarget));
+                    const spacing = x1 / barCount;
+                    const barWidth = Math.max(isMini ? 1 : 1.4, Math.min(isMini ? 1.6 : 3.2, spacing * .58));
+                    ctx.lineWidth = barWidth;
+                    for (let i = 0; i < barCount; i++) {
+                        const x = spacing * (i + .5);
+                        const shape = Math.max(.12, Math.min(1,
+                            .53 + .23 * Math.sin(i * .73) + .16 * Math.cos(i * .37 + 1.1) + .08 * Math.sin(i * 1.91)));
+                        const bin = freq && freq.length ? freq[Math.min(freq.length - 1, Math.floor(i / Math.max(1, barCount) * freq.length))] / 255 : shape;
+                        const energy = playing ? (shape * .42 + bin * .58) : shape;
+                        const halfHeight = Math.max(isMini ? .8 : 1.2, Math.min(h * .47, h * (.12 + energy * .35) * st.lift * (1 + st.env * .22)));
+                        ctx.beginPath(); ctx.moveTo(x, mid - halfHeight); ctx.lineTo(x, mid + halfHeight); ctx.stroke();
                     }
-                    // Restrained, broad waveform: small peaks, long wavelength and gentle audio reactivity.
-                    // The canvas is capped at 18px CSS height; amplitudes are deliberately kept inside it.
-                    if (State.isPlaying) AudioAdapter.analyser.getByteFrequencyData(freq);
-                    const envelopeCount = waveformStyle === 'squiggly' ? 4 : 3;
-                    if (!AudioAdapter.waveformEnvelope || AudioAdapter.waveformEnvelope.length !== envelopeCount) {
-                        AudioAdapter.waveformEnvelope = new Float32Array(envelopeCount);
-                    }
-                    const envelope = AudioAdapter.waveformEnvelope;
-                    if (State.isPlaying) {
-                        for (let i=0;i<envelopeCount;i++) {
-                            const startBin = 2 + i * 4;
-                            let total = 0, count = 0;
-                            for (let j=startBin;j<Math.min(freq.length,startBin+3);j++) { total += freq[j]; count++; }
-                            const sample = count ? total / count / 255 : 0;
-                            envelope[i] = envelope[i] * .92 + sample * .08;
-                        }
-                        let lowEnergy = 0;
-                        for (let i=0;i<Math.min(12,freq.length);i++) lowEnergy += freq[i] / 255;
-                        lowEnergy = Math.min(1, lowEnergy / Math.max(1,Math.min(12,freq.length)) * 1.35);
-                        AudioAdapter.waveformAmplitude = (AudioAdapter.waveformAmplitude || 0) * .94 + lowEnergy * .06;
-                    }
-                    const cycles = waveformStyle === 'squiggly' ? 1.45 : waveformStyle === 'slim' ? 0.95 : 1.15;
-                    const baseRatio = waveformStyle === 'slim' ? .075 : .145;
-                    const amplitude = Math.min(h * .19, h * (baseRatio + (AudioAdapter.waveformAmplitude || 0) * .035));
-                    const pointCount = Math.max(18, Math.min(32, Math.floor(playedW / 12)));
-                    const phase = State.isPlaying ? ((performance.now ? performance.now() : Date.now()) / 18000 * Math.PI * 2) : 0;
-                    const points = [];
-                    for (let i=0;i<pointCount;i++) {
-                        const t = i/(pointCount-1);
-                        const envPosition = t*(envelopeCount-1);
-                        const envIndex = Math.floor(envPosition);
-                        const envFrac = envPosition-envIndex;
-                        const envA = envelope[Math.min(envelopeCount-1,envIndex)] || 0;
-                        const envB = envelope[Math.min(envelopeCount-1,envIndex+1)] || envA;
-                        const localEnergy = envA + (envB-envA)*envFrac;
-                        const fine = waveformStyle === 'squiggly' ? Math.sin(t*Math.PI*2*cycles*1.45+phase*.15)*.012 : Math.sin(t*Math.PI*2*cycles*1.2+phase*.12)*.006;
-                        const shape = Math.sin(t*Math.PI*2*cycles+phase*.10) * (.94 + localEnergy*.06) + fine;
-                        points.push([playedW*t, h*.5 + shape*amplitude]);
-                    }
-                    ctx.strokeStyle=accent;
-                    ctx.globalAlpha=.96;
-                    ctx.lineWidth=waveformStyle === 'slim' ? 1.35 : 1.8;
-                    ctx.shadowBlur=0;
-                    ctx.beginPath();
-                    ctx.moveTo(points[0][0],points[0][1]);
-                    for (let i=0;i<points.length-1;i++) {
-                        const p0=points[Math.max(0,i-1)], p1=points[i], p2=points[i+1], p3=points[Math.min(points.length-1,i+2)];
-                        const c1x=p1[0]+(p2[0]-p0[0])/6, c1y=p1[1]+(p2[1]-p0[1])/6;
-                        const c2x=p2[0]-(p3[0]-p1[0])/6, c2y=p2[1]-(p3[1]-p1[1])/6;
-                        ctx.bezierCurveTo(c1x,c1y,c2x,c2y,p2[0],p2[1]);
+                } else {
+                    const cfg = style === 'squiggly' ? { len: 30, amp: .21, lw: 1.9, spd: 4.2, h2: .32 }
+                              : style === 'slim'     ? { len: 64, amp: .10, lw: 1.35, spd: 2.6, h2: 0 }
+                              :                        { len: 46, amp: .17, lw: 1.8, spd: 3.2, h2: 0 };
+                    st.phase += playing ? dt * cfg.spd : 0;                                     // phase accumulates, so it never jumps
+                    st.lift += ((playing ? 1 : .6) - st.lift) * (1 - Math.exp(-dt * 5));       // eases down on pause instead of snapping
+                    const A = Math.min(h * .24, h * cfg.amp * st.lift * (1 + st.env * .25)) / (1 + cfg.h2);
+                    const k = Math.PI * 2 / cfg.len;                                            // fixed wavelength in px: no stretching as the song moves
+                    const tIn = Math.min(10, x1 * .35), tOut = Math.min(26, x1 * .65);          // taper lengths at the start and at the dot
+                    const ss = (a, b) => { if (a <= 0) return 0; if (b <= 0) return 1; const t = Math.min(1, a / b); return t * t * (3 - 2 * t); };
+                    const step = (State.lowEndModeActive || State.lowEndMode) ? 3 : 1.5;
+                    ctx.lineWidth = cfg.lw; ctx.beginPath();
+                    for (let x = 0; ; x += step) {
+                        const xx = Math.min(x, x1);
+                        const env = ss(xx, tIn) * ss(x1 - xx, tOut);
+                        const y = mid + (Math.sin(k * xx - st.phase) + cfg.h2 * Math.sin(k * 1.9 * xx - st.phase * 1.35)) * A * env;
+                        if (x === 0) ctx.moveTo(xx, y); else ctx.lineTo(xx, y);
+                        if (x >= x1) break;
                     }
                     ctx.stroke();
-                } else if(mode==='dots'){
-                    AudioAdapter.analyser.getByteFrequencyData(freq);
-                    for(let i=0;i<freq.length;i++) smooth[i]+=(freq[i]-smooth[i])*.10;
-                    const count=Math.max(10,Math.min(34,Math.floor(playedW/14))), step=playedW/count;
-                    ctx.fillStyle='#fff'; ctx.shadowColor=accent; ctx.shadowBlur=3;
-                    for(let i=0;i<count;i++){ const sample=smooth[Math.min(smooth.length-1,Math.floor(i/count*smooth.length))]/255; const r=1.2+sample*1.8; const x=i*step+step*.5; ctx.globalAlpha=.32+sample*.5; ctx.beginPath(); ctx.arc(x,h*.5,r,0,Math.PI*2); ctx.fill(); }
-                } else if(mode==='pulse'){
-                    AudioAdapter.analyser.getByteFrequencyData(freq);
-                    for(let i=0;i<freq.length;i++) smooth[i]+=(freq[i]-smooth[i])*.10;
-                    const sample=smooth[5]/255||0; const half=h*(.07+sample*.13);
-                    ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(1.4,h*.08); ctx.globalAlpha=.85; ctx.shadowColor=accent; ctx.shadowBlur=4;
-                    ctx.beginPath(); const waves=Math.max(2,Math.min(4,Math.floor(playedW/90))); for(let i=0;i<=waves*2;i++){ const x=playedW*(i/(waves*2)); const y=h*.5+(i%2?half:-half)*.7; if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke();
-                } else if(mode==='mirror'){
-                    AudioAdapter.analyser.getByteFrequencyData(freq);
-                    for(let i=0;i<freq.length;i++) smooth[i]+=(freq[i]-smooth[i])*.10;
-                    const count=Math.max(8,Math.min(28,Math.floor(playedW/16))), bw=playedW/count;
-                    ctx.fillStyle='#fff'; ctx.shadowColor=accent; ctx.shadowBlur=3;
-                    for(let i=0;i<count;i++){ const sample=smooth[Math.min(smooth.length-1,Math.floor(i/count*smooth.length))]/255; const bh=Math.max(1,h*(.05+sample*.16)); const x=i*bw+.4; ctx.globalAlpha=.35+sample*.5; ctx.fillRect(x,h*.5-bh/2,Math.max(1,bw-1),bh); }
-                } else {
-                    AudioAdapter.analyser.getByteFrequencyData(freq);
-                    for(let i=0;i<freq.length;i++) smooth[i]+=(freq[i]-smooth[i])*.10;
-                    const count=Math.max(8,Math.min(26,Math.floor(playedW/15))), bw=playedW/count;
-                    ctx.fillStyle='#fff'; ctx.shadowColor=accent; ctx.shadowBlur=3;
-                    for(let i=0;i<count;i++){ const sample=smooth[Math.min(smooth.length-1,Math.floor(i/count*smooth.length))]/255; const bh=Math.max(1.2,h*(.045+sample*.14)); const x=i*bw+.5; const y=h*.5-bh*.5; ctx.globalAlpha=.32+sample*.55; if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,Math.max(1,bw-1),bh,2);ctx.fill();} else ctx.fillRect(x,y,Math.max(1,bw-1),bh); }
                 }
-                ctx.restore(); ctx.shadowBlur=0; ctx.globalAlpha=1;
+
+                if (!isMini) {                                                                   // the dot
+                    ctx.fillStyle = st.accent;
+                    ctx.beginPath(); ctx.arc(x1, mid, R, 0, Math.PI * 2); ctx.fill();
+                }
             },
             startVisualizerLoop: () => {
                 if(AudioAdapter.visualizerRAF || !AudioAdapter.visualizerShouldRun()) return;
@@ -399,7 +392,7 @@
                     AudioAdapter.visualizerRAF=0;
                     if(!AudioAdapter.visualizerShouldRun()){ AudioAdapter.stopVisualizerLoop(); return; }
                     // Draw at up to 30 FPS: smooth enough for a small seek-bar waveform without wasting CPU on low-end phones.
-                    const frameInterval = (State.lowEndModeActive || State.lowEndMode) ? 100 : 40;
+                    const frameInterval = (State.lowEndModeActive || State.lowEndMode) ? 50 : 14;
                     if (!AudioAdapter.visualizerLastFrameAt || timestamp - AudioAdapter.visualizerLastFrameAt >= frameInterval) {
                         AudioAdapter.visualizerLastFrameAt=timestamp;
                         AudioAdapter.renderScrubberVisualizerFrame();
@@ -508,7 +501,7 @@
                     StorageAdapter.saveSettings().catch(()=>{});
                 }
                 State.currentTrackId = track.id;
-                State.currentTime = 0; State.duration = 0; State.resumePosition = 0; State.statsLastAudioTime = null; AudioAdapter.visualizerSmooth = null; AudioAdapter.waveformSmooth = null;
+                State.currentTime = 0; State.duration = 0; State.resumePosition = 0; State.statsLastAudioTime = null; AudioAdapter.visualizerSmooth = null; AudioAdapter.waveformSmooth = null; AudioAdapter._wf = null;
                 UI.updateProgress(); UI.updateDuration();
                 
                 let blob;

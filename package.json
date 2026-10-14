@@ -1,6 +1,6 @@
 {
   "name": "mujic-pwa",
-  "version": "12.0.14",
+  "version": "12.0.15",
   "private": true,
   "description": "Mujic offline-first local music player and lightweight PWA.",
   "scripts": {

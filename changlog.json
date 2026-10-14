@@ -1,8 +1,21 @@
 {
   "app": "Mujic",
-  "version": "12.0.14",
-  "updatedAt": "2026-10-13",
+  "version": "12.0.15",
+  "updatedAt": "2026-10-14",
   "entries": [
+    {
+      "version": "12.0.15",
+      "date": "2026-10-14",
+      "title": "Desktop playlist navigation and player visual polish",
+      "changes": [
+        "Desktop users can scroll Home playlist and Top Picks rails with the mouse wheel, with normal page scrolling preserved at rail edges.",
+        "Hardened playlist detail opening and artwork refresh so a previous playlist cover cannot carry over into another playlist.",
+        "Added a block-style drop shadow to the active Neon lyric line for more depth.",
+        "Changed the Default seek-bar waveform from a flat line to a compact, audio-responsive bar waveform and updated its settings preview.",
+        "Improved player-control tooltips and the Lyrics icon without changing playback, seeking, equalizer or audio processing behavior.",
+        "Versioned the service-worker cache so previously installed PWAs fetch the updated assets."
+      ]
+    },
     {
       "version": "12.0.14",
       "date": "2026-10-13",

@@ -1,7 +1,8 @@
-/* ©royverse69 */
 /* Mujic UI layer: view rendering, sheets, dialogs, search and interactions. */
         const UI = {
-            
+            // History URL mutation is not consistently supported for file:// pages (Windows users
+            // often open index.html directly). Keep browser-history helpers guarded so navigation
+            // can never abort the rest of startup on those origins.
             supportsUrlHistory: () => location.protocol === 'http:' || location.protocol === 'https:',
             pushHistoryState: (state, hash) => {
                 if (!UI.supportsUrlHistory()) return false;
@@ -15,7 +16,8 @@
             },
             init: () => {
                 if (Utils.isIOS()) document.body.classList.add('ios');
-      
+                // Initialize each subsystem independently. A failure in history, gestures, or a
+                // nonessential panel must not prevent the global navigation handlers from binding.
                 const initSteps = [
                     ['settings grouping', UI.setupSettingsGroups],
                     ['navigation history', UI.setupHistory],
@@ -100,7 +102,9 @@
                     }
                     pages.appendChild(page);
                 }
-               
+                // The sections have already been moved into their category pages,
+                // so sections[0] is no longer a child of root. Never use it as an
+                // insertBefore reference after reparenting; insert next to the title.
                 const insertionPoint = title && title.parentNode === root ? title.nextSibling : root.firstChild;
                 if (insertionPoint && insertionPoint.parentNode === root) root.insertBefore(overview, insertionPoint);
                 else root.appendChild(overview);
@@ -144,8 +148,16 @@
                     }).join('') : '<div class="changelog-empty">No release notes are available yet.</div>';
                     root.dataset.loaded = '1';
                 } catch (error) {
-             
+                    // Keep the update page useful when launched from file:// or while offline.
                     const fallbackEntries = [
+                        { version: '12.0.15', date: '2026-10-14', title: 'Desktop playlist navigation and player visual polish', changes: [
+                            'Desktop users can scroll Home playlist and Top Picks rails with the mouse wheel; normal page scrolling is preserved at rail edges.',
+                            'Hardened playlist detail opening and artwork refresh so a previous playlist cover cannot carry over.',
+                            'Added a block-style drop shadow to the active Neon lyric line for more depth.',
+                            'Changed the Default seek-bar waveform to an audio-responsive bar waveform and updated its settings preview.',
+                            'Improved player-control tooltips and the Lyrics icon without changing playback or audio-processing behavior.',
+                            'Versioned the service-worker cache so installed PWAs fetch the updated assets.'
+                        ]},
                         { version: '12.0.14', date: '2026-10-13', title: 'About, Search and playlist picker polish', changes: [
                             'Added a proper GitHub brand icon and responsive About links for narrow screens.',
                             'Search empty state opens the music downloader in a new tab with the encoded search query.',
@@ -213,8 +225,14 @@
             },
             setAccent: (c) => {
                 const root = document.documentElement, b = document.body;
-                if (c && c !== 'white') { root.style.setProperty('--accent-color', c); b.style.setProperty('--accent-color', c); b.classList.remove('accent-default'); }
-                else { root.style.removeProperty('--accent-color'); b.style.removeProperty('--accent-color'); b.classList.add('accent-default'); }
+                if (c && c !== 'white') {
+                    root.style.setProperty('--accent-color', c); b.style.setProperty('--accent-color', c); b.classList.remove('accent-default');
+                    // Readable text on the accent: neon lyric stickers and filled buttons pick black or white automatically.
+                    const m = /^#?([0-9a-f]{6})$/i.exec(String(c).trim());
+                    if (m) { const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, bl = n & 255; root.style.setProperty('--accent-ink', (r * 299 + g * 587 + bl * 114) / 1000 >= 150 ? '#000' : '#fff'); }
+                    else root.style.removeProperty('--accent-ink');
+                }
+                else { root.style.removeProperty('--accent-color'); b.style.removeProperty('--accent-color'); root.style.removeProperty('--accent-ink'); b.classList.add('accent-default'); }
             },
             setupHistory: () => {
                 const validViews = ['home', 'library', 'search', 'settings', 'context-detail'];
@@ -304,7 +322,7 @@
                     const defaultBg = t ? Utils.generateDefaultArt(t.title) : Utils.defaultArt;
                     
                     plHtml += `
-                    <div class="art-card playlist-longpress-target" data-action="open-playlist" data-key1="${p.id}" data-playlist-row="1">
+                    <div class="art-card playlist-longpress-target" data-action="open-playlist" data-key1="${Utils.escapeHTML(p.id)}" data-playlist-row="1">
                         <div class="art-wrapper" style="background: var(--bg-elevated); display:flex; align-items:center; justify-content:center;">
                             ${artId ? `<img src="${defaultBg}" data-art-id="${artId}" class="lazy-art" onerror="this.onerror=null; this.src='${defaultBg}';">` : '<span class="material-symbols-rounded" style="font-size:32px;">queue_music</span>'}
                         </div>
@@ -405,7 +423,7 @@
             },
             renderPlaylists: () => {
                 document.getElementById('playlists-list').innerHTML = State.playlists.map((p, i) => 
-                    `<div class="track-row playlist-longpress-target" data-action="open-playlist" data-key1="${p.id}" data-playlist-row="1">
+                    `<div class="track-row playlist-longpress-target" data-action="open-playlist" data-key1="${Utils.escapeHTML(p.id)}" data-playlist-row="1">
                         <div class="track-art-small" style="background:var(--bg-hover); display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded">queue_music</span></div>
                         <div class="track-meta"><div class="item-title">${Utils.escapeHTML(p.name)}</div><div class="item-subtitle">${p.tracks.length} tracks</div></div>
                         <button class="icon-btn" data-action="move-playlist" data-key1="${p.id}" data-direction="up" ${i===0?'disabled':''} aria-label="Move playlist up"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_up</span></button>
@@ -426,9 +444,11 @@
                     tr = State.library.filter(t => (t.albumArtist || t.artist) === key1);
                     title = key1; subtitle = `${tr.length} tracks`; artId = tr[0]?.artworkId; refTitle = tr[0]?.title;
                 } else if (type === 'playlist') {
-                    const p = State.playlists.find(x => x.id === key1); if(!p) return;
+                    const p = State.playlists.find(x => String(x.id) === String(key1));
+                    if (!p) { UI.showToast('This playlist no longer exists.', 'error'); return; }
                     tr = p.tracks.map(tid => State.library.find(t => t.id === tid)).filter(Boolean);
-                    title = p.name; subtitle = `${tr.length} tracks`; artId = tr[0]?.artworkId; refTitle = tr[0]?.title;
+                    title = p.name; subtitle = `${tr.length} tracks`; artId = tr[0]?.artworkId; refTitle = tr[0]?.title || p.name;
+                    key1 = p.id;
                 } else if (type === 'favorites') {
                     tr = State.favorites.map(id => State.library.find(t => t.id === id)).filter(Boolean);
                     title = "Liked Songs"; subtitle = `${tr.length} tracks`; 
@@ -441,9 +461,15 @@
                 if (detailView) { detailView.classList.remove('context-artist','context-album','context-playlist','context-favorites'); detailView.classList.add(`context-${type}`); }
                 
                 const artEl = document.getElementById('detail-art');
-                const def = Utils.generateDefaultArt(refTitle);
+                const def = Utils.generateDefaultArt(refTitle || title || 'Mujic');
+                artEl.onerror = () => { artEl.onerror = null; artEl.src = def; };
+                artEl.removeAttribute('data-art-id');
+                artEl.classList.remove('lazy-art');
                 artEl.src = def;
-                if(artId) { artEl.dataset.artId = artId; artEl.classList.add('lazy-art'); artEl.onerror = () => { artEl.src = def; }; }
+                if (artId) {
+                    artEl.dataset.artId = artId;
+                    artEl.classList.add('lazy-art');
+                }
                 
                 if (type === 'artist') {
                     const isFav = State.favoriteArtists && State.favoriteArtists.includes(key1);
@@ -606,7 +632,7 @@
                 
                 let idx = -1;
                 for (let i = 0; i < lines.length; i++) {
-                    if (time >= lines[i].time - 0.3) idx = i; else break;
+                    if (time + (Number(State.lyricsTimingOffset) || 0) >= lines[i].time - 0.3) idx = i; else break;
                 }
                 
                 if (idx !== State.activeLyricIndex) {
@@ -633,6 +659,7 @@
                 const p = State.duration > 0 ? Math.max(0, Math.min(100, (State.currentTime / State.duration) * 100)) : 0;
                 document.getElementById('mini-progress').style.width = `${p}%`; document.getElementById('full-progress').style.width = `${p}%`;
                 document.getElementById('scrubber-thumb').style.left = `${p}%`; document.getElementById('time-current').innerText = Utils.formatTime(State.currentTime);
+                if (!State.isPlaying && State.visualizerMode === 'wave') AudioAdapter.renderScrubberVisualizerFrame();
             },
             updateDuration: () => { document.getElementById('time-total').innerText = Utils.formatTime(State.duration); },
             updateHighlights: (refreshContent = false) => {
@@ -945,7 +972,7 @@
                     if (!confirmed) return;
 
                     if (settings) {
-                        const allowed = new Set(['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lowEndModeActive']);
+                        const allowed = new Set(['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lowEndModeActive']);
                         const boolKeys = new Set(['lowEndMode','resumePlayback','showArtworkLists','muted','shuffle','crossfade','skipSilence','instantSkipSilence','loudnessControl','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','keepScreenAwake','lyricsPlusEnabled']);
                         const stringEnums = {
                             theme:['system','light','dark'], accentPreset:['dynamic','custom','default'], surfaceTheme:['oled','graphite','midnight-blue','warm-espresso','forest'], textScale:['compact','normal','large'], layoutDensity:['compact','comfortable','spacious'], performanceProfile:['auto','low-end','full'], lyricsStyle:['apple','spotify','neon'], lyricsPosition:['upper','center','lower'], lyricsFontSize:['compact','normal','large','extra-large'], lyricsLineSpacing:['compact','normal','relaxed'], lyricsWidth:['narrow','standard','wide'], lyricsEmphasis:['soft','standard','strong','off'], interfaceStyle:['subtle','glass','solid'], cornerRadius:['sharp','rounded','pill'], motion:['full','reduced'], playerBackground:['artwork','solid','black'], playerArtworkMode:['full','contained'], librarySort:['dateAdded','title','artist','album'], librarySortDir:['asc','desc'], loudnessLevel:['soft','balanced','strong'], eq:['off','low','med','high'], eqPreset:['flat','bass','vocal','rock','treble','custom']
@@ -961,6 +988,7 @@
                                 if (['volume'].includes(key)) State[key] = Math.max(0,Math.min(1,value));
                                 else if (key === 'playbackRate') State[key] = Math.max(0.5,Math.min(3,value));
                                 else if (key === 'lyricsVerticalOffset') State[key] = Math.max(-8,Math.min(8,value));
+                                else if (key === 'lyricsTimingOffset') State[key] = Math.max(-2,Math.min(2,Math.round(value*10)/10));
                                 else if (key === 'lyricsWidth') continue;
                                 else State[key] = value;
                             }
@@ -996,7 +1024,7 @@
                 }
             },
             exportData: async (kind) => {
-                const settingKeys = ['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','sleepTimer','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled'];
+                const settingKeys = ['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','sleepTimer','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled'];
                 const settings = {}; settingKeys.forEach(key => { if (State[key] !== undefined) settings[key] = State[key]; });
                 let payload;
                 if (kind === 'settings') {
@@ -1172,6 +1200,7 @@
                 root.style.setProperty('--lyrics-offset', `${lyricsOffset}vh`);
                 const lyricsWidth = ({narrow:'72%',standard:'92%',wide:'100%'})[State.lyricsWidth] || '92%';
                 root.style.setProperty('--lyrics-line-width', lyricsWidth);
+                const timingLabel = document.getElementById('lyrics-timing-value'); if (timingLabel) { const tv = Number(State.lyricsTimingOffset) || 0; timingLabel.innerText = `${tv > 0 ? '+' : ''}${tv.toFixed(1)}`; }
                 const lyricsOffsetLabel = document.getElementById('lyrics-offset-value'); if (lyricsOffsetLabel) lyricsOffsetLabel.innerText = `${lyricsOffset > 0 ? '+' : ''}${lyricsOffset}`;
                 
                 UI.setAccent(State.accentPreset === 'custom' ? State.accentColor : (State.accentPreset === 'dynamic' ? null : State.accentPreset));
@@ -1263,7 +1292,8 @@
                         if (!item) return;
                         const now = Date.now();
                         if (item.dataset.lastNavActivation && now - Number(item.dataset.lastNavActivation) < 350) {
-                           
+                            // A touch pointerup is followed by a synthetic click on many phones.
+                            // Swallow that duplicate instead of letting it reach body delegation.
                             e.preventDefault(); e.stopPropagation(); return;
                         }
                         item.dataset.lastNavActivation = String(now);
@@ -1327,7 +1357,10 @@
                     const btn = e.target.closest('[data-action]'); if (!btn) return;
                     const action = btn.dataset.action;
 
-                  
+                    // Central action dispatcher: the previous build omitted core actions here
+                    // (song rows, Settings categories, history, playlist actions and transport).
+                    // The UI looked normal, but most taps had no handler. Keep this dispatch
+                    // explicit, and isolate failures so one action cannot break future taps.
                     try {
                         switch (action) {
                             case 'switch-view':
@@ -1487,7 +1520,7 @@
                         const cached = track ? await LyricsFetcher.getCachedOnly(track) : null;
                         if (cached?.text) {
                             State.currentLyrics = cached;
-                           
+                            // Replace an earlier unavailable result before re-rendering the cached lyrics.
                             LyricsFetcher.cache.set(id, cached);
                             if (cached.isSynced && !cached.parsed) cached.parsed = LyricsFetcher.parseLRC(cached.text);
                             UI.loadCurrentLyrics();
@@ -1539,6 +1572,7 @@
                         if (key === 'loudnessLevel' && !['soft','balanced','strong'].includes(State.loudnessLevel)) State.loudnessLevel = 'balanced';
                         StorageAdapter.saveSettings(); UI.applySettings(); AudioAdapter.applySettings();
                         if (key === 'keepScreenAwake') AudioAdapter.setWakeLock(State.keepScreenAwake);
+                        if (key === 'lyricsTimingOffset') { State.activeLyricIndex = -1; UI.syncLyrics(State.currentTime); }
                         if (key === 'waveformStyle') UI.updateWaveformStyleUI();
                         if (key === 'visualizerMode') UI.updateVisualizerUI();
                         if (key === 'performanceProfile') UI.showToast(State.lowEndModeActive ? 'Low-end performance profile active.' : 'Full visual quality active.', 'speed');
@@ -1555,8 +1589,25 @@
             },
             setupGestures: () => {
                 window.addEventListener('resize', () => { AudioAdapter.resizeVisualizer(); if (AudioAdapter.visualizerShouldRun()) AudioAdapter.renderScrubberVisualizerFrame(); });
-               
+                // Native-style horizontal navigation between the four primary tabs. Vertical scrolling,
+                // nested rails, lyrics, inputs, controls and the expanded player keep their own gestures.
                 const mainContent = document.getElementById('main-content');
+                // On desktop, a conventional mouse wheel is vertical. Translate it to
+                // horizontal movement only while the pointer is over a scrollable rail.
+                // Trackpads and Shift+wheel keep their native horizontal behavior.
+                document.querySelectorAll('.horizontal-rail').forEach((rail) => {
+                    if (rail.dataset.desktopWheelBound === '1') return;
+                    rail.dataset.desktopWheelBound = '1';
+                    rail.addEventListener('wheel', (event) => {
+                        if (window.matchMedia('(max-width: 767px)').matches || event.shiftKey) return;
+                        const maxScroll = rail.scrollWidth - rail.clientWidth;
+                        if (maxScroll <= 1 || Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+                        const nextScroll = Math.max(0, Math.min(maxScroll, rail.scrollLeft + event.deltaY));
+                        if (nextScroll === rail.scrollLeft) return; // preserve normal page scrolling at either rail edge
+                        event.preventDefault();
+                        rail.scrollLeft = nextScroll;
+                    }, { passive: false });
+                });
                 const primaryViews = ['home','library','search','settings'];
                 let navSwipeStart = null;
                 const swipeIgnoreSelector = 'input,textarea,select,a,.horizontal-rail,.tab-bar,.search-container,.settings-subpage:not(.hidden),.player-lyrics-container,.scrubber-wrap,.bottom-sheet,.dialog-box,[data-eq-band],.lyrics-offset-control';

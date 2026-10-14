@@ -1,4 +1,3 @@
-/* ©royverse69 */
 /* Mujic app bootstrap, lifecycle and PWA registration. */
         const App = {
             init: async () => {
@@ -60,7 +59,7 @@
         window.addEventListener('resize', () => AudioAdapter.resizeVisualizer());
         window.addEventListener('DOMContentLoaded', async () => { await App.init(); setTimeout(() => UI.checkForUpdates(false), 1800); });
 
-        
+        // PWA registration is same-origin only; the app itself remains fully functional as a normal web app.
         if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js').catch(err => console.warn('PWA service worker registration failed', err));

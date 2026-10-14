@@ -1,5 +1,11 @@
 
-## v12.0.14 — About, Search, and playlist picker polish
+## v12.0.15 — Desktop playlist navigation and player visual polish
+
+- Desktop mouse-wheel input scrolls the Home playlist and Top Picks rails horizontally, while preserving normal page scrolling at each rail edge.
+- Playlist detail pages clear stale artwork metadata before loading the selected playlist's cover, and playlist IDs are safely escaped in rendered markup.
+- The active Neon lyric line gets a crisp offset shadow inspired by the supplied reference.
+- The Default Audio Waveform preset uses audio-responsive vertical bars and the style chooser preview now shows that waveform. Playback, seeking, EQ, and the underlying audio-processing chain are unchanged.
+- Added clearer player-control tooltips and a Lyrics icon; bumped the service-worker cache version to ensure installed PWAs receive the new files.
 
 - The About page now shows a GitHub brand mark and responsive View/Star buttons.
 - Search's empty state uses a real button and opens the downloader in a new tab with `?q=` built from the current search text (for example `dilbar song`).
@@ -9,13 +15,13 @@
 - Playlist Add Songs now selects multiple tracks already in the local library instead of opening the device file picker.
 - The About panel includes an inline GitHub brand mark and responsive action buttons.
 
-# Mujic v12.0.14 — Modular Offline-First Music Player
+# Mujic v12.0.15 — Modular Offline-First Music Player
 
 > A lightweight, ad-free, uncluttered local music player built especially for low-end devices and low-connectivity use. Audio files, playlists, artwork and preferences remain on-device. No account is required.
 
-**Current release: v12.0.14**
+**Current release: v12.0.15**
 
-This release fixes the Audio Waveform settings entry so its single settings row opens the correct style selector. The selection controls Off, Default, Wavy, Slim and Squiggly for the played portion of the seek bar. The app version and update checker are synchronized, and the service-worker cache has been versioned so installed PWAs can receive the update.
+This release fixes desktop playlist-rail scrolling, hardens playlist detail artwork refresh, adds a depth shadow to active Neon lyrics, and replaces the Default seek-bar line with an audio-responsive bar waveform. Player tooltips and the Lyrics icon are polished without changing playback or audio-processing behavior. The Audio Waveform settings entry continues to open its single style selector. The selection controls Off, Default, Wavy, Slim and Squiggly for the played portion of the seek bar. The app version and update checker are synchronized, and the service-worker cache has been versioned so installed PWAs can receive the update.
 
 Gemini song identification is **Coming soon** in this release. Its active key manager and API requests have been removed; normal playback and lyrics lookup do not require Gemini credentials. Old Gemini notes in the release history describe earlier builds, not current functionality.
 
@@ -29,7 +35,7 @@ Gemini song identification is **Coming soon** in this release. Its active key ma
 - Fixed the Settings category initializer: it no longer calls `insertBefore` with a settings section that was already moved into a subpage.
 - Added `start-mujic.bat` for Windows local startup. Open the app via `http://localhost:3000`; do not open `index.html` directly.
 
-## Current release: v12.0.14 — About, Search and playlist picker polish
+## Current release: v12.0.15 — Desktop playlist navigation and player visual polish
 
 - **Audio Waveform and seek-bar style are one setting.** Open Settings → Player & Audio → Audio Waveform and choose Off, Default, Wavy, Slim or Squiggly. The visualizer renders only on the played section; the remaining seek track stays neutral. A single animation loop is tied to playback and player visibility so minimizing/restoring does not create duplicate loops.
 - **Gemini song identification is not available in this release.** Its active API calls and key manager have been removed. The Lyrics & AI settings page shows the feature as coming soon; no Gemini key is needed for normal playback or lyric lookup. Legacy key fields may be cleared from older locally stored settings.

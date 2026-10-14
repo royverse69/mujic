@@ -1,4 +1,3 @@
-/* ©royverse69 */
 /* Mujic core: utility functions, state, artwork/storage, stats, lyrics and dialogs. */
 
         const Utils = {
@@ -44,7 +43,7 @@
             
             theme: 'system', accentPreset: 'dynamic', accentColor: '#ffffff', surfaceTheme: 'oled', textScale: 'normal', layoutDensity: 'comfortable', lowEndMode: false, lowEndModeActive: false, performanceProfile: 'auto',
             interfaceStyle: 'subtle', cornerRadius: 'rounded', motion: 'full', lyricsStyle: 'apple',
-            lyricsPosition: 'center', lyricsVerticalOffset: 0, lyricsFontSize: 'normal', lyricsLineSpacing: 'normal', lyricsWidth: 'standard', lyricsEmphasis: 'soft',
+            lyricsPosition: 'center', lyricsVerticalOffset: 0, lyricsTimingOffset: 0, lyricsFontSize: 'normal', lyricsLineSpacing: 'normal', lyricsWidth: 'standard', lyricsEmphasis: 'soft',
             playerBackground: 'artwork', playerArtworkMode: 'full', visualizerMode:'off', resumePlayback: false,
             librarySort: 'dateAdded', librarySortDir: 'desc', showArtworkLists: true,
             // Optional playback effects default off to protect battery and low-end CPUs.

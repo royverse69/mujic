@@ -1,18 +1,17 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.14">
+    <meta name="application-version" content="12.0.15">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Mujic">
     <script>
-  
+        // Browsers reject web manifests on file:// URLs. Only register the manifest on a web origin.
         if (location.protocol === 'http:' || location.protocol === 'https:') {
             const mujicManifest = document.createElement('link');
             mujicManifest.rel = 'manifest';
@@ -61,7 +60,7 @@
                 
                 <div id="home-empty-state" class="empty-state" style="display: none;">
                     <div class="empty-title">Your library is empty</div>
-                    <div class="empty-desc">Add all music from your device to start building your library.</div>
+                    <div class="empty-desc">Add music from your device to start building your library.</div>
                     <button class="btn btn-primary" data-action="click-file-input">Add Music</button>
                 </div>
                 <input type="file" id="file-input" multiple accept="audio/*,.mp3,.m4a,.aac,.flac,.wav,.ogg,.oga,.opus,.webm,.aiff,.aif,.alac" style="display: none;">
@@ -390,8 +389,8 @@
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="lyrics-style-select" class="settings-control" data-setting="lyricsStyle">
-                                    <option value="apple">*Apple Music</option>
-                                    <option value="spotify">*Spotify</option>
+                                    <option value="apple">Apple Music</option>
+                                    <option value="spotify">Spotify</option>
                                     <option value="neon">Neon Highlight</option>
                                 </select>
                             </div>
@@ -404,6 +403,10 @@
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Fine position</div><div class="settings-desc">Fine-tune the lyric block without changing the player controls.</div></div>
                         <div class="settings-control-group lyrics-offset-control"><input type="range" min="-8" max="8" step="1" class="settings-control lyrics-offset-range" data-setting="lyricsVerticalOffset" aria-label="Lyrics fine vertical position"><span class="setting-inline-value" id="lyrics-offset-value">0</span><span class="setting-inline-value">vh</span></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Lyrics timing</div><div class="settings-desc">Shift lyrics earlier or later if a file is out of sync. Negative shows lines sooner.</div></div>
+                        <div class="settings-control-group lyrics-offset-control"><input type="range" min="-2" max="2" step="0.1" class="settings-control lyrics-offset-range" data-setting="lyricsTimingOffset" aria-label="Lyrics timing offset in seconds"><span class="setting-inline-value" id="lyrics-timing-value">0.0</span><span class="setting-inline-value">s</span></div>
                     </div>
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Lyrics text size</div><div class="settings-desc">Responsive sizing for narrow and large screens.</div></div>
@@ -557,7 +560,7 @@
         </div>
         <div class="mini-controls">
             <button class="icon-btn mini-action" data-action="toggle-play" aria-label="Play/Pause"><span class="material-symbols-rounded" id="mini-play-btn" style="font-variation-settings: 'FILL' 1;">play_arrow</span></button>
-            <button class="icon-btn mini-action" data-action="next-track" aria-label="Next"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_next</span></button>
+            <button class="icon-btn mini-action" data-action="next-track" aria-label="Next" title="Next track"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_next</span></button>
         </div>
         <div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-progress"></div></div>
     </div>
@@ -567,13 +570,13 @@
         <button class="icon-btn immersive-btn" data-action="toggle-immersive-lyrics" aria-label="Immersive lyrics"><span class="material-symbols-rounded">fullscreen</span></button>
         
         <div class="player-header">
-            <button class="icon-btn" id="close-player-btn" data-action="close-full-player" aria-label="Minimize Player" type="button"><span class="material-symbols-rounded">keyboard_arrow_down</span></button>
+            <button class="icon-btn" id="close-player-btn" data-action="close-full-player" aria-label="Minimize Player" title="Minimize player" type="button"><span class="material-symbols-rounded">keyboard_arrow_down</span></button>
             <div style="display:flex; flex-direction:column; align-items:center;">
                 <span style="font-size: 11px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.1em; text-transform: uppercase;">Now Playing</span>
                 <span id="player-context-label" style="font-size: 13px; font-weight: 500; color: var(--text-primary);">From Library</span>
             </div>
             <div style="display:flex; gap: 4px;">
-                <button class="icon-btn" data-action="show-sheet" data-target="queue-sheet" aria-label="Queue"><span class="material-symbols-rounded">queue_music</span></button>
+                <button class="icon-btn" data-action="show-sheet" data-target="queue-sheet" aria-label="Queue" title="Queue"><span class="material-symbols-rounded">queue_music</span></button>
             </div>
         </div>
         
@@ -591,7 +594,7 @@
                         <h2 class="player-title" id="full-title">Not Playing</h2>
                         <p class="player-artist" id="full-artist">--</p>
                     </div>
-                    <button class="icon-btn" id="fav-btn" data-action="toggle-favorite" aria-label="Favorite"><span class="material-symbols-rounded">favorite</span></button>
+                    <button class="icon-btn" id="fav-btn" data-action="toggle-favorite" aria-label="Favorite" title="Favorite"><span class="material-symbols-rounded">favorite</span></button>
                 </div>
                 
                 <div class="scrubber-wrap">
@@ -604,17 +607,17 @@
                 </div>
                 
                 <div class="main-playback-controls">
-                    <button class="icon-btn" id="shuffle-btn" data-action="toggle-shuffle" aria-label="Shuffle"><span class="material-symbols-rounded">shuffle</span></button>
-                    <button class="icon-btn" data-action="prev-track" aria-label="Previous"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_previous</span></button>
-                    <div class="btn-play-pause" data-action="toggle-play" aria-label="Play/Pause"><span class="material-symbols-rounded" id="full-play-btn">play_arrow</span></div>
+                    <button class="icon-btn" id="shuffle-btn" data-action="toggle-shuffle" aria-label="Shuffle" title="Shuffle"><span class="material-symbols-rounded">shuffle</span></button>
+                    <button class="icon-btn" data-action="prev-track" aria-label="Previous" title="Previous track"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_previous</span></button>
+                    <div class="btn-play-pause" data-action="toggle-play" aria-label="Play/Pause" title="Play or pause"><span class="material-symbols-rounded" id="full-play-btn">play_arrow</span></div>
                     <button class="icon-btn mini-action" data-action="next-track" aria-label="Next"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_next</span></button>
-                    <button class="icon-btn" id="repeat-btn" data-action="toggle-repeat" aria-label="Repeat"><span class="material-symbols-rounded">repeat</span></button>
+                    <button class="icon-btn" id="repeat-btn" data-action="toggle-repeat" aria-label="Repeat" title="Repeat"><span class="material-symbols-rounded">repeat</span></button>
                 </div>
                 
                 <div class="secondary-playback-controls">
-                    <button class="icon-btn" id="lyrics-btn" data-action="toggle-lyrics" aria-label="Lyrics"><span class="material-symbols-rounded">notes</span></button>
-                    <button class="icon-btn" id="mute-btn" data-action="toggle-mute" aria-label="Mute"><span class="material-symbols-rounded">volume_up</span></button>
-                    <button class="icon-btn" data-action="show-sheet" data-target="player-more-sheet" aria-label="More Options"><span class="material-symbols-rounded">more_horiz</span></button>
+                    <button class="icon-btn" id="lyrics-btn" data-action="toggle-lyrics" aria-label="Lyrics" title="Lyrics"><span class="material-symbols-rounded">lyrics</span></button>
+                    <button class="icon-btn" id="mute-btn" data-action="toggle-mute" aria-label="Mute" title="Mute or unmute"><span class="material-symbols-rounded">volume_up</span></button>
+                    <button class="icon-btn" data-action="show-sheet" data-target="player-more-sheet" aria-label="More Options" title="More options"><span class="material-symbols-rounded">more_horiz</span></button>
                 </div>
             </div>
         </div>
@@ -736,7 +739,7 @@
         <div class="sheet-handle"></div>
         <div class="sheet-header"><div class="sheet-title-area"><div class="sheet-title">Audio Waveform</div><div class="sheet-subtitle" id="waveform-style-sheet-summary">Off</div></div></div>
         <button type="button" class="waveform-style-option" data-action="set-waveform-style" data-val="off" aria-pressed="false"><span class="waveform-style-preview off"><svg viewBox="0 0 120 24" aria-hidden="true"><path class="preview-track" d="M4 12H116"/><path class="preview-active" d="M4 12H48"/><path class="preview-thumb" d="M52 3V21"/></svg></span><span>Off</span><span class="material-symbols-rounded style-check">check</span></button>
-        <button type="button" class="waveform-style-option" data-action="set-waveform-style" data-val="default" aria-pressed="false"><span class="waveform-style-preview default"><svg viewBox="0 0 120 24" aria-hidden="true"><path class="preview-track" d="M4 12H116"/><path class="preview-active" d="M4 12H48"/><path class="preview-thumb" d="M52 3V21"/></svg></span><span>Default</span><span class="material-symbols-rounded style-check">check</span></button>
+        <button type="button" class="waveform-style-option" data-action="set-waveform-style" data-val="default" aria-pressed="false"><span class="waveform-style-preview default"><svg viewBox="0 0 120 24" aria-hidden="true"><path class="preview-track" d="M4 12H116"/><path class="preview-wave" d="M5 9V15 M10 6V18 M15 4V20 M20 7V17 M25 9V15 M30 5V19 M35 3V21 M40 7V17 M45 10V14 M50 8V16 M55 5V19 M60 3V21 M65 7V17 M70 10V14 M75 6V18 M80 4V20 M85 8V16 M90 6V18 M95 3V21 M100 7V17 M105 9V15 M110 5V19 M115 8V16"/></svg></span><span>Default</span><span class="material-symbols-rounded style-check">check</span></button>
         <button type="button" class="waveform-style-option" data-action="set-waveform-style" data-val="wavy" aria-pressed="false"><span class="waveform-style-preview wavy"><svg viewBox="0 0 120 24" aria-hidden="true"><path class="preview-track" d="M4 12H116"/><path class="preview-wave" d="M4 12C12 12 13 6 21 6S30 18 38 18S47 6 55 6S64 18 72 18S81 6 89 6S98 18 106 18S112 12 116 12"/></svg></span><span>Wavy</span><span class="material-symbols-rounded style-check">check</span></button>
         <button type="button" class="waveform-style-option" data-action="set-waveform-style" data-val="slim" aria-pressed="false"><span class="waveform-style-preview slim"><svg viewBox="0 0 120 24" aria-hidden="true"><path class="preview-track" d="M4 12H116"/><path class="preview-active" d="M4 12H76"/></svg></span><span>Slim</span><span class="material-symbols-rounded style-check">check</span></button>
         <button type="button" class="waveform-style-option" data-action="set-waveform-style" data-val="squiggly" aria-pressed="false"><span class="waveform-style-preview squiggly"><svg viewBox="0 0 120 24" aria-hidden="true"><path class="preview-track" d="M4 12H116"/><path class="preview-wave" d="M4 12C10 3 16 21 22 12S34 3 40 12S52 21 58 12S70 3 76 12S88 21 94 12S106 4 116 12"/></svg></span><span>Squiggly</span><span class="material-symbols-rounded style-check">check</span></button>

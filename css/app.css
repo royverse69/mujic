@@ -231,9 +231,9 @@
         .lyrics-style-neon .lyric-line { opacity: 0.3; transform: scale(0.95); font-family: 'Inter', sans-serif; margin-bottom: 24px; color: var(--text-primary); }
         @media (hover: hover) { .lyrics-style-neon .lyric-line:hover { opacity: 0.8; } }
         .lyrics-style-neon .lyric-line.active { 
-            opacity: 1; transform: scale(1.05) rotate(-1deg); color: var(--bg-base); font-weight: 900;
+            opacity: 1; transform: scale(1.05) rotate(-1deg); color: var(--accent-ink, #000); font-weight: 900;
             background: var(--accent-color); display: inline-block; padding: 4px 12px;
-            border: 2px solid var(--border-subtle); box-shadow: 4px 4px 0px rgba(255,255,255,0.2); border-radius: 6px; width: auto;
+            border: 2px solid #000; box-shadow: 4px 4px 0px rgba(255,255,255,0.22); border-radius: 6px; width: auto;
         }
 
         .player-lyrics-container.un-synced { white-space: pre-wrap; font-size: 16px; line-height: 1.8; color: var(--text-primary); text-align: center; overflow-y: auto; align-items: center; justify-content: center; }
@@ -858,7 +858,7 @@ body.layout-spacious .editorial-section { margin-bottom:56px; }
 .lyrics-width-standard .player-lyrics-container .lyric-line { max-width:92% !important; margin-left:auto !important; margin-right:auto !important; }
 .lyrics-width-wide .player-lyrics-container .lyric-line { max-width:100% !important; }
 .lyrics-emphasis-off .lyrics-style-apple .lyric-line.active, .lyrics-emphasis-off .lyrics-style-spotify .lyric-line.active, .lyrics-emphasis-off .lyrics-style-neon .lyric-line.active { opacity:.9 !important; filter:none !important; color:var(--text-primary) !important; background:transparent !important; border-color:transparent !important; box-shadow:none !important; transform:none !important; font-weight:600 !important; }
-.lyrics-emphasis-soft .lyrics-style-neon .lyric-line.active { background:var(--accent-color) !important; color:var(--bg-base) !important; box-shadow:none !important; transform:scale(1.01) !important; border:1px solid var(--border-subtle) !important; }
+.lyrics-emphasis-soft .lyrics-style-neon .lyric-line.active { background:var(--accent-color) !important; color:var(--accent-ink, #000) !important; box-shadow:none !important; transform:scale(1.01) !important; border:1px solid var(--border-subtle) !important; }
 .lyrics-emphasis-standard .lyrics-style-apple .lyric-line.active, .lyrics-emphasis-standard .lyrics-style-spotify .lyric-line.active { opacity:1 !important; filter:none !important; transform:scale(1.015) !important; }
 .lyrics-emphasis-strong .lyrics-style-apple .lyric-line.active, .lyrics-emphasis-strong .lyrics-style-spotify .lyric-line.active { opacity:1 !important; filter:none !important; transform:scale(1.04) !important; font-weight:800 !important; }
 
@@ -1044,3 +1044,30 @@ body.low-end-mode .track-row, body.low-end-mode .art-card, body.low-end-mode .bt
   .settings-row .setting-inline-value { max-width:108px; padding:5px 8px; }
   .playlist-track-picker-list { max-height:45dvh; }
 }
+
+
+/* v12.1: smooth waveform seek bar. The dot is drawn on the canvas, so hide the DOM thumb while the effect is on. */
+:root { --accent-ink: #000; }
+body.theme-light { --accent-ink: #fff; }
+.scrubber-track.wave-live .scrubber-thumb { opacity: 0; }
+body.theme-light .lyrics-style-neon .lyric-line.active { border-color: #000; box-shadow: 4px 4px 0 rgba(0,0,0,.85); }
+
+
+/* v12.0.15 — desktop rail scrolling, deeper neon lyrics, clearer waveform seek area */
+@media (hover: hover) and (min-width: 768px) {
+  .horizontal-rail { cursor: grab; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .horizontal-rail:hover { scrollbar-color: rgba(255,255,255,.24) transparent; }
+  .horizontal-rail:active { cursor: grabbing; }
+  .horizontal-rail::-webkit-scrollbar { height: 6px; }
+  .horizontal-rail::-webkit-scrollbar-track { background: transparent; }
+  .horizontal-rail::-webkit-scrollbar-thumb { background: transparent; border-radius: 99px; }
+  .horizontal-rail:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,.24); }
+}
+body.lyrics-mode .lyrics-style-neon .lyric-line.active,
+body.lyrics-mode.immersive-lyrics .lyrics-style-neon .lyric-line.active {
+  border: 2px solid #080808 !important;
+  box-shadow: 6px 6px 0 rgba(78,78,78,.96), 0 12px 24px rgba(0,0,0,.26) !important;
+}
+.scrubber-track { height: 30px; }
+.scrubber-visualizer { border-radius: inherit; }
+.scrubber-track.visualizer-active .scrubber-fill { opacity: 0 !important; }

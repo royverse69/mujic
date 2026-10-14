@@ -1,4 +1,3 @@
-/* ©royverse69 */
 /* Mujic backend: IndexedDB access, settings persistence, and statistics. */
         const StorageAdapter = {
             db: null,
@@ -104,7 +103,7 @@
                     currentTrackId: State.currentTrackId, volume: State.volume, muted: State.muted, repeat: State.repeat, shuffle: State.shuffle, 
                     rate: State.playbackRate, eq: State.eq, eqPreset: State.eqPreset, eqBands: State.eqBands, theme: State.theme, accentPreset: State.accentPreset, accentColor: State.accentColor, surfaceTheme: State.surfaceTheme, textScale: State.textScale, layoutDensity: State.layoutDensity, lowEndMode: State.lowEndMode, performanceProfile: State.performanceProfile,
                     interfaceStyle: State.interfaceStyle, cornerRadius: State.cornerRadius, motion: State.motion, lyricsStyle: State.lyricsStyle,
-                    lyricsPosition: State.lyricsPosition, lyricsVerticalOffset: State.lyricsVerticalOffset, lyricsFontSize: State.lyricsFontSize, lyricsLineSpacing: State.lyricsLineSpacing, lyricsWidth: State.lyricsWidth, lyricsEmphasis: State.lyricsEmphasis,
+                    lyricsPosition: State.lyricsPosition, lyricsVerticalOffset: State.lyricsVerticalOffset, lyricsTimingOffset: State.lyricsTimingOffset, lyricsFontSize: State.lyricsFontSize, lyricsLineSpacing: State.lyricsLineSpacing, lyricsWidth: State.lyricsWidth, lyricsEmphasis: State.lyricsEmphasis,
                     playerBackground: State.playerBackground, playerArtworkMode: State.playerArtworkMode, visualizerMode: State.visualizerMode,
                     resumePlayback: State.resumePlayback, resumePosition: State.resumePosition, librarySort: State.librarySort, librarySortDir: State.librarySortDir,
                     showArtworkLists: State.showArtworkLists, playStats: State.playStats,
@@ -142,6 +141,7 @@
                     if(s.lyricsStyle !== undefined && ['apple','spotify','neon'].includes(s.lyricsStyle)) State.lyricsStyle = s.lyricsStyle;
                     if(s.lyricsPosition !== undefined && ['upper','center','lower'].includes(s.lyricsPosition)) State.lyricsPosition=s.lyricsPosition;
                     if(s.lyricsVerticalOffset !== undefined) State.lyricsVerticalOffset=Math.max(-8,Math.min(8,Number(s.lyricsVerticalOffset)||0));
+                    if(s.lyricsTimingOffset !== undefined) State.lyricsTimingOffset=Math.max(-2,Math.min(2,Math.round((Number(s.lyricsTimingOffset)||0)*10)/10));
                     if(s.lyricsFontSize !== undefined && ['compact','normal','large','extra-large'].includes(s.lyricsFontSize)) State.lyricsFontSize=s.lyricsFontSize;
                     if(s.lyricsLineSpacing !== undefined && ['compact','normal','relaxed'].includes(s.lyricsLineSpacing)) State.lyricsLineSpacing=s.lyricsLineSpacing;
                     if(s.lyricsWidth !== undefined && ['narrow','standard','wide'].includes(s.lyricsWidth)) State.lyricsWidth=s.lyricsWidth;
