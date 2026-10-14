@@ -1,3 +1,4 @@
+/* ©royverse69 */
 /* Mujic backend: IndexedDB access, settings persistence, and statistics. */
         const StorageAdapter = {
             db: null,
