@@ -1,8 +1,7 @@
+/* ©royverse69 */
 /* Mujic UI layer: view rendering, sheets, dialogs, search and interactions. */
         const UI = {
-            // History URL mutation is not consistently supported for file:// pages (Windows users
-            // often open index.html directly). Keep browser-history helpers guarded so navigation
-            // can never abort the rest of startup on those origins.
+            
             supportsUrlHistory: () => location.protocol === 'http:' || location.protocol === 'https:',
             pushHistoryState: (state, hash) => {
                 if (!UI.supportsUrlHistory()) return false;
@@ -16,8 +15,7 @@
             },
             init: () => {
                 if (Utils.isIOS()) document.body.classList.add('ios');
-                // Initialize each subsystem independently. A failure in history, gestures, or a
-                // nonessential panel must not prevent the global navigation handlers from binding.
+      
                 const initSteps = [
                     ['settings grouping', UI.setupSettingsGroups],
                     ['navigation history', UI.setupHistory],
@@ -102,9 +100,7 @@
                     }
                     pages.appendChild(page);
                 }
-                // The sections have already been moved into their category pages,
-                // so sections[0] is no longer a child of root. Never use it as an
-                // insertBefore reference after reparenting; insert next to the title.
+               
                 const insertionPoint = title && title.parentNode === root ? title.nextSibling : root.firstChild;
                 if (insertionPoint && insertionPoint.parentNode === root) root.insertBefore(overview, insertionPoint);
                 else root.appendChild(overview);
@@ -148,7 +144,7 @@
                     }).join('') : '<div class="changelog-empty">No release notes are available yet.</div>';
                     root.dataset.loaded = '1';
                 } catch (error) {
-                    // Keep the update page useful when launched from file:// or while offline.
+             
                     const fallbackEntries = [
                         { version: '12.0.14', date: '2026-10-13', title: 'About, Search and playlist picker polish', changes: [
                             'Added a proper GitHub brand icon and responsive About links for narrow screens.',
@@ -1267,8 +1263,7 @@
                         if (!item) return;
                         const now = Date.now();
                         if (item.dataset.lastNavActivation && now - Number(item.dataset.lastNavActivation) < 350) {
-                            // A touch pointerup is followed by a synthetic click on many phones.
-                            // Swallow that duplicate instead of letting it reach body delegation.
+                           
                             e.preventDefault(); e.stopPropagation(); return;
                         }
                         item.dataset.lastNavActivation = String(now);
@@ -1332,10 +1327,7 @@
                     const btn = e.target.closest('[data-action]'); if (!btn) return;
                     const action = btn.dataset.action;
 
-                    // Central action dispatcher: the previous build omitted core actions here
-                    // (song rows, Settings categories, history, playlist actions and transport).
-                    // The UI looked normal, but most taps had no handler. Keep this dispatch
-                    // explicit, and isolate failures so one action cannot break future taps.
+                  
                     try {
                         switch (action) {
                             case 'switch-view':
@@ -1495,7 +1487,7 @@
                         const cached = track ? await LyricsFetcher.getCachedOnly(track) : null;
                         if (cached?.text) {
                             State.currentLyrics = cached;
-                            // Replace an earlier unavailable result before re-rendering the cached lyrics.
+                           
                             LyricsFetcher.cache.set(id, cached);
                             if (cached.isSynced && !cached.parsed) cached.parsed = LyricsFetcher.parseLRC(cached.text);
                             UI.loadCurrentLyrics();
@@ -1563,8 +1555,7 @@
             },
             setupGestures: () => {
                 window.addEventListener('resize', () => { AudioAdapter.resizeVisualizer(); if (AudioAdapter.visualizerShouldRun()) AudioAdapter.renderScrubberVisualizerFrame(); });
-                // Native-style horizontal navigation between the four primary tabs. Vertical scrolling,
-                // nested rails, lyrics, inputs, controls and the expanded player keep their own gestures.
+               
                 const mainContent = document.getElementById('main-content');
                 const primaryViews = ['home','library','search','settings'];
                 let navSwipeStart = null;
