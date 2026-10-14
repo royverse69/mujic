@@ -419,7 +419,6 @@
       display: flex;
       align-items: center;
     }
-    /* Unplayed right-side track */
     .scroller-unplayed {
       position: absolute;
       left: 0;
@@ -431,7 +430,6 @@
       border-radius: 999px;
       overflow: hidden;
     }
-    /* Played left-side wavy SVG container clipped to current progress */
     .scroller-played {
       position: absolute;
       left: 0;
@@ -460,7 +458,6 @@
       stroke-linecap: round;
       filter: drop-shadow(0 0 6px rgba(255, 69, 56, 0.55));
     }
-    /* Scrubber thumb knob */
     .scroller-thumb {
       position: absolute;
       left: 0%;
@@ -556,6 +553,18 @@
       transform-origin: center center;
       opacity: 0;
     }
+    body.mobile-device .tornado-card {
+      box-shadow: none;
+      border-radius: 10px;
+      will-change: auto;
+      contain: layout style paint;
+    }
+    body.mobile-device .cover img {
+      box-shadow: 0 4px 12px #0008;
+    }
+    body.mobile-device .scroller-wave-svg path {
+      filter: none;
+    }
     .tornado-card img {
       width: 100%;
       height: 100%;
@@ -606,7 +615,6 @@
       to { opacity: 1; transform: scale(1.12); }
     }
 
-    /* Responsive adjustments for tablets & phones */
     @media (max-width: 768px) {
       .viewport-shell {
         width: min(calc(100% - 28px), var(--max));
@@ -682,7 +690,6 @@
       }
     }
 
-    /* Short vertical screens & landscape mobile */
     @media (max-height: 660px) {
       .visual {
         width: min(46vw, clamp(145px, 30dvh, 220px));
@@ -928,6 +935,12 @@
       const yearEl = document.getElementById('year');
       if (yearEl) yearEl.textContent = new Date().getFullYear();
 
+      const isMobileDevice = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      if (isMobileDevice) {
+        document.body.classList.add('mobile-device');
+      }
+
       let musicPlayedOnce = false;
       function startMusic() {
         if (!bgMusic || musicPlayedOnce) return;
@@ -953,7 +966,6 @@
       function layoutProportionalOrbits() {
         const rect = orbitVisual.getBoundingClientRect();
         const visualDiameter = rect.width || Math.min(window.innerWidth * 0.68, 320);
-        // Scale cover sizes proportionally to the actual rendered orbit container
         const scaleRatio = Math.max(0.56, Math.min(1.05, visualDiameter / 380));
         const ringConfigs = [
           { selector: '.orbit-1', size: Math.round(54 * scaleRatio) },
@@ -1186,9 +1198,13 @@
         const vw = window.innerWidth;
         const vh = window.innerHeight;
 
-        const targetCell = vw < 640 ? 78 : 112;
-        const cols = Math.max(5, Math.round(vw / targetCell));
-        const rows = Math.max(6, Math.round(vh / targetCell));
+        const targetCell = isMobileDevice ? (vw < 640 ? 110 : 145) : 112;
+        const cols = isMobileDevice
+          ? Math.min(6, Math.max(4, Math.round(vw / targetCell)))
+          : Math.max(5, Math.round(vw / targetCell));
+        const rows = isMobileDevice
+          ? Math.min(6, Math.max(4, Math.round(vh / targetCell)))
+          : Math.max(6, Math.round(vh / targetCell));
         const gridSlots = [];
 
         const stepX = vw / cols;
@@ -1204,8 +1220,10 @@
           }
         }
 
-        const totalAftermath = aftermathAnchors.length;
-        const totalCards = Math.max(gridSlots.length, totalRequired + totalAftermath);
+        const activeAftermathCount = isMobileDevice ? 8 : aftermathAnchors.length;
+        const totalCards = isMobileDevice
+          ? Math.min(48, Math.max(gridSlots.length, totalRequired + activeAftermathCount))
+          : Math.max(gridSlots.length, totalRequired + activeAftermathCount);
 
         const shuffledSlots = gridSlots.slice();
         for (let i = shuffledSlots.length - 1; i > 0; i--) {
@@ -1215,17 +1233,19 @@
           shuffledSlots[j] = temp;
         }
 
+        const fillerPoolSize = isMobileDevice ? 16 : extraFillerImages.length;
+
         for (let i = 0; i < totalCards; i++) {
           const isRequired = i < totalRequired;
           const aftermathIdx = i - totalRequired;
-          const isAftermath = !isRequired && aftermathIdx >= 0 && aftermathIdx < totalAftermath;
+          const isAftermath = !isRequired && aftermathIdx >= 0 && aftermathIdx < activeAftermathCount;
           const aftermathCfg = isAftermath ? aftermathAnchors[aftermathIdx] : null;
 
           const coverEl = isRequired ? orbitCoverEls[i] : null;
           const coverImg = coverEl ? coverEl.querySelector('img') : null;
           const imgSrc = (isRequired && coverImg && coverImg.src)
             ? coverImg.src
-            : extraFillerImages[Math.max(0, i - totalRequired) % extraFillerImages.length];
+            : extraFillerImages[Math.max(0, i - totalRequired) % fillerPoolSize];
 
           const card = document.createElement('div');
           card.className = isAftermath ? 'tornado-card is-aftermath' : 'tornado-card';
@@ -1274,7 +1294,6 @@
             startRadius: Math.hypot(startDx, startDy),
             spiralTurns: isRequired ? (1.45 + (i % 3) * 0.32) : (isAftermath ? (1.1 + (i % 3) * 0.22) : (1.95 + (i % 5) * 0.3)),
             verticalWaveAmp: ((i % 11) - 5) * 9,
-            // Zero staggerDelay so all images appear simultaneously in the 2nd frame
             staggerDelay: 0,
             emergeSize: proportionalCardSize,
             vanishEnd: 0.70 + (i % 7) * 0.038,
@@ -1282,7 +1301,8 @@
             targetY: centerY,
             targetRadius: 0,
             targetAngle: 0,
-            targetSize: 54
+            targetSize: 54,
+            isHidden: false
           });
         }
         tornadoStage.replaceChildren(frag);
@@ -1319,15 +1339,14 @@
         });
       }
 
-      // Slower, relaxed pacing with initial breathing delay after all posters load
-      const INITIAL_START_DELAY = 650; // Deliberate pause at the beginning
-      const CARDS_EMERGE_START = INITIAL_START_DELAY + 1850; // 2500ms
-      const EMERGE_DURATION = 680; // Smooth, unhurried simultaneous emergence
-      const STAGE_1_END = INITIAL_START_DELAY + 3450; // 4100ms
-      const FRAME_2_HOLD_DURATION = 1350; // Full 2nd frame hold to admire the poster grid
-      const TORNADO_START = STAGE_1_END + FRAME_2_HOLD_DURATION; // 5450ms
-      const TORNADO_DURATION = 3150; // Slower, graceful vortex convergence
-      const TOTAL_INTRO_TIME = TORNADO_START + TORNADO_DURATION; // 8600ms
+      const INITIAL_START_DELAY = 650;
+      const CARDS_EMERGE_START = INITIAL_START_DELAY + 1850;
+      const EMERGE_DURATION = 680;
+      const STAGE_1_END = INITIAL_START_DELAY + 3450;
+      const FRAME_2_HOLD_DURATION = 1350;
+      const TORNADO_START = STAGE_1_END + FRAME_2_HOLD_DURATION;
+      const TORNADO_DURATION = 3150;
+      const TOTAL_INTRO_TIME = TORNADO_START + TORNADO_DURATION;
 
       let animFrameId = null;
       let startTime = null;
@@ -1337,14 +1356,12 @@
 
       const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
-      // Ultra-smooth critically-damped spring with subtle silk overshoot
       function silkSpringOut(t) {
         if (t <= 0) return 0;
         if (t >= 1) return 1;
         return 1 - Math.exp(-7.2 * t) * Math.cos(2.8 * t);
       }
 
-      // Blended quintic-sine easing for fluid acceleration & deceleration without abrupt jerks
       function smoothVortexEase(t) {
         if (t <= 0) return 0;
         if (t >= 1) return 1;
@@ -1365,7 +1382,7 @@
           if (p.isAftermath && p.aftermathCfg) {
             const finalScale = p.targetSize / CARD_BASE_SIZE;
             p.el.style.opacity = `${p.aftermathCfg.alpha}`;
-            p.el.style.filter = `blur(${p.aftermathCfg.blur}px) brightness(0.78)`;
+            p.el.style.filter = isMobileDevice ? 'none' : `blur(${p.aftermathCfg.blur}px) brightness(0.78)`;
             p.el.style.transform = `translate3d(${(p.targetX - CARD_HALF).toFixed(2)}px, ${(p.targetY - CARD_HALF).toFixed(2)}px, 0) scale(${finalScale.toFixed(3)}) rotate(${p.aftermathCfg.rot}deg)`;
           }
         });
@@ -1386,7 +1403,6 @@
         if (!startTime) startTime = now;
         const elapsed = now - startTime;
 
-        // Trigger video & music right after the initial beginning delay
         if (elapsed >= INITIAL_START_DELAY && !videoTriggered) {
           videoTriggered = true;
           video.currentTime = 0;
@@ -1407,93 +1423,97 @@
         const s = smoothVortexEase(tornadoProgress);
         const springS = silkSpringOut(tornadoProgress);
 
-        // Compute simultaneous emergence once per frame for all cards
         const emergeLocal = (elapsed - CARDS_EMERGE_START) / EMERGE_DURATION;
         const eSpring = silkSpringOut(clamp(emergeLocal, 0, 1));
         const emergeAlphaBase = clamp(eSpring * 1.15, 0, 0.96);
 
-        for (let i = 0; i < particles.length; i++) {
-          const p = particles[i];
-          if (emergeLocal <= 0) {
-            p.el.style.opacity = '0';
-            continue;
-          }
+        if (emergeLocal > 0) {
+          for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+            if (p.isHidden) continue;
 
-          const curStartAngle = p.startAngle;
-          const curStartRadius = p.startRadius;
-          const baseScale = (p.emergeSize / CARD_BASE_SIZE) * eSpring;
-          const emergeAlpha = emergeAlphaBase;
-          const emergeTilt = ((p.index % 7) - 3) * 5.5 * eSpring;
+            const curStartAngle = p.startAngle;
+            const curStartRadius = p.startRadius;
+            const baseScale = (p.emergeSize / CARD_BASE_SIZE) * eSpring;
+            const emergeAlpha = emergeAlphaBase;
+            const emergeTilt = ((p.index % 7) - 3) * 5.5 * eSpring;
 
-          if (tornadoProgress <= 0) {
-            p.el.style.opacity = `${emergeAlpha.toFixed(3)}`;
-            p.el.style.transform = `translate3d(${(p.emergeX - CARD_HALF).toFixed(2)}px, ${(p.emergeY - CARD_HALF).toFixed(2)}px, 0) scale(${baseScale.toFixed(3)}) rotate(${emergeTilt.toFixed(2)}deg)`;
-          } else {
-            if (!p.isRequired && !p.isAftermath) {
-              const vRaw = clamp(tornadoProgress / p.vanishEnd, 0, 1);
-              const vSmooth = smoothVortexEase(vRaw);
-
-              const angle = curStartAngle + vSmooth * Math.PI * 2 * p.spiralTurns;
-              const radius = curStartRadius * Math.pow(1 - vSmooth, 1.4);
-              const waveY = Math.sin(vSmooth * Math.PI) * p.verticalWaveAmp * (1 - vSmooth);
-
-              const curX = centerX + Math.cos(angle) * radius;
-              const curY = centerY + Math.sin(angle) * (radius * 0.86) + waveY;
-
-              const shrinkScale = baseScale * Math.pow(1 - vSmooth, 1.12);
-              const bankingDeg = emergeTilt * (1 - vSmooth) + Math.sin(vSmooth * Math.PI) * 24 * (p.index % 2 === 0 ? 1 : -1);
-              const alpha = emergeAlpha * Math.pow(1 - vRaw, 1.65) * 0.98;
-
-              p.el.style.opacity = `${Math.max(0, alpha).toFixed(3)}`;
-              p.el.style.transform = `translate3d(${(curX - CARD_HALF).toFixed(2)}px, ${(curY - CARD_HALF).toFixed(2)}px, 0) scale(${Math.max(0.001, shrinkScale).toFixed(3)}) rotate(${bankingDeg.toFixed(2)}deg)`;
-            } else if (p.isAftermath && p.aftermathCfg) {
-              let deltaAngle = (p.targetAngle - curStartAngle) % (Math.PI * 2);
-              if (deltaAngle < 0) deltaAngle += Math.PI * 2;
-              const totalRotation = deltaAngle + Math.PI * 2 * Math.round(p.spiralTurns);
-              const currentAngle = curStartAngle + totalRotation * s;
-
-              const pinchEnvelope = Math.sin(s * Math.PI);
-              const linearRadius = curStartRadius * (1 - s) + p.targetRadius * s;
-              const currentRadius = linearRadius * (1 - 0.50 * pinchEnvelope) + (p.targetRadius * 0.30) * (0.50 * pinchEnvelope);
-
-              const curX = centerX + Math.cos(currentAngle) * currentRadius;
-              const curY = centerY + Math.sin(currentAngle) * currentRadius;
-
-              const targetScale = p.targetSize / CARD_BASE_SIZE;
-              const currentScale = baseScale * (1 - springS) + targetScale * springS;
-              const currentRot = emergeTilt * (1 - s) + p.aftermathCfg.rot * s;
-              const currentAlpha = (emergeAlpha * 0.98) * (1 - s) + p.aftermathCfg.alpha * s;
-              const currentBlur = p.aftermathCfg.blur * s;
-
-              p.el.style.opacity = `${currentAlpha.toFixed(3)}`;
-              p.el.style.filter = `blur(${currentBlur.toFixed(2)}px) brightness(${(1 - 0.22 * s).toFixed(2)})`;
-              p.el.style.transform = `translate3d(${(curX - CARD_HALF).toFixed(2)}px, ${(curY - CARD_HALF).toFixed(2)}px, 0) scale(${currentScale.toFixed(3)}) rotate(${currentRot.toFixed(2)}deg)`;
+            if (tornadoProgress <= 0) {
+              p.el.style.opacity = `${emergeAlpha.toFixed(2)}`;
+              p.el.style.transform = `translate3d(${(p.emergeX - CARD_HALF).toFixed(1)}px, ${(p.emergeY - CARD_HALF).toFixed(1)}px, 0) scale(${baseScale.toFixed(3)}) rotate(${emergeTilt.toFixed(1)}deg)`;
             } else {
-              let deltaAngle = (p.targetAngle - curStartAngle) % (Math.PI * 2);
-              if (deltaAngle < 0) deltaAngle += Math.PI * 2;
-              const totalRotation = deltaAngle + Math.PI * 2 * Math.round(p.spiralTurns);
-              const currentAngle = curStartAngle + totalRotation * s;
+              if (!p.isRequired && !p.isAftermath) {
+                const vRaw = clamp(tornadoProgress / p.vanishEnd, 0, 1);
+                if (vRaw >= 1) {
+                  p.el.style.opacity = '0';
+                  p.isHidden = true;
+                  continue;
+                }
+                const vSmooth = smoothVortexEase(vRaw);
 
-              const funnelEnvelope = Math.sin(s * Math.PI);
-              const linearRadius = curStartRadius * (1 - s) + p.targetRadius * s;
-              const currentRadius = linearRadius * (1 - 0.32 * funnelEnvelope) + (p.targetRadius * 0.54) * (0.32 * funnelEnvelope);
+                const angle = curStartAngle + vSmooth * Math.PI * 2 * p.spiralTurns;
+                const radius = curStartRadius * Math.pow(1 - vSmooth, 1.4);
+                const waveY = Math.sin(vSmooth * Math.PI) * p.verticalWaveAmp * (1 - vSmooth);
 
-              const waveOffset = funnelEnvelope * (1 - s) * p.verticalWaveAmp * 0.6;
-              const curX = centerX + Math.cos(currentAngle) * currentRadius;
-              const curY = centerY + Math.sin(currentAngle) * currentRadius + waveOffset;
+                const curX = centerX + Math.cos(angle) * radius;
+                const curY = centerY + Math.sin(angle) * (radius * 0.86) + waveY;
 
-              const targetScale = p.targetSize / CARD_BASE_SIZE;
-              const currentScale = baseScale * (1 - springS) + targetScale * springS;
-              const velocityEnvelope = Math.sin(tornadoProgress * Math.PI);
-              const bankingDeg = emergeTilt * (1 - s) + velocityEnvelope * (1 - s) * 14 * (p.index % 2 === 0 ? 1 : -1);
+                const shrinkScale = baseScale * Math.pow(1 - vSmooth, 1.12);
+                const bankingDeg = emergeTilt * (1 - vSmooth) + Math.sin(vSmooth * Math.PI) * 24 * (p.index % 2 === 0 ? 1 : -1);
+                const alpha = emergeAlpha * Math.pow(1 - vRaw, 1.65) * 0.98;
 
-              p.el.style.opacity = `${Math.min(1, emergeAlpha + tornadoProgress * 0.5).toFixed(3)}`;
-              p.el.style.transform = `translate3d(${(curX - CARD_HALF).toFixed(2)}px, ${(curY - CARD_HALF).toFixed(2)}px, 0) scale(${currentScale.toFixed(3)}) rotate(${bankingDeg.toFixed(2)}deg)`;
+                p.el.style.opacity = `${Math.max(0, alpha).toFixed(2)}`;
+                p.el.style.transform = `translate3d(${(curX - CARD_HALF).toFixed(1)}px, ${(curY - CARD_HALF).toFixed(1)}px, 0) scale(${Math.max(0.001, shrinkScale).toFixed(3)}) rotate(${bankingDeg.toFixed(1)}deg)`;
+              } else if (p.isAftermath && p.aftermathCfg) {
+                let deltaAngle = (p.targetAngle - curStartAngle) % (Math.PI * 2);
+                if (deltaAngle < 0) deltaAngle += Math.PI * 2;
+                const totalRotation = deltaAngle + Math.PI * 2 * Math.round(p.spiralTurns);
+                const currentAngle = curStartAngle + totalRotation * s;
+
+                const pinchEnvelope = Math.sin(s * Math.PI);
+                const linearRadius = curStartRadius * (1 - s) + p.targetRadius * s;
+                const currentRadius = linearRadius * (1 - 0.50 * pinchEnvelope) + (p.targetRadius * 0.30) * (0.50 * pinchEnvelope);
+
+                const curX = centerX + Math.cos(currentAngle) * currentRadius;
+                const curY = centerY + Math.sin(currentAngle) * currentRadius;
+
+                const targetScale = p.targetSize / CARD_BASE_SIZE;
+                const currentScale = baseScale * (1 - springS) + targetScale * springS;
+                const currentRot = emergeTilt * (1 - s) + p.aftermathCfg.rot * s;
+                const currentAlpha = (emergeAlpha * 0.98) * (1 - s) + p.aftermathCfg.alpha * s;
+
+                p.el.style.opacity = `${currentAlpha.toFixed(2)}`;
+                if (!isMobileDevice) {
+                  const currentBlur = p.aftermathCfg.blur * s;
+                  p.el.style.filter = `blur(${currentBlur.toFixed(2)}px) brightness(${(1 - 0.22 * s).toFixed(2)})`;
+                }
+                p.el.style.transform = `translate3d(${(curX - CARD_HALF).toFixed(1)}px, ${(curY - CARD_HALF).toFixed(1)}px, 0) scale(${currentScale.toFixed(3)}) rotate(${currentRot.toFixed(1)}deg)`;
+              } else {
+                let deltaAngle = (p.targetAngle - curStartAngle) % (Math.PI * 2);
+                if (deltaAngle < 0) deltaAngle += Math.PI * 2;
+                const totalRotation = deltaAngle + Math.PI * 2 * Math.round(p.spiralTurns);
+                const currentAngle = curStartAngle + totalRotation * s;
+
+                const funnelEnvelope = Math.sin(s * Math.PI);
+                const linearRadius = curStartRadius * (1 - s) + p.targetRadius * s;
+                const currentRadius = linearRadius * (1 - 0.32 * funnelEnvelope) + (p.targetRadius * 0.54) * (0.32 * funnelEnvelope);
+
+                const waveOffset = funnelEnvelope * (1 - s) * p.verticalWaveAmp * 0.6;
+                const curX = centerX + Math.cos(currentAngle) * currentRadius;
+                const curY = centerY + Math.sin(currentAngle) * currentRadius + waveOffset;
+
+                const targetScale = p.targetSize / CARD_BASE_SIZE;
+                const currentScale = baseScale * (1 - springS) + targetScale * springS;
+                const velocityEnvelope = Math.sin(tornadoProgress * Math.PI);
+                const bankingDeg = emergeTilt * (1 - s) + velocityEnvelope * (1 - s) * 14 * (p.index % 2 === 0 ? 1 : -1);
+
+                p.el.style.opacity = `${Math.min(1, emergeAlpha + tornadoProgress * 0.5).toFixed(2)}`;
+                p.el.style.transform = `translate3d(${(curX - CARD_HALF).toFixed(1)}px, ${(curY - CARD_HALF).toFixed(1)}px, 0) scale(${currentScale.toFixed(3)}) rotate(${bankingDeg.toFixed(1)}deg)`;
+              }
             }
           }
         }
 
-        // Crossfade hero copy & orbits slightly earlier for a seamless handoff
         if (elapsed >= TOTAL_INTRO_TIME - 420 && !document.body.classList.contains('stage-3')) {
           document.body.classList.add('stage-3');
         }
@@ -1518,12 +1538,12 @@
       updateOrbitTargets();
 
       function preloadAllAssetsAndStart() {
-        // Collect EVERY unique image URL from both the orbit covers and all tornado/aftermath cards
         const orbitImgUrls = Array.from(document.querySelectorAll('.orbit .cover img')).map((img) => img.src);
         const particleImgUrls = particles.map((p) => p.imgEl.src);
-        const allUniqueImageUrls = Array.from(new Set([...orbitImgUrls, ...particleImgUrls, ...extraFillerImages])).filter(Boolean);
+        const allUniqueImageUrls = isMobileDevice
+          ? Array.from(new Set([...orbitImgUrls, ...particleImgUrls])).filter(Boolean)
+          : Array.from(new Set([...orbitImgUrls, ...particleImgUrls, ...extraFillerImages])).filter(Boolean);
 
-        // Track every single poster image + the intro video
         const totalToTrack = allUniqueImageUrls.length + 1;
         let loadedCount = 0;
         let sequenceStarted = false;
@@ -1558,7 +1578,6 @@
           if (loaderStatus) loaderStatus.textContent = `Ready · 100%`;
           if (loaderTime) loaderTime.textContent = `3:45 / 3:45`;
 
-          // Hold briefly at 100% so the user sees the completed music scroller before fading out
           setTimeout(() => {
             if (isCompleted) return;
             preloaderOverlay.classList.add('is-loaded');
@@ -1567,8 +1586,7 @@
           }, 550);
         }
 
-        // 1. Wait for intro video readiness
-        if (video.readyState >= 3) {
+        if (video.readyState >= (isMobileDevice ? 2 : 3)) {
           markOneLoaded();
         } else {
           let videoDone = false;
@@ -1584,35 +1602,67 @@
           video.addEventListener('loadeddata', onVideoReady);
           video.addEventListener('error', onVideoReady);
           video.load();
-          // Fallback if video stream stalls so it doesn't hang forever
-          setTimeout(onVideoReady, 4500);
+          setTimeout(onVideoReady, isMobileDevice ? 2200 : 4500);
         }
 
-        // 2. Preload and decode EVERY single poster image before starting the animation
-        allUniqueImageUrls.forEach((url) => {
-          const preImg = new Image();
-          preImg.decoding = 'async';
-          let settled = false;
-          const settle = () => {
-            if (settled) return;
-            settled = true;
-            markOneLoaded();
-          };
-          preImg.onload = () => {
-            if (typeof preImg.decode === 'function') {
-              preImg.decode().then(settle).catch(settle);
-            } else {
-              settle();
-            }
-          };
-          preImg.onerror = settle;
-          preImg.src = url;
-        });
+        if (isMobileDevice) {
+          let urlIndex = 0;
+          const maxConcurrency = 6;
 
-        // Safety fallback timeout (12 seconds) in case a user is on a very slow connection or a CDN image times out
+          function loadNextBatchItem() {
+            if (sequenceStarted || urlIndex >= allUniqueImageUrls.length) return;
+            const url = allUniqueImageUrls[urlIndex++];
+            const preImg = new Image();
+            preImg.decoding = 'async';
+            let settled = false;
+
+            const settle = () => {
+              if (settled) return;
+              settled = true;
+              markOneLoaded();
+              loadNextBatchItem();
+            };
+
+            const itemTimeout = setTimeout(settle, 3500);
+            preImg.onload = () => {
+              clearTimeout(itemTimeout);
+              settle();
+            };
+            preImg.onerror = () => {
+              clearTimeout(itemTimeout);
+              settle();
+            };
+            preImg.src = url;
+          }
+
+          for (let w = 0; w < Math.min(maxConcurrency, allUniqueImageUrls.length); w++) {
+            loadNextBatchItem();
+          }
+        } else {
+          allUniqueImageUrls.forEach((url) => {
+            const preImg = new Image();
+            preImg.decoding = 'async';
+            let settled = false;
+            const settle = () => {
+              if (settled) return;
+              settled = true;
+              markOneLoaded();
+            };
+            preImg.onload = () => {
+              if (typeof preImg.decode === 'function') {
+                preImg.decode().then(settle).catch(settle);
+              } else {
+                settle();
+              }
+            };
+            preImg.onerror = settle;
+            preImg.src = url;
+          });
+        }
+
         setTimeout(() => {
           if (!sequenceStarted) beginSequence();
-        }, 12000);
+        }, isMobileDevice ? 6500 : 12000);
       }
 
       preloadAllAssetsAndStart();
