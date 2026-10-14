@@ -1,3 +1,4 @@
+/* ©royverse69 */
 /* Mujic core: utility functions, state, artwork/storage, stats, lyrics and dialogs. */
 
         const Utils = {
