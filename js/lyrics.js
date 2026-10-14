@@ -1,4 +1,6 @@
-/* Lyrics providers: embedded/cache first, then LRCLIB, Render, and optional LyricsPlus. */
+/* ©royverse69 */
+/* Lyrics providers: embedded/cache first, then LRCLIB, Render, and optional LyricsPlus.
+mujic is not associated with ganasuno.....  its just available on internet free to use so using it */
         const BACKEND_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
 
         const LyricsFetcher = {
