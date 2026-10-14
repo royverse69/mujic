@@ -1,5 +1,0 @@
-# Personal local development configuration. This file is git-ignored and never served by server.js.
-# Keep the Gemini key server-side; the browser only calls /api/identify-song.
-GEMINI_API_KEY=AQ.Ab8RN6IPMNdMeFifht7z1qwnBtNQKlhID_5r6wN3qWxHngvg9w
-GEMINI_MODEL=gemini-flash-latest
-PORT=3000
