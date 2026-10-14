@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,7 +12,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Mujic">
     <script>
-        // Browsers reject web manifests on file:// URLs. Only register the manifest on a web origin.
+  
         if (location.protocol === 'http:' || location.protocol === 'https:') {
             const mujicManifest = document.createElement('link');
             mujicManifest.rel = 'manifest';
@@ -60,7 +61,7 @@
                 
                 <div id="home-empty-state" class="empty-state" style="display: none;">
                     <div class="empty-title">Your library is empty</div>
-                    <div class="empty-desc">Add music from your device to start building your library.</div>
+                    <div class="empty-desc">Add all music from your device to start building your library.</div>
                     <button class="btn btn-primary" data-action="click-file-input">Add Music</button>
                 </div>
                 <input type="file" id="file-input" multiple accept="audio/*,.mp3,.m4a,.aac,.flac,.wav,.ogg,.oga,.opus,.webm,.aiff,.aif,.alac" style="display: none;">
@@ -389,8 +390,8 @@
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="lyrics-style-select" class="settings-control" data-setting="lyricsStyle">
-                                    <option value="apple">Apple Music</option>
-                                    <option value="spotify">Spotify</option>
+                                    <option value="apple">*Apple Music</option>
+                                    <option value="spotify">*Spotify</option>
                                     <option value="neon">Neon Highlight</option>
                                 </select>
                             </div>
