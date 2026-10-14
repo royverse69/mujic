@@ -4,15 +4,30 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#08090c">
-  <meta name="description" content="Mujic is a free, open-source offline music player for your local library. Play music, organize playlists, and enjoy a clean listening experience on desktop and mobile.">
-  <meta name="robots" content="index,follow,max-image-preview:large">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Mujic — Your offline music space.">
-  <meta property="og:description" content="A clean, lightweight offline music player for your own collection. Free, open source, and made for your music.">
-  <meta property="og:url" content="https://royverse69.github.io/mujic/landing.html">
-  <meta property="og:image" content="https://c.saavncdn.com/artists/Taylor_Swift_003_20200226074119_500x500.jpg">
-  <title>Mujic — Free Offline Music Player for Your Local Library</title>
+  <meta name="description" content="Meet Mujic, a free open-source offline music player for your local music library. Play your own tracks, organize playlists, and enjoy a clean, lightweight listening experience.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta name="googlebot" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta name="author" content="Ashutosh Roy">
+  <meta name="application-name" content="Mujic">
+  <meta name="keywords" content="Mujic, offline music player, free music player, open source music player, local music player, browser music player, music library, playlist manager, lightweight music player, privacy friendly music player, web music player">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Mujic — Free Offline Music Player for Your Local Music Library</title>
   <link rel="canonical" href="https://royverse69.github.io/mujic/landing.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Mujic">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:title" content="Mujic — Free Offline Music Player for Your Local Music Library">
+  <meta property="og:description" content="A free, open-source, offline-first music player for your own collection. Organize local music and playlists in a clean, lightweight interface.">
+  <meta property="og:url" content="https://royverse69.github.io/mujic/landing.html">
+  <meta property="og:image" content="https://royverse69.github.io/mujic/icons/icon-512.png">
+  <meta property="og:image:alt" content="Mujic music player app icon">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Mujic — Free Offline Music Player">
+  <meta name="twitter:description" content="A free, open-source, offline-first music player for your own local music collection.">
+  <meta name="twitter:image" content="https://royverse69.github.io/mujic/icons/icon-512.png">
+  <meta name="twitter:image:alt" content="Mujic music player app icon">
+  <!-- Audio is prioritized by the audio element; avoid unsupported preload destinations. -->
+  <link rel="preconnect" href="https://royverse69.github.io" crossorigin>
   <link rel="preconnect" href="https://c.saavncdn.com" crossorigin>
   <style>
     :root {
@@ -31,18 +46,31 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
     }
-    html, body {
+    html {
       margin: 0;
       padding: 0;
-      width: 100vw;
-      height: 100dvh;
-      overflow: hidden !important;
-      overscroll-behavior: none;
-      touch-action: none;
+      min-height: 100%;
+      background: var(--bg);
+      scroll-behavior: smooth;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100dvh;
+      height: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior-y: contain;
+      touch-action: pan-y;
       background: radial-gradient(ellipse at 50% 34%, #171a2e 0%, #0b0c12 42%, var(--bg) 78%);
       color: var(--text);
       font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       -webkit-font-smoothing: antialiased;
+    }
+    body:not(.stage-3) {
+      height: 100dvh;
+      overflow: hidden;
     }
     a {
       color: inherit;
@@ -723,10 +751,81 @@
         font-size: 0.66rem;
       }
     }
+
+    .seo-content {
+      position: relative; z-index: 11;
+      width: min(calc(100% - 40px), 900px);
+      margin: 0 auto;
+      padding: clamp(48px, 8vw, 88px) 0 64px;
+      color: #e9eaf1; user-select: text; touch-action: pan-y;
+    }
+    .seo-content h2 {
+      margin: 0 0 14px; color: #f7f7fb;
+      font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.2; letter-spacing: -0.035em;
+    }
+    .seo-content h3 { margin: 0 0 8px; color: #f1f2fa; font-size: 1.05rem; }
+    .seo-content p, .seo-content li { color: #b9bdca; line-height: 1.8; }
+    .seo-content p { margin: 0 0 16px; }
+    .seo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 26px 0 42px; }
+    .seo-card { padding: 20px; border: 1px solid #ffffff17; border-radius: 18px; background: #ffffff06; }
+    .seo-card p { margin-bottom: 0; font-size: .94rem; }
+    .seo-content details { border-bottom: 1px solid #ffffff18; padding: 16px 0; }
+    .seo-content summary { cursor: pointer; color: #f3f4fa; font-weight: 600; }
+    .seo-content details p { margin: 10px 0 0; }
+    .seo-content a { color: #d2dcff; text-decoration: underline; text-underline-offset: 3px; }
+    .seo-content .seo-cta { display: inline-flex; margin-top: 12px; padding: 11px 18px; border-radius: 999px; background: #d7ddff; color: #11131c; font-weight: 700; text-decoration: none; }
+    @media (max-width: 600px) { .seo-grid { grid-template-columns: 1fr; } .seo-content { width: min(calc(100% - 32px), 900px); } }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://royverse69.github.io/mujic/#website",
+        "url": "https://royverse69.github.io/mujic/",
+        "name": "Mujic",
+        "description": "A free, open-source, offline-first music player for your local music library.",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://royverse69.github.io/mujic/landing.html#application",
+        "name": "Mujic",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Web browser",
+        "url": "https://royverse69.github.io/mujic/",
+        "downloadUrl": "https://royverse69.github.io/mujic/",
+        "image": "https://royverse69.github.io/mujic/icons/icon-512.png",
+        "description": "Mujic is a free, open-source offline music player designed for listening to and organizing your own local music collection.",
+        "isAccessibleForFree": true,
+        "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"},
+        "author": {"@type": "Person", "name": "Ashutosh Roy", "url": "https://github.com/royverse69"},
+        "featureList": [
+          "Offline-first playback for a local music collection",
+          "Music library browsing and search",
+          "Playlist organization",
+          "Responsive interface for desktop and mobile browsers",
+          "Open-source project"
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://royverse69.github.io/mujic/landing.html#faq",
+        "mainEntity": [
+          {"@type": "Question", "name": "What is Mujic?", "acceptedAnswer": {"@type": "Answer", "text": "Mujic is a free, open-source music player for listening to and organizing music from your own local collection."}},
+          {"@type": "Question", "name": "Can I use Mujic offline?", "acceptedAnswer": {"@type": "Answer", "text": "Mujic is designed as an offline-first player for your local music library. Initial loading and some web app features may require an internet connection, depending on your browser and whether the app has already been loaded."}},
+          {"@type": "Question", "name": "Is Mujic free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Mujic is free to use and its source code is available on GitHub."}},
+          {"@type": "Question", "name": "Where can I find the Mujic source code?", "acceptedAnswer": {"@type": "Answer", "text": "The Mujic source code is available at https://github.com/royverse69/mujic."}}
+        ]
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
-  <audio id="bg-music" src="https://royverse69.github.io/mujic/music.mp3" preload="auto"></audio>
+  <audio id="bg-music" src="https://royverse69.github.io/mujic/music.mp3" preload="auto" fetchpriority="high" playsinline aria-label="Mujic intro music"></audio>
 
   <div class="aftermath-layer" id="aftermath-layer" aria-hidden="true"></div>
 
@@ -742,15 +841,15 @@
         <div class="scroller-thumb" id="loader-thumb"></div>
       </div>
       <div class="scroller-time-row">
-        <span id="loader-status">Loading posters · 0%</span>
-        <span id="loader-time">0:00 / 3:45</span>
+        <span id="loader-status">Preparing the intro…</span>
+        <span id="loader-time">Loading audio in background</span>
       </div>
     </div>
   </div>
 
   <div class="intro-backdrop" id="intro-backdrop" aria-label="Mujic opening sequence">
     <div class="video-stage" id="video-stage">
-      <video class="intro-video" id="intro-video" muted playsinline preload="auto" aria-hidden="true">
+      <video class="intro-video" id="intro-video" muted playsinline preload="metadata" aria-hidden="true">
         <source src="https://listenfree.in/preloader2.webm" type="video/webm">
       </video>
       <div class="video-shade"></div>
@@ -906,15 +1005,36 @@
     </footer>
   </div>
 
+  <section class="seo-content" aria-labelledby="about-mujic">
+    <p class="eyebrow">A music player built around your library</p>
+    <h2 id="about-mujic">Meet Mujic: a free, offline-first music player</h2>
+    <p>Mujic is a free, open-source music player made for people who want a simple place to listen to and organize their own music collection. Its lightweight web interface focuses on your local library instead of requiring a subscription-based streaming service. Open Mujic in your browser, browse your music, and build a listening experience around the tracks you already have.</p>
+    <p>The landing page introduces Mujic’s minimal, dark visual style. The player itself is designed to make everyday listening feel straightforward on desktop and mobile screens, with library browsing, music search, and playlist organization at the center of the experience.</p>
+    <div class="seo-grid" aria-label="Mujic features">
+      <article class="seo-card"><h3>Listen to your own music</h3><p>Use a player centered on your local music collection, with an offline-first approach rather than a catalogue of hosted songs.</p></article>
+      <article class="seo-card"><h3>Keep your library organized</h3><p>Browse your tracks, search your collection, and organize music into playlists for different moods and moments.</p></article>
+      <article class="seo-card"><h3>Lightweight, responsive design</h3><p>Mujic uses a focused interface intended to work across common desktop and mobile browser sizes.</p></article>
+      <article class="seo-card"><h3>Free and open source</h3><p>Explore the source code, review how the project is built, and follow development on GitHub.</p></article>
+    </div>
+    <h2 id="mujic-faq">Frequently asked questions</h2>
+    <details><summary>What is Mujic?</summary><p>Mujic is a free, open-source music player for listening to and organizing music from your own local collection.</p></details>
+    <details><summary>Is Mujic an online music streaming service?</summary><p>No. Mujic is designed around your own music library; it is not presented as a licensed catalogue of hosted songs or a replacement for music streaming subscriptions.</p></details>
+    <details><summary>Can I use Mujic without an internet connection?</summary><p>Mujic is offline-first for local music playback. You may need an internet connection for the first visit, loading web assets, or features that depend on external resources. Offline availability also depends on your browser and whether the app has already been cached.</p></details>
+    <details><summary>Does Mujic cost anything?</summary><p>Mujic is free to use. You can also inspect its open-source code on GitHub.</p></details>
+    <details><summary>Where can I open Mujic or view its source code?</summary><p>Open the <a href="https://royverse69.github.io/mujic/">Mujic music player</a> or visit the <a href="https://github.com/royverse69/mujic" rel="noopener noreferrer">Mujic GitHub repository</a>.</p></details>
+    <a class="seo-cta" href="https://royverse69.github.io/mujic/">Open Mujic <span aria-hidden="true">↗</span></a>
+  </section>
+
   <script>
     (() => {
-      window.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
-      window.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
-      window.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
-      window.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+      window.addEventListener('wheel', (e) => { if (!document.body.classList.contains('stage-3')) e.preventDefault(); }, { passive: false });
+      window.addEventListener('touchmove', (e) => { if (!document.body.classList.contains('stage-3')) e.preventDefault(); }, { passive: false });
+      window.addEventListener('gesturestart', (e) => { if (!document.body.classList.contains('stage-3')) e.preventDefault(); }, { passive: false });
+      window.addEventListener('gesturechange', (e) => { if (!document.body.classList.contains('stage-3')) e.preventDefault(); }, { passive: false });
       window.addEventListener('keydown', (e) => {
         const blockedKeys = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '];
-        if (blockedKeys.includes(e.key) || ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key))) {
+        if (!document.body.classList.contains('stage-3') &&
+            (blockedKeys.includes(e.key) || ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)))) {
           e.preventDefault();
         }
       }, { passive: false });
@@ -942,26 +1062,75 @@
       }
 
       let musicPlayedOnce = false;
+      let musicPlayPending = false;
+      let musicGestureHooksAttached = false;
+
       function startMusic() {
-        if (!bgMusic || musicPlayedOnce) return;
+        if (!bgMusic || musicPlayedOnce || musicPlayPending) return;
+        musicPlayPending = true;
         bgMusic.loop = false;
         bgMusic.volume = 0.75;
-        bgMusic.play().then(() => {
-          musicPlayedOnce = true;
-        }).catch(() => {
-          const resumeAudio = () => {
-            if (musicPlayedOnce) return;
-            bgMusic.loop = false;
-            bgMusic.play().then(() => {
+
+        const attemptPlayback = () => {
+          if (!bgMusic || musicPlayedOnce) {
+            musicPlayPending = false;
+            return;
+          }
+          const playPromise = bgMusic.play();
+          if (playPromise && typeof playPromise.then === 'function') {
+            playPromise.then(() => {
               musicPlayedOnce = true;
-            }).catch(() => {});
-            window.removeEventListener('pointerdown', resumeAudio);
-            window.removeEventListener('keydown', resumeAudio);
+              musicPlayPending = false;
+            }).catch(() => {
+              musicPlayPending = false;
+              attachMusicGestureHooks();
+            });
+          } else {
+            musicPlayedOnce = true;
+            musicPlayPending = false;
+          }
+        };
+
+        // Request the tiny soundtrack immediately, independently of decorative art.
+        if (bgMusic.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+          attemptPlayback();
+        } else {
+          const onCanPlay = () => {
+            bgMusic.removeEventListener('canplay', onCanPlay);
+            if (!musicPlayedOnce && !musicPlayPending) attemptPlayback();
           };
-          window.addEventListener('pointerdown', resumeAudio, { once: true });
-          window.addEventListener('keydown', resumeAudio, { once: true });
-        });
+          bgMusic.addEventListener('canplay', onCanPlay, { once: true });
+          try { bgMusic.load(); } catch (_) {}
+          // Attempt immediately as browsers can play while buffering.
+          const playPromise = bgMusic.play();
+          if (playPromise && typeof playPromise.then === 'function') {
+            playPromise.then(() => {
+              musicPlayedOnce = true;
+              musicPlayPending = false;
+            }).catch(() => {
+              musicPlayPending = false;
+              attachMusicGestureHooks();
+            });
+          } else {
+            musicPlayedOnce = true;
+            musicPlayPending = false;
+          }
+        }
       }
+
+      function attachMusicGestureHooks() {
+        if (musicGestureHooksAttached || musicPlayedOnce) return;
+        musicGestureHooksAttached = true;
+        const resumeAudio = () => {
+          musicGestureHooksAttached = false;
+          startMusic();
+        };
+        window.addEventListener('pointerdown', resumeAudio, { once: true, passive: true });
+        window.addEventListener('keydown', resumeAudio, { once: true });
+        window.addEventListener('touchstart', resumeAudio, { once: true, passive: true });
+      }
+
+      startMusic();
 
       function layoutProportionalOrbits() {
         const rect = orbitVisual.getBoundingClientRect();
@@ -1538,131 +1707,51 @@
       updateOrbitTargets();
 
       function preloadAllAssetsAndStart() {
-        const orbitImgUrls = Array.from(document.querySelectorAll('.orbit .cover img')).map((img) => img.src);
-        const particleImgUrls = particles.map((p) => p.imgEl.src);
-        const allUniqueImageUrls = isMobileDevice
-          ? Array.from(new Set([...orbitImgUrls, ...particleImgUrls])).filter(Boolean)
-          : Array.from(new Set([...orbitImgUrls, ...particleImgUrls, ...extraFillerImages])).filter(Boolean);
-
-        const totalToTrack = allUniqueImageUrls.length + 1;
-        let loadedCount = 0;
         let sequenceStarted = false;
-
-        function updateProgress() {
-          if (sequenceStarted) return;
-          const pct = Math.min(100, Math.round((loadedCount / totalToTrack) * 100));
-          if (loaderBarFill) loaderBarFill.style.width = `${pct}%`;
-          if (loaderThumb) loaderThumb.style.left = `${pct}%`;
-          if (loaderStatus) loaderStatus.textContent = `Loading posters (${loadedCount}/${totalToTrack}) · ${pct}%`;
-          if (loaderTime) {
-            const totalSec = Math.round((pct / 100) * 225);
-            const mins = Math.floor(totalSec / 60);
-            const secs = String(totalSec % 60).padStart(2, '0');
-            loaderTime.textContent = `${mins}:${secs} / 3:45`;
-          }
-          if (loadedCount >= totalToTrack) {
-            beginSequence();
-          }
-        }
-
-        function markOneLoaded() {
-          loadedCount++;
-          updateProgress();
-        }
 
         function beginSequence() {
           if (sequenceStarted || isCompleted) return;
           sequenceStarted = true;
           if (loaderBarFill) loaderBarFill.style.width = '100%';
           if (loaderThumb) loaderThumb.style.left = '100%';
-          if (loaderStatus) loaderStatus.textContent = `Ready · 100%`;
-          if (loaderTime) loaderTime.textContent = `3:45 / 3:45`;
-
+          if (loaderStatus) loaderStatus.textContent = 'Ready';
+          if (loaderTime) loaderTime.textContent = 'Starting experience';
           setTimeout(() => {
             if (isCompleted) return;
             preloaderOverlay.classList.add('is-loaded');
             animFrameId = requestAnimationFrame(renderFrame);
             setTimeout(() => preloaderOverlay.remove(), 700);
-          }, 550);
+          }, 180);
         }
 
-        if (video.readyState >= (isMobileDevice ? 2 : 3)) {
-          markOneLoaded();
-        } else {
-          let videoDone = false;
-          const onVideoReady = () => {
-            if (videoDone) return;
-            videoDone = true;
-            video.removeEventListener('canplaythrough', onVideoReady);
-            video.removeEventListener('loadeddata', onVideoReady);
-            video.removeEventListener('error', onVideoReady);
-            markOneLoaded();
-          };
-          video.addEventListener('canplaythrough', onVideoReady);
-          video.addEventListener('loadeddata', onVideoReady);
-          video.addEventListener('error', onVideoReady);
-          video.load();
-          setTimeout(onVideoReady, isMobileDevice ? 2200 : 4500);
-        }
+        // Artwork is decorative. Never wait for every third-party image.
+        document.querySelectorAll('.orbit .cover img').forEach((img) => {
+          img.decoding = 'async';
+        });
 
-        if (isMobileDevice) {
-          let urlIndex = 0;
-          const maxConcurrency = 6;
+        // The intro video is optional and has a strict time limit.
+        const onVideoReady = () => beginSequence();
+        video.addEventListener('loadeddata', onVideoReady, { once: true });
+        video.addEventListener('error', onVideoReady, { once: true });
+        video.preload = 'metadata';
+        try { video.load(); } catch (_) {}
 
-          function loadNextBatchItem() {
-            if (sequenceStarted || urlIndex >= allUniqueImageUrls.length) return;
-            const url = allUniqueImageUrls[urlIndex++];
-            const preImg = new Image();
-            preImg.decoding = 'async';
-            let settled = false;
+        // Mobile/desktop both get a quick fallback if the video host is slow.
+        setTimeout(beginSequence, isMobileDevice ? 450 : 900);
 
-            const settle = () => {
-              if (settled) return;
-              settled = true;
-              markOneLoaded();
-              loadNextBatchItem();
-            };
-
-            const itemTimeout = setTimeout(settle, 3500);
-            preImg.onload = () => {
-              clearTimeout(itemTimeout);
-              settle();
-            };
-            preImg.onerror = () => {
-              clearTimeout(itemTimeout);
-              settle();
-            };
-            preImg.src = url;
-          }
-
-          for (let w = 0; w < Math.min(maxConcurrency, allUniqueImageUrls.length); w++) {
-            loadNextBatchItem();
-          }
-        } else {
-          allUniqueImageUrls.forEach((url) => {
-            const preImg = new Image();
-            preImg.decoding = 'async';
-            let settled = false;
-            const settle = () => {
-              if (settled) return;
-              settled = true;
-              markOneLoaded();
-            };
-            preImg.onload = () => {
-              if (typeof preImg.decode === 'function') {
-                preImg.decode().then(settle).catch(settle);
-              } else {
-                settle();
-              }
-            };
-            preImg.onerror = settle;
-            preImg.src = url;
+        // Load only a small selection of decorative filler images during idle time.
+        const warmDecorativeImages = () => {
+          extraFillerImages.slice(0, isMobileDevice ? 4 : 10).forEach((url) => {
+            const img = new Image();
+            img.decoding = 'async';
+            img.src = url;
           });
+        };
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(warmDecorativeImages, { timeout: 1800 });
+        } else {
+          setTimeout(warmDecorativeImages, 1200);
         }
-
-        setTimeout(() => {
-          if (!sequenceStarted) beginSequence();
-        }, isMobileDevice ? 6500 : 12000);
       }
 
       preloadAllAssetsAndStart();
