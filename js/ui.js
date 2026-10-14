@@ -43,24 +43,50 @@
                     if (manual) UI.showToast('Run Mujic through localhost or HTTPS to check for updates.', 'info');
                     return false;
                 }
-                const parseVersion = value => String(value || '').trim().split(/[+-]/)[0].split('.').map(part => Math.max(0, Number.parseInt(part, 10) || 0));
-                const compareVersions = (a,b) => { const aa=parseVersion(a),bb=parseVersion(b); for(let i=0;i<Math.max(aa.length,bb.length);i++){const d=(aa[i]||0)-(bb[i]||0);if(d)return d;}return 0; };
-                const current = document.querySelector('meta[name="application-version"]')?.content?.split('-')[0] || '0.0.0';
+                const cleanVer = value => String(value || '').replace(/^\uFEFF/, '').trim().replace(/^v/i, '').split(/[+-]/)[0].trim();
+                const parseVersion = value => cleanVer(value).split('.').map(part => Math.max(0, Number.parseInt(part, 10) || 0));
+                const compareVersions = (a, b) => {
+                    const aa = parseVersion(a), bb = parseVersion(b);
+                    for (let i = 0; i < Math.max(aa.length, bb.length); i++) {
+                        const d = (aa[i] || 0) - (bb[i] || 0);
+                        if (d) return d;
+                    }
+                    return 0;
+                };
+                const domVersion = cleanVer(document.querySelector('meta[name="application-version"]')?.content || '0.0.0');
+                const appliedVersion = cleanVer(localStorage.getItem('mujic-applied-version') || '');
+                const current = compareVersions(appliedVersion, domVersion) > 0 ? appliedVersion : domVersion;
                 try {
-                    const response = await fetch(`./VERSION?check=${Date.now()}`, { cache:'no-store' });
+                    const response = await fetch(`./VERSION?check=${Date.now()}`, { cache: 'no-store' });
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    const latest = (await response.text()).trim().split(/[\r\n]/)[0];
+                    const latest = cleanVer((await response.text()).split(/[\r\n]/)[0]);
                     if (!/^\d+(?:\.\d+){1,3}$/.test(latest)) throw new Error('The VERSION file is invalid.');
+                    if (compareVersions(domVersion, latest) >= 0) {
+                        localStorage.setItem('mujic-applied-version', domVersion);
+                    }
                     if (compareVersions(latest, current) <= 0) {
+                        sessionStorage.removeItem('mujic-update-dismissed');
                         if (manual) UI.showToast(`Mujic ${current} is up to date.`, 'check_circle');
                         return false;
                     }
                     const dismissed = sessionStorage.getItem('mujic-update-dismissed');
                     if (!manual && dismissed === latest) return false;
-                    const accept = await Dialog.show({ type:'confirm', title:'Mujic update available', message:`Mujic ${latest} is available (you have ${current}). Update now to load the latest fixes?`, confirmText:'Update now' });
+                    const accept = await Dialog.show({ type: 'confirm', title: 'Mujic update available', message: `Mujic ${latest} is available (you have ${current}). Update now to load the latest fixes?`, confirmText: 'Update now' });
                     if (!accept) { sessionStorage.setItem('mujic-update-dismissed', latest); return true; }
                     UI.showToast(`Updating Mujic to ${latest}…`, 'system_update');
-                    try { const registration = await navigator.serviceWorker?.getRegistration(); if (registration) await registration.update(); } catch(e) {}
+                    localStorage.setItem('mujic-applied-version', latest);
+                    sessionStorage.setItem('mujic-update-dismissed', latest);
+                    try {
+                        const registration = await navigator.serviceWorker?.getRegistration();
+                        if (registration) {
+                            await registration.update();
+                            if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                        if ('caches' in window) {
+                            const keys = await caches.keys();
+                            await Promise.all(keys.map(k => caches.delete(k)));
+                        }
+                    } catch (e) {}
                     setTimeout(() => location.reload(), 450);
                     return true;
                 } catch (error) {
