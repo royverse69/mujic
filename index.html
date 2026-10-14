@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.15">
+    <meta name="application-version" content="12.0.17">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -59,9 +59,11 @@
                 </div>
                 
                 <div id="home-empty-state" class="empty-state" style="display: none;">
+                    <svg class="empty-icon" viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="20" cy="46" r="8"/><circle cx="46" cy="40" r="8"/><path d="M28 46V16l26-6v30"/></svg>
                     <div class="empty-title">Your library is empty</div>
-                    <div class="empty-desc">Add music from your device to start building your library.</div>
+                    <div class="empty-desc">Add songs from your device. They stay on your device and play offline.</div>
                     <button class="btn btn-primary" data-action="click-file-input">Add Music</button>
+                    <div class="empty-note">Private by design &middot; no account &middot; no ads</div>
                 </div>
                 <input type="file" id="file-input" multiple accept="audio/*,.mp3,.m4a,.aac,.flac,.wav,.ogg,.oga,.opus,.webm,.aiff,.aif,.alac" style="display: none;">
                 
@@ -126,7 +128,7 @@
             </section>
 
             <section id="view-context-detail" class="view">
-                <button class="icon-btn" data-action="go-back" style="margin-bottom: var(--space-24); margin-left: calc(var(--space-8)*-1); margin-top: var(--space-8);"><span class="material-symbols-rounded">arrow_back</span></button>
+                <button class="icon-btn" data-action="go-back" aria-label="Back" title="Back" style="margin-bottom: var(--space-24); margin-left: calc(var(--space-8)*-1); margin-top: var(--space-8);"><span class="material-symbols-rounded">arrow_back</span></button>
                 <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: var(--space-32);">
                     <img id="detail-art" src="" style="width: 160px; height: 160px; min-height: 160px; border-radius: var(--radius-md); margin-bottom: var(--space-16); object-fit: cover; box-shadow: 0 8px 24px rgba(0,0,0,0.2);" onerror="this.onerror=null; if(window.Utils && window.Utils.defaultArt){this.src=window.Utils.defaultArt;}">
                     <h1 class="display-text" id="detail-title" style="margin-bottom: var(--space-4); word-break: break-word; display:flex; align-items:center;">Title</h1>
@@ -198,6 +200,23 @@
                         </div>
                     </div>
                     <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Text Size</div><div class="settings-desc">Adjust reading size across the app</div></div>
+                        <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="textScale" aria-label="Text Size"><option value="compact">Compact</option><option value="normal">Standard</option><option value="large">Large</option></select></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Motion</div><div class="settings-desc">Animations and transitions</div></div>
+                        <div class="settings-control-group">
+                            <div class="apple-select-wrapper">
+                                <select id="motion-select" class="settings-control" data-setting="motion">
+                                    <option value="full">Full Motion</option>
+                                    <option value="reduced">Reduced Motion</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <details class="settings-advanced">
+                        <summary class="settings-advanced-summary"><span>More appearance options</span><i class="adv-chevron" aria-hidden="true"></i></summary>
+                    <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Dark Surface Palette</div><div class="settings-desc">Customize the app's dark background and panels independently of the accent color.</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
@@ -212,10 +231,6 @@
                         </div>
                     </div>
 
-                    <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Text Size</div><div class="settings-desc">Adjust reading size across the app</div></div>
-                        <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="textScale" aria-label="Text Size"><option value="compact">Compact</option><option value="normal">Standard</option><option value="large">Large</option></select></div></div>
-                    </div>
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Layout Density</div><div class="settings-desc">Choose compact or spacious lists and cards</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="layoutDensity" aria-label="Layout Density"><option value="compact">Compact</option><option value="comfortable">Comfortable</option><option value="spacious">Spacious</option></select></div></div>
@@ -249,17 +264,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Motion</div><div class="settings-desc">Animations and transitions</div></div>
-                        <div class="settings-control-group">
-                            <div class="apple-select-wrapper">
-                                <select id="motion-select" class="settings-control" data-setting="motion">
-                                    <option value="full">Full Motion</option>
-                                    <option value="reduced">Reduced Motion</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    </details>
                     <div class="settings-row clickable" style="justify-content: center; padding: 0;" data-action="reset-appearance">
                          <div style="width: 100%; text-align: center; padding: 24px; font-weight: 500;">Restore default appearance</div>
                     </div>
@@ -313,20 +318,22 @@
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="crossfade" aria-label="Soft track transitions"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Skip long silence</div><div class="settings-desc">Move ahead after sustained near-silence during playback.</div></div>
-                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="skipSilence" aria-label="Skip long silence"></div>
-                    </div>
-                    <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Instantly skip silence</div><div class="settings-desc">Use a shorter silence threshold and a slightly larger skip. Applies only when Skip long silence is enabled.</div></div>
-                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="instantSkipSilence" aria-label="Instantly skip silence"></div>
-                    </div>
-                    <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Loudness control</div><div class="settings-desc">Use a lightweight compressor to reduce large volume swings. Requires browser Web Audio support.</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="loudnessControl" aria-label="Loudness control"></div>
                     </div>
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Loudness profile</div><div class="settings-desc">Choose how gently or strongly volume peaks are controlled.</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="loudnessLevel" aria-label="Loudness profile"><option value="soft">Soft</option><option value="balanced">Balanced</option><option value="strong">Strong</option></select></div></div>
+                    </div>
+                    <details class="settings-advanced">
+                        <summary class="settings-advanced-summary"><span>Advanced playback</span><i class="adv-chevron" aria-hidden="true"></i></summary>
+                    <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Skip long silence</div><div class="settings-desc">Move ahead after sustained near-silence during playback.</div></div>
+                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="skipSilence" aria-label="Skip long silence"></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Instantly skip silence</div><div class="settings-desc">Use a shorter silence threshold and a slightly larger skip. Applies only when Skip long silence is enabled.</div></div>
+                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="instantSkipSilence" aria-label="Instantly skip silence"></div>
                     </div>
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Auto-skip unsupported tracks</div><div class="settings-desc">Continue to the next queued track if this browser cannot decode a file.</div></div>
@@ -367,7 +374,8 @@
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Hardware audio offload</div><div class="settings-desc">Managed by the browser and operating system. A web/PWA app cannot safely force native hardware offload.</div></div>
                         <div class="settings-control-group"><span class="setting-inline-value">System</span></div>
-                    </div>
+                    </div>                    </details>
+
                 </div>
 
                 <div class="settings-section">
@@ -376,7 +384,7 @@
                         <div class="settings-text"><div class="settings-label">LyricsPlus fallback</div><div class="settings-desc">Try the LyricsPlus synchronized-lyrics API only after embedded lyrics, cache, LRCLIB and the Render fallback. Requires an internet connection.</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsPlusEnabled" aria-label="Enable LyricsPlus fallback"></div>
                     </div>
-                    <div class="settings-row">
+                    <div class="settings-row" hidden>
                         <div class="settings-text"><div class="settings-label">AI Song Identification</div><div class="settings-desc">Experimental song identification is not available in this release.</div></div>
                         <div class="settings-control-group"><span class="setting-inline-value">Coming soon</span></div>
                     </div>
@@ -397,6 +405,12 @@
                         </div>
                     </div>
                     <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Lyrics text size</div><div class="settings-desc">Responsive sizing for narrow and large screens.</div></div>
+                        <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsFontSize" aria-label="Lyrics text size"><option value="compact">Compact</option><option value="normal">Standard</option><option value="large">Large</option><option value="extra-large">Extra Large</option></select></div></div>
+                    </div>
+                    <details class="settings-advanced">
+                        <summary class="settings-advanced-summary"><span>Advanced lyrics layout</span><i class="adv-chevron" aria-hidden="true"></i></summary>
+                    <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Lyrics vertical position</div><div class="settings-desc">Choose where the lyrics list sits in the player.</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsPosition" aria-label="Lyrics vertical position"><option value="upper">Upper</option><option value="center">Center</option><option value="lower">Lower</option></select></div></div>
                     </div>
@@ -409,10 +423,6 @@
                         <div class="settings-control-group lyrics-offset-control"><input type="range" min="-2" max="2" step="0.1" class="settings-control lyrics-offset-range" data-setting="lyricsTimingOffset" aria-label="Lyrics timing offset in seconds"><span class="setting-inline-value" id="lyrics-timing-value">0.0</span><span class="setting-inline-value">s</span></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Lyrics text size</div><div class="settings-desc">Responsive sizing for narrow and large screens.</div></div>
-                        <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsFontSize" aria-label="Lyrics text size"><option value="compact">Compact</option><option value="normal">Standard</option><option value="large">Large</option><option value="extra-large">Extra Large</option></select></div></div>
-                    </div>
-                    <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Line spacing</div><div class="settings-desc">Control the gap between lyric lines.</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsLineSpacing" aria-label="Lyrics line spacing"><option value="compact">Compact</option><option value="normal">Balanced</option><option value="relaxed">Relaxed</option></select></div></div>
                     </div>
@@ -423,7 +433,8 @@
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Active lyric emphasis</div><div class="settings-desc">Adjust how strongly the current line stands out.</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsEmphasis" aria-label="Active lyric emphasis"><option value="soft">Soft</option><option value="standard">Standard</option><option value="strong">Strong</option><option value="off">Off</option></select></div></div>
-                    </div>
+                    </div>                    </details>
+
                 </div>
 
                 <div class="settings-section">
@@ -476,15 +487,15 @@
 
                 <div class="settings-section">
                     <h2 class="section-title">Data Export</h2>
-                    <div class="settings-row">
+                    <div class="settings-row keep-desc">
                         <div class="settings-text"><div class="settings-label">Export Settings</div><div class="settings-desc">Save your Mujic preferences as a JSON file.</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="export-settings" type="button">Export JSON</button></div>
                     </div>
-                    <div class="settings-row">
+                    <div class="settings-row keep-desc">
                         <div class="settings-text"><div class="settings-label">Export Listening Stats</div><div class="settings-desc">Save your listening history and play statistics as JSON.</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="export-stats" type="button">Export JSON</button></div>
                     </div>
-                    <div class="settings-row">
+                    <div class="settings-row keep-desc">
                         <div class="settings-text"><div class="settings-label">Import Data</div><div class="settings-desc">Restore a Mujic settings or listening-stats JSON export.</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="import-data" type="button">Import JSON</button></div>
                     </div>
@@ -493,11 +504,11 @@
 
                 <div class="settings-section">
                     <h2 class="section-title">App</h2>
-                    <div class="settings-row">
+                    <div class="settings-row keep-desc">
                         <div class="settings-text"><div class="settings-label">Install Mujic</div><div class="settings-desc" id="install-pwa-desc">Install Mujic as a standalone app.</div></div>
                         <div class="settings-control-group"><button class="btn btn-primary" id="install-pwa-btn" data-action="install-pwa" type="button">Install</button></div>
                     </div>
-                    <div class="settings-row">
+                    <div class="settings-row keep-desc">
                         <div class="settings-text"><div class="settings-label">Check for updates</div><div class="settings-desc">Get notified when a newer Mujic release is available.</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="check-updates" type="button">Check</button></div>
                     </div>
@@ -505,23 +516,23 @@
 
                 <div class="settings-section">
                     <h2 class="section-title">Storage</h2>
-                    <div class="settings-row">
+                    <div class="settings-row keep-desc">
                         <div class="settings-text">
                             <div class="settings-label">Library Size</div>
                             <div class="settings-desc" id="storage-stats">Calculating...</div>
                         </div>
                     </div>
-                    <div class="settings-row">
+                    <div class="settings-row danger-row keep-desc">
                         <div class="settings-text"><div class="settings-label">Clear Library</div><div class="settings-desc">Remove all audio, artwork, and metadata</div></div>
                         <div class="settings-control-group">
-                            <button class="btn" style="color: #ff453a; border-color: rgba(255,69,58,0.3);" data-action="clear-library">Clear All</button>
+                            <button class="btn btn-danger" data-action="clear-library">Clear All</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="settings-section">
                     <h2 class="section-title">Extras</h2>
-                    <div class="settings-row clickable" onclick="window.open('https://ganasunloo.netlify.app/', '_blank')">
+                    <div class="settings-row keep-desc clickable" onclick="window.open('https://ganasunloo.netlify.app/', '_blank')">
                         <div class="settings-text">
                             <div class="settings-label">Download High-Quality Songs <span class="material-symbols-rounded" style="font-size: 16px;">open_in_new</span></div>
                             <div class="settings-desc">Visit ganasunloo.netlify.app for free downloads</div>

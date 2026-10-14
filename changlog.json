@@ -1,8 +1,34 @@
 {
   "app": "Mujic",
-  "version": "12.0.15",
+  "version": "12.0.17",
   "updatedAt": "2026-10-14",
   "entries": [
+    {
+      "version": "12.0.17",
+      "date": "2026-10-14",
+      "title": "Professional polish pass",
+      "changes": [
+        "Settings now lead with the common choices; rarely used options sit under collapsible 'More appearance options', 'Advanced playback' and 'Advanced lyrics layout'. Every setting is still available.",
+        "Quieter settings rows (descriptions only where they prevent mistakes), a dedicated red Clear Library row, and the unfinished 'Coming soon' row removed from view.",
+        "Friendlier empty state with a clear privacy line, consistent toasts, visible keyboard focus, higher-contrast secondary text, and a Back label on detail pages.",
+        "Desktop: highlighted sidebar item, full-width bottom player bar and thin scrollbars.",
+        "Consistent spring motion, tighter corner/weight scale, fixed-size icon boxes, and off-screen song rows skipped for faster long lists.",
+        "Interface-only release: no JavaScript changed. Service-worker cache versioned for updates."
+      ]
+    },
+    {
+      "version": "12.0.16",
+      "date": "2026-10-14",
+      "title": "Cleaner, Apple Music-inspired interface",
+      "changes": [
+        "Flat song rows with inset hairline separators, bolder large titles and calmer section headings.",
+        "Solid settings, search and category surfaces; labelled bottom navigation; softer mini-player material.",
+        "Full player: vivid artwork backdrop, bare transport glyphs, and a scrubber that shows its handle only while touched.",
+        "Apple-style lyrics are left-aligned with soft edge fades.",
+        "Centered playlist/album covers with a Play and Shuffle button pair.",
+        "Interface-only release: playback, library, storage, lyrics and audio processing are unchanged. Service-worker cache versioned for updates."
+      ]
+    },
     {
       "version": "12.0.15",
       "date": "2026-10-14",

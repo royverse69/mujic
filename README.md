@@ -1,3 +1,18 @@
+## v12.0.17 — Professional polish pass
+
+- Interface-only release (no JavaScript changed). Settings lead with common options; rarely used ones are grouped in collapsible Advanced sections and remain fully functional.
+- Friendlier empty state, visible keyboard focus, better text contrast, consistent spring motion and a calmer Clear Library row.
+- Desktop gets a highlighted sidebar item, a full-width player bar and thin scrollbars; long song lists skip off-screen row rendering.
+- Not included: self-hosted icon font (needs a network fetch), swipe actions, virtualized lists, shared-element player transition and JS-driven undo toasts.
+
+## v12.0.16 — Apple Music-inspired interface polish
+
+- Interface-only release. No JavaScript file was changed, so playback, queue, library, storage, lyrics providers, EQ and audio processing behave exactly as in v12.0.15.
+- Flat song rows with inset separators, bold large titles, solid settings/search/category surfaces, labelled bottom navigation and a softer mini-player.
+- Full player: vivid artwork backdrop, bare play/pause glyph, scrubber handle shown only while touched, left-aligned Apple-style lyrics with edge fades.
+- Centered album/playlist covers with a Play/Shuffle pair; pinch-zoom is no longer blocked by the viewport tag.
+- Service-worker cache renamed so installed PWAs pick up the new CSS.
+
 
 ## v12.0.15 — Desktop playlist navigation and player visual polish
 
