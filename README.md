@@ -7,9 +7,9 @@
 <p align="center">
   <a href="https://royverse69.github.io/mujic/">Open the player</a> ·
   <a href="https://mujicapp.netlify.app/">Landing page</a> ·
-  <a href="FEATURES.html">Full feature guide</a> ·
-  <a href="FEATURES.html#terms">Terms & conditions</a> ·
-  <a href="FEATURES.html#privacy-policy">Privacy policy</a>
+  <a href="https://royverse69.github.io/mujic/FEATURES.html">Full feature guide</a> ·
+  <a href="https://royverse69.github.io/mujic/FEATURES.html#terms">Terms & conditions</a> ·
+  <a href="https://royverse69.github.io/mujic/FEATURES.html#privacy-policy">Privacy policy</a>
 </p>
 
 ## What it does
@@ -22,7 +22,7 @@
 - **History and data:** listening statistics, history, settings/statistics JSON import and export, and library storage management.
 - **Offline-first PWA:** cached app shell and local browser storage; actual behavior depends on browser support, storage availability, and whether optional resources have been cached.
 
-For the complete guide—including settings, feature-by-feature explanations, troubleshooting, network disclosures, **Terms & Conditions**, and the **Privacy Policy**—open **[FEATURES.html](FEATURES.html)**. Each section has its own shareable link. The guide is deliberately kept in the repository root so it can be opened directly from GitHub Pages.
+For the complete guide—including settings, feature-by-feature explanations, troubleshooting, network disclosures, **Terms & Conditions**, and the **Privacy Policy**—open **[FEATURES.html](https://royverse69.github.io/mujic/FEATURES.html)**. Each section has its own shareable link. The guide is deliberately kept in the repository root so it can be opened directly from GitHub Pages.
 
 ## Run locally
 
@@ -64,11 +64,11 @@ The app uses classic scripts that share global objects; keep their order in `ind
 
 ## Privacy and third-party services
 
-The player does not require an account. Selected audio and app data are stored in browser storage for the current website origin; clearing site data may delete them. Settings/statistics exports do **not** include the audio files themselves. Online font/CDN requests may occur, and lyric lookups can send track metadata to the selected provider. The community Render endpoint and LyricsPlus are independent services, not operated or guaranteed by the project. See the detailed [Privacy Policy](FEATURES.html#privacy-policy) and [Network & privacy section](FEATURES.html#network).
+The player does not require an account. Selected audio and app data are stored in browser storage for the current website origin; clearing site data may delete them. Settings/statistics exports do **not** include the audio files themselves. Online font/CDN requests may occur, and lyric lookups can send track metadata to the selected provider. The community Render endpoint and LyricsPlus are independent services, not operated or guaranteed by the project. See the detailed [Privacy Policy](https://royverse69.github.io/mujic/FEATURES.html#privacy-policy) and [Network & privacy section](https://royverse69.github.io/mujic/FEATURES.html#network).
 
 ## External downloads and lyrics
 
-External music links and lyrics providers are optional third-party integrations. The project does not host a music catalogue or grant rights to files returned by external websites. **You are responsible for confirming that any download, lyric, or other material you obtain or use is lawful and appropriately licensed in your jurisdiction.** Review third-party destinations and their terms before using them. Read the detailed [Terms & Conditions](FEATURES.html#terms), especially the sections covering downloads, copyright, lyrics, external services, disclaimers, and liability.
+External music links and lyrics providers are optional third-party integrations. The project does not host a music catalogue or grant rights to files returned by external websites. **You are responsible for confirming that any download, lyric, or other material you obtain or use is lawful and appropriately licensed in your jurisdiction.** Review third-party destinations and their terms before using them. Read the detailed [Terms & Conditions](https://royverse69.github.io/mujic/FEATURES.html#terms), especially the sections covering downloads, copyright, lyrics, external services, disclaimers, and liability.
 
 ## Known limitations
 
@@ -82,4 +82,4 @@ External music links and lyrics providers are optional third-party integrations.
 
 ## License
 
-Mujic's source code is distributed under the [MIT License](LICENSE). Third-party services, libraries, audio, artwork, and lyrics may be subject to separate rights and terms. The documentation's Terms & Conditions and Privacy Policy are provided in [FEATURES.html](FEATURES.html).
+Mujic's source code is distributed under the [MIT License](LICENSE). Third-party services, libraries, audio, artwork, and lyrics may be subject to separate rights and terms. The documentation's Terms & Conditions and Privacy Policy are provided in the [online feature guide](https://royverse69.github.io/mujic/FEATURES.html).
