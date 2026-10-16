@@ -22,7 +22,7 @@
                     const request = fetch(url, options);
                     const timeoutPromise = new Promise((_, reject) => {
                         timer = setTimeout(() => {
-                            try { if (controller) controller.abort(); } catch(e) {}
+                            try { if (controller) controller.abort(); } catch (e) { Utils.warn(e); }
                             reject(new Error('Timeout'));
                         }, timeout);
                     });
@@ -75,7 +75,7 @@
                 try {
                     const stored = await StorageAdapter.getLyricsCache(track.id);
                     if (stored?.text) { LyricsFetcher.cache.set(track.id, stored); return stored; }
-                } catch(e) {}
+                } catch (e) { Utils.warn(e); }
 
                 let lyricsData = null;
                 const lookupTrack = track;
@@ -95,7 +95,7 @@
                             if (candidate?.syncedLyrics) lyricsData = { text: candidate.syncedLyrics, isSynced: true };
                             else if (candidate?.plainLyrics) lyricsData = { text: candidate.plainLyrics, isSynced: false };
                         }
-                    } catch(e) {}
+                    } catch (e) { Utils.warn(e); }
 
                     // 2. LRCLIB search only accepts a result with matching title + duration (and artist when available).
                     if (!lyricsData) {
@@ -107,11 +107,11 @@
                                 if (match?.syncedLyrics) lyricsData = { text: match.syncedLyrics, isSynced: true };
                                 else if (match?.plainLyrics) lyricsData = { text: match.plainLyrics, isSynced: false };
                             }
-                        } catch(e) {}
+                        } catch (e) { Utils.warn(e); }
                     }
 
                     // 3. Render backend fallback.
-                    if (!lyricsData && cleanTitle) {
+                    if (!lyricsData && cleanTitle && State.lyricsRenderEnabled !== false) {
                         try {
                             const res = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics?track=${encodeURIComponent(cleanTitle)}&artist=${encodeURIComponent(cleanArtist)}`, 5000);
                             if (res.ok) {
@@ -122,7 +122,7 @@
                                     lyricsData = { text: String(text), isSynced: synced };
                                 }
                             }
-                        } catch(e) {}
+                        } catch (e) { Utils.warn(e); }
                     }
                 }
 

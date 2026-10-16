@@ -11,7 +11,8 @@
                     const ext = Utils.getAudioExtension(file.name);
                     const commonAudio = new Set(['mp3','m4a','aac','flac','wav','ogg','oga','opus','webm','aiff','aif','alac']);
                     if (!(String(file.type || '').toLowerCase().startsWith('audio/') || commonAudio.has(ext))) continue;
-                    const exists = State.library.find(t => t.fileName === file.name && t.fileSize === file.size);
+                    const fingerprint = await Library.fingerprint(file);
+                    const exists = await Library.findDuplicate(file, fingerprint);
                     if (exists) { 
                         await StorageAdapter.saveAudioBlob(exists.id, file);
                         const restoredBlob = await StorageAdapter.getAudioBlob(exists.id);
@@ -46,7 +47,7 @@
                                         parsed.album = parsed.album || match.albumName || match.album || null;
                                     }
                                 }
-                            } catch(e) {}
+                            } catch (e) { Utils.warn(e); }
                         }
 
                         const t = {
@@ -55,7 +56,7 @@
                             album: parsed.album || "Unknown Album", albumArtist: parsed.albumArtist || null, genre: parsed.genre || null,
                             year: parsed.year || null, trackNumber: parsed.trackNumber || null, discNumber: parsed.discNumber || null,
                             composer: parsed.composer || null, lyrics: parsed.lyrics || null, artworkId: artId, pictureType: parsed.pictureType,
-                            duration: 0, dateAdded: Date.now()
+                            duration: 0, dateAdded: Date.now(), contentHash: fingerprint || null
                         };
                         await StorageAdapter.saveTrackMeta(t);
                         await StorageAdapter.saveAudioBlob(trackId, file);
@@ -71,6 +72,36 @@
                 if (targetPlaylist && State.currentPlaylistId === targetPlaylist.id) UI.refreshPlaylistDetail(targetPlaylist.id);
                 State.playlistImportTargetId = null;
                 UI.showToast(targetPlaylist ? `Imported ${addedCount} tracks to ${targetPlaylist.name}` : `Imported ${addedCount} tracks`, "check_circle"); e.target.value = ''; 
+            },
+            // Cheap content fingerprint: size + SHA-256 of the first, middle and last 64 KB.
+            // Reads ~192 KB per file instead of hashing whole (possibly 100 MB+) FLAC files.
+            fingerprint: async (blob) => {
+                try {
+                    if (!blob || !(globalThis.crypto && crypto.subtle)) return null;
+                    const CH = 65536, size = blob.size; if (!size) return null;
+                    const parts = [blob.slice(0, CH)];
+                    if (size > CH * 3) parts.push(blob.slice(Math.floor(size / 2) - CH / 2, Math.floor(size / 2) + CH / 2));
+                    if (size > CH * 2) parts.push(blob.slice(size - CH));
+                    const digest = await crypto.subtle.digest('SHA-256', await new Blob(parts).arrayBuffer());
+                    return size + ':' + Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (err) { Utils.warn(err); return null; }
+            },
+            // Only files with the same byte size can be duplicates, so hashing of stored legacy tracks is lazy.
+            findDuplicate: async (file, fingerprint) => {
+                const sameSize = State.library.filter(t => t.fileSize === file.size);
+                if (!sameSize.length) return null;
+                if (!fingerprint) return sameSize.find(t => t.fileName === file.name) || null;
+                for (const t of sameSize) {
+                    if (!t.contentHash) {
+                        try {
+                            const blob = await StorageAdapter.getAudioBlob(t.id);
+                            if (blob && blob.size > 0) { t.contentHash = await Library.fingerprint(blob); if (t.contentHash) await StorageAdapter.saveTrackMeta(t); }
+                        } catch (err) { Utils.warn(err); }
+                    }
+                    if (t.contentHash) { if (t.contentHash === fingerprint) return t; }
+                    else if (t.fileName === file.name) return t; // cannot verify: keep the old name+size rule
+                }
+                return null;
             },
             parseMetadata: (file) => {
                 return new Promise(async (resolve) => {
@@ -132,6 +163,7 @@
                 State.library.sort((a,b) => { let va = fn(a), vb = fn(b); if (va < vb) return -1 * dir; if (va > vb) return 1 * dir; return 0; });
             },
             removeTrack: async (id) => {
+                const removed = State.library.find(t => t.id === id);
                 State.library = State.library.filter(t => t.id !== id); State.favorites = State.favorites.filter(fid => fid !== id);
                 State.history = State.history.filter(fid => fid !== id); State.queue = State.queue.filter(fid => fid !== id);
                 const poIndex = State.playbackOrder.indexOf(id); if (poIndex > -1) State.playbackOrder.splice(poIndex, 1);
@@ -142,7 +174,15 @@
                 } else if (poIndex > -1 && poIndex < State.queueIndex) { State.queueIndex--; }
                 
                 State.playlists.forEach(p => { p.tracks = p.tracks.filter(tid => tid !== id); });
-                await StorageAdapter.deleteTrack(id); StorageAdapter.saveSettings();
+                await StorageAdapter.deleteTrack(id);
+                LyricsFetcher.cache.delete(id);
+                // Drop the cover only when no remaining track shares it.
+                if (removed?.artworkId && !State.library.some(t => t.artworkId === removed.artworkId)) {
+                    await StorageAdapter.deleteArtwork(removed.artworkId);
+                    const url = State.artworkUrls.get(removed.artworkId);
+                    if (url) { URL.revokeObjectURL(url); State.artworkUrls.delete(removed.artworkId); }
+                }
+                StorageAdapter.saveSettings();
                 State.playlists.forEach(p => StorageAdapter.savePlaylist(p));
 
                 UI.updateHighlights(true); UI.renderQueue(); UI.updateLibraryStorageStats(); UI.showToast("Removed from library", "delete"); UI.closeSheets();

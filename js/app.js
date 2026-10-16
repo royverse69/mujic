@@ -5,7 +5,7 @@
                     UI.init();
                     await StorageAdapter.init(); await StorageAdapter.loadSettings();
                     if (!State.eqPreset) State.eqPreset = State.eq === 'off' ? 'flat' : 'custom';
-                    try { if (navigator.storage?.persist) navigator.storage.persist().catch(()=>{}); } catch(e) {}
+                    try { if (navigator.storage?.persist) navigator.storage.persist().catch(()=>{}); } catch (e) { Utils.warn(e); }
                     UI.applySettings();
                     
                     State.library = await StorageAdapter.getLibrary(); State.playlists = await StorageAdapter.getPlaylists();

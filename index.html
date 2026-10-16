@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.17">
+    <meta name="application-version" content="12.0.19">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -381,6 +381,10 @@
                 <div class="settings-section">
                     <h2 class="section-title">Lyrics Providers</h2>
                     <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Community lyrics server</div><div class="settings-desc">Sends the song title and artist to a third-party server (onrender.com) when LRCLIB has no match. Turn off to keep lookups to LRCLIB only.</div></div>
+                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsRenderEnabled" aria-label="Enable community lyrics server fallback"></div>
+                    </div>
+                    <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">LyricsPlus fallback</div><div class="settings-desc">Try the LyricsPlus synchronized-lyrics API only after embedded lyrics, cache, LRCLIB and the Render fallback. Requires an internet connection.</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsPlusEnabled" aria-label="Enable LyricsPlus fallback"></div>
                     </div>
@@ -532,11 +536,24 @@
 
                 <div class="settings-section">
                     <h2 class="section-title">Extras</h2>
-                    <div class="settings-row keep-desc clickable" onclick="window.open('https://ganasunloo.netlify.app/', '_blank')">
+                    <div class="settings-row keep-desc clickable" data-action="open-external" data-url="https://ganasunloo.netlify.app/">
                         <div class="settings-text">
                             <div class="settings-label">Download High-Quality Songs <span class="material-symbols-rounded" style="font-size: 16px;">open_in_new</span></div>
-                            <div class="settings-desc">Visit ganasunloo.netlify.app for free downloads</div>
+                            <div class="settings-desc">Opens ganasunloo.netlify.app, an unaffiliated third-party site. Only download music you have the right to use.</div>
                         </div>
+                    </div>
+                </div>
+
+                <div class="settings-section" id="settings-keyboard-section">
+                    <h2 class="section-title">Keyboard Shortcuts</h2>
+                    <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Enable keyboard shortcuts</div><div class="settings-desc">Control playback from a physical keyboard. Shortcuts pause while you type in a field.</div></div>
+                        <div class="settings-control-group"><input type="checkbox" id="kb-enabled" class="settings-control" aria-label="Enable keyboard shortcuts" checked></div>
+                    </div>
+                    <div id="keyboard-shortcuts-list"></div>
+                    <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Customize</div><div class="settings-desc">Click a key, then press the new one. Backspace clears it. A key already in use is swapped with the other action.</div></div>
+                        <div class="settings-control-group"><button type="button" class="btn" id="kb-help">Shortcut list</button><button type="button" class="btn" id="kb-reset">Reset</button></div>
                     </div>
                 </div>
 
@@ -811,6 +828,14 @@
     <script defer src="./js/player.js"></script>
     <script defer src="./js/library.js"></script>
     <script defer src="./js/ui.js"></script>
+    <script defer src="./js/ui-settings.js"></script>
+    <script defer src="./js/ui-library.js"></script>
+    <script defer src="./js/ui-search.js"></script>
+    <script defer src="./js/ui-lyrics.js"></script>
+    <script defer src="./js/ui-history.js"></script>
+    <script defer src="./js/ui-player.js"></script>
+    <script defer src="./js/ui-events.js"></script>
+    <script defer src="./js/keyboard.js"></script>
     <script defer src="./js/app.js"></script>
 </body>
 </html>

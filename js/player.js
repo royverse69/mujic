@@ -1,7 +1,7 @@
 /* Mujic player engine: Web Audio graph, transport, Media Session and queue. */
         const AudioAdapter = {
-            audio: new Audio(), ctx: null, source: null, analyser:null, eqFilter:null, eqFilters:[], compressor:null, masterGain:null,
-            currentObjectUrl:null, visualizerRAF:0, visualizerLastFrameAt:0, visualizerSmooth:null, visualizerFreqData:null, waveformEnvelope:null, waveformAmplitude:0, silenceStart:0, lastSilenceCheck:0, wakeLock:null, lastMediaSeekAt:0, progressiveSeekCount:0,
+            audio: new Audio(), ctx: null, source: null, analyser:null, eqFilters:[], compressor:null, masterGain:null,
+            currentObjectUrl:null, visualizerRAF:0, visualizerLastFrameAt:0, visualizerFreqData:null, silenceStart:0, lastSilenceCheck:0, wakeLock:null, lastMediaSeekAt:0, progressiveSeekCount:0,
             init: () => {
                 AudioAdapter.audio.addEventListener('timeupdate', () => {
                     State.currentTime = AudioAdapter.audio.currentTime;
@@ -23,7 +23,7 @@
                     const t = Player.getCurrentTrack();
                     if (State.resumePosition > 0 && t && State.resumePlayback && State.currentTrackId === t.id) {
                         const resume = Math.max(0, Math.min(State.resumePosition, Math.max(0, State.duration - 0.25)));
-                        try { AudioAdapter.audio.currentTime = resume; } catch(e) {}
+                        try { AudioAdapter.audio.currentTime = resume; } catch (e) { Utils.warn(e); }
                         State.currentTime = resume;
                     }
                     UI.updateDuration(); UI.updateProgress(); AudioAdapter.updateMediaSessionPosition();
@@ -64,8 +64,8 @@
             applySettings: () => {
                 AudioAdapter.audio.volume = State.muted ? 0 : State.volume;
                 AudioAdapter.audio.playbackRate = State.playbackRate;
-                try { AudioAdapter.audio.preservesPitch = State.preservePitch !== false && !State.varispeed; } catch(e) {}
-                try { AudioAdapter.audio.webkitPreservesPitch = State.preservePitch !== false && !State.varispeed; } catch(e) {}
+                try { AudioAdapter.audio.preservesPitch = State.preservePitch !== false && !State.varispeed; } catch (e) { Utils.warn(e); }
+                try { AudioAdapter.audio.webkitPreservesPitch = State.preservePitch !== false && !State.varispeed; } catch (e) { Utils.warn(e); }
                 if (AudioAdapter.requiresWebAudio()) {
                     AudioAdapter.initWebAudio().then(() => { AudioAdapter.applyEQ(); AudioAdapter.applyAudioEffects(); }).catch(()=>{});
                 } else {
@@ -90,7 +90,6 @@
                         f.type = def.type; f.frequency.value = def.frequency; f.Q.value = def.Q;
                         previous.connect(f); previous = f; return f;
                     });
-                    AudioAdapter.eqFilter=AudioAdapter.eqFilters[0]||null;
                     AudioAdapter.analyser=AudioAdapter.ctx.createAnalyser(); AudioAdapter.analyser.fftSize=256; AudioAdapter.analyser.smoothingTimeConstant=.86;
                     AudioAdapter.compressor = AudioAdapter.ctx.createDynamicsCompressor();
                     AudioAdapter.masterGain = AudioAdapter.ctx.createGain();
@@ -152,7 +151,7 @@
                 // Only hold a screen wake lock while the user has explicitly enabled it
                 // and the full player is expanded. Audio playback itself does not require it.
                 const shouldHold = !!(enabled && State.keepScreenAwake && State.isFullPlayerOpen);
-                if (!shouldHold) { try { await AudioAdapter.wakeLock?.release(); } catch(e) {} AudioAdapter.wakeLock = null; return; }
+                if (!shouldHold) { try { await AudioAdapter.wakeLock?.release(); } catch (e) { Utils.warn(e); } AudioAdapter.wakeLock = null; return; }
                 if (!('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
                 if (AudioAdapter.wakeLock) return;
                 try {
@@ -175,9 +174,9 @@
                 if(requestId!==State.playbackRequestId) return false;
                 if(AudioAdapter.currentObjectUrl) URL.revokeObjectURL(AudioAdapter.currentObjectUrl);
                 AudioAdapter.currentObjectUrl=URL.createObjectURL(blob); AudioAdapter.audio.preload='auto'; AudioAdapter.audio.src=AudioAdapter.currentObjectUrl;
-                if (AudioAdapter.requiresWebAudio()) { try { await AudioAdapter.initWebAudio(); } catch(e) {} }
+                if (AudioAdapter.requiresWebAudio()) { try { await AudioAdapter.initWebAudio(); } catch (e) { Utils.warn(e); } }
                 if(requestId!==State.playbackRequestId) return false;
-                if (AudioAdapter.masterGain) { try { const now=AudioAdapter.ctx.currentTime; AudioAdapter.masterGain.gain.cancelScheduledValues(now); AudioAdapter.masterGain.gain.setValueAtTime(fadeIn ? 0 : 1, now); } catch(e) {} }
+                if (AudioAdapter.masterGain) { try { const now=AudioAdapter.ctx.currentTime; AudioAdapter.masterGain.gain.cancelScheduledValues(now); AudioAdapter.masterGain.gain.setValueAtTime(fadeIn ? 0 : 1, now); } catch (e) { Utils.warn(e); } }
                 try{ await AudioAdapter.audio.play(); if (fadeIn) AudioAdapter.fadeMaster(1,220); return true; }
                 catch(e){ AudioAdapter.handlePlaybackFailure(requestId, trackName, e); return false; }
             },
@@ -221,8 +220,8 @@
             },
             setPlaybackRate: (r) => { 
                 State.playbackRate = parseFloat(r); AudioAdapter.audio.playbackRate = State.playbackRate;
-                try { AudioAdapter.audio.preservesPitch = State.preservePitch !== false && !State.varispeed; } catch(e) {}
-                try { AudioAdapter.audio.webkitPreservesPitch = State.preservePitch !== false && !State.varispeed; } catch(e) {}
+                try { AudioAdapter.audio.preservesPitch = State.preservePitch !== false && !State.varispeed; } catch (e) { Utils.warn(e); }
+                try { AudioAdapter.audio.webkitPreservesPitch = State.preservePitch !== false && !State.varispeed; } catch (e) { Utils.warn(e); }
                 document.getElementById('speed-status-label').innerText = r + 'x'; StorageAdapter.saveSettings(); UI.closeSheets();
             },
             setEQ: (mode) => {
@@ -275,7 +274,6 @@
                     [document.getElementById('scrubber-visualizer'), document.getElementById('mini-visualizer')].filter(Boolean).forEach(sc=>{ const x=sc.getContext('2d'); if(x) x.clearRect(0,0,sc.width,sc.height); });
                 }
             },
-            renderVisualizerFrame: () => {},
             renderScrubberVisualizerFrame: () => {
                 [document.getElementById('scrubber-visualizer'), document.getElementById('mini-visualizer')].filter(Boolean).forEach(canvas => AudioAdapter.renderSingleWaveformCanvas(canvas));
             },
@@ -392,7 +390,7 @@
                     AudioAdapter.visualizerRAF=0;
                     if(!AudioAdapter.visualizerShouldRun()){ AudioAdapter.stopVisualizerLoop(); return; }
                     // Draw at up to 30 FPS: smooth enough for a small seek-bar waveform without wasting CPU on low-end phones.
-                    const frameInterval = (State.lowEndModeActive || State.lowEndMode) ? 50 : 14;
+                    const frameInterval = (State.lowEndModeActive || State.lowEndMode) ? 50 : 33;
                     if (!AudioAdapter.visualizerLastFrameAt || timestamp - AudioAdapter.visualizerLastFrameAt >= frameInterval) {
                         AudioAdapter.visualizerLastFrameAt=timestamp;
                         AudioAdapter.renderScrubberVisualizerFrame();
@@ -406,7 +404,6 @@
                 AudioAdapter.resizeVisualizer(); AudioAdapter.renderScrubberVisualizerFrame();
                 if (AudioAdapter.visualizerShouldRun()) AudioAdapter.startVisualizerLoop(); else AudioAdapter.stopVisualizerLoop();
             },
-            setVisualizer: (mode) => AudioAdapter.setWaveformStyle(mode === 'off' ? 'off' : (State.waveformStyle || 'wavy')),
             promptOutputDevice: async () => {
                 if(typeof navigator.mediaDevices === 'undefined' || typeof AudioAdapter.audio.setSinkId !== 'function') {
                     UI.showToast("Output selection not supported on this browser", "info"); UI.closeSheets(); return;
@@ -426,7 +423,7 @@
                 if (!('mediaSession' in navigator) || typeof navigator.mediaSession.setPositionState !== 'function') return;
                 const duration = Number(State.duration); const currentTime = Number(State.currentTime); const playbackRate = Number(State.playbackRate) || 1;
                 if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(currentTime) || currentTime < 0) return;
-                try { navigator.mediaSession.setPositionState({ duration, playbackRate, currentTime: Math.min(currentTime, Math.max(0, duration - 0.001)) }); } catch(e) {}
+                try { navigator.mediaSession.setPositionState({ duration, playbackRate, currentTime: Math.min(currentTime, Math.max(0, duration - 0.001)) }); } catch (e) { Utils.warn(e); }
             },
             setupMediaSession: () => {
                 if ('mediaSession' in navigator) {
@@ -501,7 +498,7 @@
                     StorageAdapter.saveSettings().catch(()=>{});
                 }
                 State.currentTrackId = track.id;
-                State.currentTime = 0; State.duration = 0; State.resumePosition = 0; State.statsLastAudioTime = null; AudioAdapter.visualizerSmooth = null; AudioAdapter.waveformSmooth = null; AudioAdapter._wf = null;
+                State.currentTime = 0; State.duration = 0; State.resumePosition = 0; State.statsLastAudioTime = null; AudioAdapter._wf = null;
                 UI.updateProgress(); UI.updateDuration();
                 
                 let blob;
@@ -651,7 +648,8 @@
                 if (State.queueIndex === from) State.queueIndex = to;
                 else if (State.queueIndex > from && State.queueIndex <= to) State.queueIndex--;
                 else if (State.queueIndex < from && State.queueIndex >= to) State.queueIndex++;
-                State.queue = [...new Set(State.playbackOrder)];
+                // While shuffled, State.queue keeps the original order so turning shuffle off restores it.
+                if (!State.shuffle) State.queue = [...State.playbackOrder];
                 StorageAdapter.saveSettings(); UI.renderQueue();
             },
             setSleepTimer: (val) => {

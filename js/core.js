@@ -1,4 +1,4 @@
-/* Mujic core: utility functions, state, artwork/storage, stats, lyrics and dialogs. */
+/* Mujic core: utility helpers, shared State object and the artwork cache. */
 
         const Utils = {
             formatTime: (sec) => {
@@ -8,23 +8,28 @@
             },
             formatBytes: (bytes) => { const n=Number(bytes)||0; if(n<1024) return `${n} B`; const u=['KB','MB','GB','TB']; let v=n/1024,i=0; while(v>=1024&&i<u.length-1){v/=1024;i++;} return `${v.toFixed(v>=100?0:v>=10?1:2)} ${u[i]}`; },
             getAudioExtension: (name = '') => { const m = String(name).toLowerCase().match(/\.([a-z0-9]+)$/); return m ? m[1] : 'audio'; },
-            getAudioMime: (file) => String(file?.type || '').toLowerCase(),
             debounce: (fn, wait) => {
                 let timeout; return (...args) => { clearTimeout(timeout); timeout = setTimeout(() => fn(...args), wait); };
             },
-            id: () => Math.random().toString(36).substr(2, 9),
+            id: () => (window.crypto?.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 16) : Math.random().toString(36).slice(2, 11) + Date.now().toString(36)),
+            warn: (err) => console.debug('[mujic] ignored error:', err),
             isIOS: () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
-            escapeHTML: (str) => {
-                if (!str) return ''; const div = document.createElement('div'); div.innerText = str; return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            escapeHTML: (value) => {
+                if (value === null || value === undefined) return '';
+                return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
             },
+            _artCache: new Map(),
             generateDefaultArt: (seedStr) => {
                 let hash = 0;
                 for (let i = 0; i < (seedStr || '').length; i++) hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
                 const hue = Math.abs(hash % 360);
+                if (Utils._artCache.has(hue)) return Utils._artCache.get(hue);
                 const background = `hsl(${hue}, 34%, 22%)`;
                 const foreground = `hsl(${hue}, 54%, 72%)`;
                 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="${background}"/><circle cx="150" cy="150" r="66" fill="none" stroke="${foreground}" stroke-width="7" opacity=".7"/><path d="M98 180v-7c0-19 15-34 34-34h36c19 0 34 15 34 34v7M128 112a22 22 0 1 0 44 0a22 22 0 1 0-44 0" fill="none" stroke="${foreground}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-                return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+                const uri = "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+                Utils._artCache.set(hue, uri);
+                return uri;
             }
         };
 
@@ -50,7 +55,8 @@
             crossfade: false, skipSilence: false, instantSkipSilence: false, loudnessControl: false,
             loudnessLevel: 'balanced', autoSkipOnError: true, preventDuplicateQueue: false,
             preservePitch: true, varispeed: false, progressiveSeek: false, pauseWhenMuted: false,
-            stopOnPageHide: false, waveformStyle: 'wavy', seekStep: 10, keepScreenAwake: false, lyricsPlusEnabled: true,
+            stopOnPageHide: false, waveformStyle: 'wavy', seekStep: 10, keepScreenAwake: false, lyricsPlusEnabled: true, lyricsRenderEnabled: true,
+            keyboardShortcutsEnabled: true, keyBindings: {},
             transitionFadePending: false, autoSkipErrorTrackId: null,
             playHistory: [], playHistoryHasMore: false, playHistoryLoading: false, playHistoryOffset: 0,
             
@@ -81,7 +87,7 @@
                         if (blob) {
                             const url = URL.createObjectURL(blob); State.artworkUrls.set(artId, url); return url;
                         }
-                    } catch (e) {}
+                    } catch (e) { Utils.warn(e); }
                     return Utils.generateDefaultArt(seedStr);
                 })();
                 ArtworkCache.pending.set(artId, loadPromise);

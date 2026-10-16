@@ -1,4 +1,4 @@
-/* Mujic backend: IndexedDB access, settings persistence, and statistics. */
+/* Mujic storage layer: IndexedDB access, settings persistence, and listening statistics (runs entirely in the browser). */
         const StorageAdapter = {
             db: null,
             init: () => {
@@ -32,16 +32,17 @@
             _delete: (storeName, key) => new Promise(r => {
                 if(!StorageAdapter.db) return r();
                 const req = StorageAdapter.db.transaction(storeName, 'readwrite').objectStore(storeName).delete(key);
-                req.onsuccess = () => r();
+                req.onsuccess = () => r(); req.onerror = () => r();
             }),
             _getAll: (storeName) => new Promise(r => {
                 if(!StorageAdapter.db) return r([]);
                 const req = StorageAdapter.db.transaction(storeName).objectStore(storeName).getAll();
-                req.onsuccess = () => r(req.result || []);
+                req.onsuccess = () => r(req.result || []); req.onerror = () => r([]);
             }),
             
             saveTrackMeta: (t) => StorageAdapter._put('tracks', t),
-            deleteTrack: async (id) => { await StorageAdapter._delete('tracks', id); await StorageAdapter._delete('audioBlobs', id); },
+            deleteTrack: async (id) => { await StorageAdapter._delete('tracks', id); await StorageAdapter._delete('audioBlobs', id); await StorageAdapter._delete('lyricsCache', id); },
+            deleteArtwork: (artId) => StorageAdapter._delete('artworks', artId),
             getLibrary: () => StorageAdapter._getAll('tracks'),
             saveAudioBlob: (id, file) => StorageAdapter._put('audioBlobs', file, id),
             getAudioBlob: (id) => StorageAdapter._get('audioBlobs', id),
@@ -86,7 +87,6 @@
                 });
                 return clean.length;
             },
-            getArtworkBytes: async () => { const arts=await StorageAdapter._getAll('artworks'); return arts.reduce((n,b)=>n+(b?.size||0),0); },
             getBinaryStorageBytes: async () => {
                 const sumStore = (storeName) => new Promise(resolve => {
                     if (!StorageAdapter.db) return resolve(0);
@@ -97,23 +97,17 @@
                 const [audio, art] = await Promise.all([sumStore('audioBlobs'), sumStore('artworks')]); return audio + art;
             },
             
+            // Every persisted preference lives in this one list. Add a key here and loadSettings() validates it.
+            SAVED_KEYS: ['favorites','favoriteArtists','history','queue','currentTrackId','volume','muted','repeat','shuffle','eq','eqPreset','eqBands',
+                'theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','interfaceStyle','cornerRadius','motion',
+                'lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis',
+                'playerBackground','playerArtworkMode','visualizerMode','resumePlayback','resumePosition','librarySort','librarySortDir','showArtworkLists','playStats',
+                'crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed',
+                'progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','keyboardShortcutsEnabled','keyBindings'],
             saveSettings: () => {
-                const s = { 
-                    favorites: State.favorites, favoriteArtists: State.favoriteArtists, history: State.history, queue: State.queue, 
-                    currentTrackId: State.currentTrackId, volume: State.volume, muted: State.muted, repeat: State.repeat, shuffle: State.shuffle, 
-                    rate: State.playbackRate, eq: State.eq, eqPreset: State.eqPreset, eqBands: State.eqBands, theme: State.theme, accentPreset: State.accentPreset, accentColor: State.accentColor, surfaceTheme: State.surfaceTheme, textScale: State.textScale, layoutDensity: State.layoutDensity, lowEndMode: State.lowEndMode, performanceProfile: State.performanceProfile,
-                    interfaceStyle: State.interfaceStyle, cornerRadius: State.cornerRadius, motion: State.motion, lyricsStyle: State.lyricsStyle,
-                    lyricsPosition: State.lyricsPosition, lyricsVerticalOffset: State.lyricsVerticalOffset, lyricsTimingOffset: State.lyricsTimingOffset, lyricsFontSize: State.lyricsFontSize, lyricsLineSpacing: State.lyricsLineSpacing, lyricsWidth: State.lyricsWidth, lyricsEmphasis: State.lyricsEmphasis,
-                    playerBackground: State.playerBackground, playerArtworkMode: State.playerArtworkMode, visualizerMode: State.visualizerMode,
-                    resumePlayback: State.resumePlayback, resumePosition: State.resumePosition, librarySort: State.librarySort, librarySortDir: State.librarySortDir,
-                    showArtworkLists: State.showArtworkLists, playStats: State.playStats,
-                    crossfade: State.crossfade, skipSilence: State.skipSilence, instantSkipSilence: State.instantSkipSilence,
-                    loudnessControl: State.loudnessControl, loudnessLevel: State.loudnessLevel,
-                    autoSkipOnError: State.autoSkipOnError, preventDuplicateQueue: State.preventDuplicateQueue,
-                    preservePitch: State.preservePitch, varispeed: State.varispeed, progressiveSeek: State.progressiveSeek,
-                    pauseWhenMuted: State.pauseWhenMuted, stopOnPageHide: State.stopOnPageHide, waveformStyle: State.waveformStyle,
-                    seekStep: State.seekStep, keepScreenAwake: State.keepScreenAwake, lyricsPlusEnabled: State.lyricsPlusEnabled
-                };
+                const s = {};
+                StorageAdapter.SAVED_KEYS.forEach(key => { s[key] = State[key]; });
+                s.rate = State.playbackRate; // legacy storage name kept for existing users
                 return StorageAdapter._put('settings', s, 'app_state');
             },
             loadSettings: async () => {
@@ -169,6 +163,9 @@
                     if(s.seekStep !== undefined) State.seekStep = [5,10,15,30].includes(Number(s.seekStep)) ? Number(s.seekStep) : 10;
                     if(s.keepScreenAwake !== undefined) State.keepScreenAwake = !!s.keepScreenAwake;
                     if(s.lyricsPlusEnabled !== undefined) State.lyricsPlusEnabled = s.lyricsPlusEnabled !== false;
+                    if(s.lyricsRenderEnabled !== undefined) State.lyricsRenderEnabled = s.lyricsRenderEnabled !== false;
+                    if(s.keyboardShortcutsEnabled !== undefined) State.keyboardShortcutsEnabled = s.keyboardShortcutsEnabled !== false;
+                    if(s.keyBindings && typeof s.keyBindings === 'object' && !Array.isArray(s.keyBindings)) { State.keyBindings = {}; for (const [k,v] of Object.entries(s.keyBindings)) if (typeof v === 'string' && v.length < 40) State.keyBindings[k] = v; }
                 }
             },
             savePlaylist: (p) => StorageAdapter._put('playlists', p),
@@ -181,7 +178,10 @@
                 if(!StorageAdapter.db) return;
                 const stores = ['tracks', 'audioBlobs', 'artworks', 'playlists', 'settings', 'lyricsCache', 'playHistory'];
                 const tx = StorageAdapter.db.transaction(stores, 'readwrite');
-                stores.forEach(s => tx.objectStore(s).clear());
+                await new Promise((resolve, reject) => {
+                    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+                    stores.forEach(s => tx.objectStore(s).clear());
+                });
             }
         };
 
@@ -196,11 +196,6 @@
                 if (!State.playStats.days[key]) State.playStats.days[key] = { plays: 0, seconds: 0, tracks: {} };
                 return State.playStats.days[key];
             },
-            _trim: () => {
-                const days = State.playStats?.days || {};
-                const keys = Object.keys(days).sort();
-                while (keys.length > 400) delete days[keys.shift()];
-            },
             persist: () => {
                 if (State.statsSaveTimer) return;
                 State.statsSaveTimer = setTimeout(() => { State.statsSaveTimer = null; StorageAdapter.saveSettings(); }, 10000);
@@ -211,7 +206,6 @@
                 day.plays += 1;
                 day.tracks[track.id] = (day.tracks[track.id] || 0) + 1;
                 State.statsLastAudioTime = Number(AudioAdapter.audio.currentTime) || 0;
-                // Preserve the complete listening history; never discard older day totals.
                 Stats.persist();
                 UI.updateStatsUI();
             },

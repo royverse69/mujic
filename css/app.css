@@ -580,7 +580,7 @@
         .top-picks-caption { font-size:12px; color:var(--text-secondary); }
         .top-pick-card .art-wrapper { position:relative; }
         .top-pick-rank { position:absolute; left:8px; bottom:8px; z-index:2; min-width:26px; height:26px; padding:0 8px; display:flex; align-items:center; justify-content:center; border-radius:999px; background:rgba(0,0,0,.58); border:1px solid rgba(255,255,255,.14); color:#fff; font-size:11px; font-weight:700; backdrop-filter:blur(14px); }
-        .playlist-longpress-target { touch-action:pan-y; }
+        .playlist-longpress-target { touch-action:pan-x pan-y; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
         .playlist-action-sheet .sheet-option { min-height:52px; }
         .playlist-import-hint { margin:-4px 0 14px; color:var(--text-secondary); font-size:12px; }
         .playlist-header-actions { display:flex; flex-wrap:wrap; gap:10px; }
@@ -599,7 +599,7 @@
         }
         @media (min-width:768px) {
             .home-header { margin-top:0; margin-bottom:36px; }
-            .home-actions { display:none; }
+            .home-actions { display:flex; }
             .top-pick-card { min-width:160px; max-width:160px; }
             #home-playlists-rail, #home-top-picks-rail { gap:18px; }
         }
@@ -669,7 +669,7 @@
     
         /* v10: restore compact mobile scale and consistent responsive alignment */
         .settings-chevron { font-size:20px; color:var(--text-tertiary); flex:0 0 auto; }
-        .home-track-longpress-target { touch-action:pan-y; user-select:none; -webkit-user-select:none; }
+        .home-track-longpress-target { touch-action:pan-y; -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; }
         @media (max-width:767px) {
             :root { --page-gutter:14px; --control-height:40px; --panel-radius:15px; }
             #main-content { padding-left:14px; padding-right:14px; padding-top:calc(var(--safe-top) + 6px); padding-bottom:calc(var(--nav-height) + var(--mini-player-height) + 22px + var(--safe-bottom)); }
@@ -1258,3 +1258,13 @@ body.low-end-mode .track-row { content-visibility: auto; }
 #mini-player:not(.visible) { visibility: hidden; opacity: 0; pointer-events: none; transition: transform .45s var(--spring), opacity .2s ease, visibility 0s linear .45s; }
 #mini-player.visible { visibility: visible; opacity: 1; }
 @media (min-width: 768px) { .nav-item span:last-child { font-size: 15px; font-weight: 500; } }
+
+/* Keyboard shortcut settings + desktop drop zone */
+#keyboard-shortcuts-list { display:contents; }
+.kb-key { min-width:84px; padding:8px 14px; border-radius:9px; border:1px solid var(--border-subtle); border-bottom-width:2px; background:var(--bg-hover); color:var(--text-primary); font-weight:600; font-size:13px; line-height:1; font-family:inherit; text-align:center; cursor:pointer; transition:border-color .15s, color .15s, background .15s; }
+.kb-key.empty { color:var(--text-secondary); font-weight:500; }
+@media (hover:hover) { .kb-key:hover { border-color:var(--accent-color); } }
+.kb-key.capturing { border-color:var(--accent-color); color:var(--accent-color); }
+.kb-key.conflict { border-color:#ff453a; }
+body.mujic-drop-active::after { content:'Drop audio files to add them'; position:fixed; inset:12px; z-index:9999; display:flex; align-items:center; justify-content:center; border:2px dashed var(--accent-color); border-radius:18px; background:rgba(0,0,0,.55); color:#fff; font-size:20px; font-weight:600; pointer-events:none; }
+@media (hover:none) { .kb-only { display:none; } }

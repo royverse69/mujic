@@ -1,8 +1,22 @@
 {
   "app": "Mujic",
-  "version": "12.0.17",
-  "updatedAt": "2026-10-14",
+  "version": "12.0.18",
+  "updatedAt": "2026-10-16",
   "entries": [
+    {
+      "version": "12.0.18",
+      "date": "2026-10-16",
+      "title": "Stability and cleanup",
+      "changes": [
+        "Fixed settings import silently dropping the Midnight Blue and Warm Espresso palettes; repeat and seek-step values are now range-checked on import.",
+        "Reordering the queue while shuffled no longer overwrites the original order or drops duplicate songs.",
+        "Removing a song now also deletes its cached lyrics and its cover art when no other song uses it.",
+        "Storage helpers no longer hang on IndexedDB errors; Clear All waits for the transaction to finish.",
+        "New setting to turn off the community lyrics server (sends title and artist to a third-party host).",
+        "Removed dead code, corrected misleading comments, memoised placeholder artwork, and made ignored errors visible in the debug console.",
+        "Added automated checks that keep saved, loaded, imported and on-screen settings consistent."
+      ]
+    },
     {
       "version": "12.0.17",
       "date": "2026-10-14",
