@@ -4,14 +4,16 @@
                 document.getElementById('queue-list').innerHTML = State.playbackOrder.map((id, i) => {
                     const t = Player.getTrackById(id); if(!t) return '';
                     const isP = i === State.queueIndex;
+                    const isCurrentOnline = t.source === 'machhar-online' && String(id) === String(State.currentTrackId);
                     const def = Utils.generateDefaultArt(t.title);
                     const artHtml = t.source === 'machhar-online' && t.artworkUrl
                         ? `<img src="${Utils.escapeHTML(t.artworkUrl)}" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
                         : (State.showArtworkLists ? `<img src="${def}" data-art-id="${t.artworkId||''}" data-seed="${Utils.escapeHTML(t.title)}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';">` : `<div class="track-art-small art-placeholder" style="background-image:url('${def}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">music_note</span></div>`);
-                    return `<div class="track-row" data-action="play-queue-index" data-index="${i}" data-queue-index="${i}">
+                    return `<div class="track-row${isCurrentOnline?' online-playing-row':''}" data-action="play-queue-index" data-index="${i}" data-queue-index="${i}" ${isCurrentOnline?'aria-current="true"':''}>
                         <div style="cursor: grab; margin-right: 8px; color: var(--text-tertiary); touch-action:none; user-select:none;" class="drag-handle" role="button" aria-label="Reorder queue item" tabindex="0"><span class="material-symbols-rounded" style="pointer-events:none;">drag_indicator</span></div>
                         ${artHtml}
                         <div class="track-meta"><div class="item-title">${Utils.escapeHTML(t.title)}</div><div class="item-subtitle">${Utils.escapeHTML(t.artist)}</div></div>
+                        ${isCurrentOnline?'<span class="online-row-playing-state is-current" aria-label="Now playing"><span class="online-now-playing-bars" aria-hidden="true"><i></i><i></i><i></i></span></span>':''}
                         <div class="queue-mobile-controls">
                             <button class="icon-btn" data-action="move-queue" data-index="${i}" data-direction="up" ${i===0?'disabled':''} aria-label="Move up"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_up</span></button>
                             <button class="icon-btn" data-action="move-queue" data-index="${i}" data-direction="down" ${i===State.playbackOrder.length-1?'disabled':''} aria-label="Move down"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_down</span></button>

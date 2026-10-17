@@ -1,32 +1,46 @@
 {
   "latest": {
-    "version": "12.0.38",
+    "version": "12.0.41",
     "date": "2026-10-17",
-    "title": "Online Home, Playlist Actions and Next-Track Chunk Cache",
+    "title": "Minimal Player, Track Sharing and Smooth Scrolling",
     "changes": [
-      "Moved Your Playlists to the top of Online Home and made the bottom Mujic wordmark explicitly visible with proper end-of-page spacing.",
-      "Deduplicated artist rails and directory data by artist ID and normalized name so repeated artist cards don't appear.",
-      "Added a track-actions button to Online song cards, opening the existing playlist picker and queue actions for custom streaming playlists.",
-      "Added service-worker-backed next-track prefetch for the first 256 KiB only, keyed by the selected media source, and serves the cached range to matching playback Range requests before continuing with upstream byte ranges.",
-      "Added bounded lazy artwork caching and expanded Online desktop content width while keeping phone rails compact.",
-      "Kept changes scoped to Online UI/provider and service worker; Offline track/library view and local audio path were not changed."
+      "Refined the mini player with quieter controls, less backdrop blur, and a compact three-dot track menu.",
+      "Added Song Info, highest-quality AAC download and Share Song Link actions for the currently playing track.",
+      "Added compact Mujic share URLs using ?s=<song-id>; opening the URL resolves the exact catalogue song through the Render-backed API and starts that track.",
+      "Moved desktop wheel-to-horizontal scrolling handlers from the document to individual rails, reducing interference with normal vertical page scrolling.",
+      "Changed the main vertical scroller to native scrolling and reduced mini-player paint and transition costs.",
+      "Moved track info/share/deep-link logic into a dedicated js/track-actions.js feature chunk while preserving the existing feature-module loading order."
     ]
   },
   "app": "Mujic",
-  "version": "12.0.38",
+  "version": "12.0.41",
   "updatedAt": "2026-10-17",
   "entries": [
     {
-      "version": "12.0.38",
+      "version": "12.0.41",
       "date": "2026-10-17",
-      "title": "Online Home, Playlist Actions and Next-Track Chunk Cache",
+      "title": "Minimal Player, Track Sharing and Smooth Scrolling",
       "changes": [
-        "Moved Your Playlists to the top of Online Home and made the bottom Mujic wordmark explicitly visible with proper end-of-page spacing.",
-        "Deduplicated artist rails and directory data by artist ID and normalized name so repeated artist cards don't appear.",
-        "Added a track-actions button to Online song cards, opening the existing playlist picker and queue actions for custom streaming playlists.",
-        "Added service-worker-backed next-track prefetch for the first 256 KiB only, keyed by the selected media source, and serves the cached range to matching playback Range requests before continuing with upstream byte ranges.",
-        "Added bounded lazy artwork caching and expanded Online desktop content width while keeping phone rails compact.",
-        "Kept changes scoped to Online UI/provider and service worker; Offline track/library view and local audio path were not changed."
+        "Refined the mini player with quieter controls, less backdrop blur, and a compact three-dot track menu.",
+        "Added Song Info, highest-quality AAC download and Share Song Link actions for the currently playing track.",
+        "Added compact Mujic share URLs using ?s=<song-id>; opening the URL resolves the exact catalogue song through the Render-backed API and starts that track.",
+        "Moved desktop wheel-to-horizontal scrolling handlers from the document to individual rails, reducing interference with normal vertical page scrolling.",
+        "Changed the main vertical scroller to native scrolling and reduced mini-player paint and transition costs.",
+        "Moved track info/share/deep-link logic into a dedicated js/track-actions.js feature chunk while preserving the existing feature-module loading order."
+      ]
+    },
+    {
+      "version": "12.0.40",
+      "date": "2026-10-17",
+      "title": "Online Watermark, Scrolling, Resume and Lyrics Fixes",
+      "changes": [
+        "Forced the large Mujic footer wordmark to remain high-contrast and visible at the end of Online Home.",
+        "Added previous/next controls and robust desktop horizontal scrolling to the Home Artists and Similar Artists rails.",
+        "Kept add-to-custom-playlist and highest-quality AAC download actions available for Online song cards and rows.",
+        "Highlighted the currently playing Online queue entry with an accent stripe, title treatment and animated playing indicator.",
+        "Persisted current song, queue and precise playback position per workspace, including while Resume Playback is disabled; switching back restores the saved position when Play is pressed.",
+        "Retried the backend-relayed Lyrics.ovh fallback for previously unavailable lyrics while online, for both local-library and streaming tracks.",
+        "Bumped media-cache namespaces and automatically deleted superseded media chunk/image caches on service-worker activation."
       ]
     },
     {
@@ -180,7 +194,7 @@
         "Added a clear red Online mode marker with yellow beta/disconnected status, dedicated connectivity/error recovery, and separate workspace navigation.",
         "Updated lyrics lookup to respect the supplied spec: catalog/details first where lyric text is available, then LRCLIB and optional LyricsPlus; the spec does not define a dedicated lyrics endpoint.",
         "Updated service-worker cache and project documentation for the new dual-workspace build.",
-        "Fixed a pagination calculation bug: short pages now compare the provider\u2019s actual start offset plus returned count against the documented total, not the requested page size.",
+        "Fixed a pagination calculation bug: short pages now compare the provider’s actual start offset plus returned count against the documented total, not the requested page size.",
         "Natural autoplay skips an exact track or likely remix/alternate recording already heard in recent Online history; manual selection of those search results remains allowed.",
         "Added the Online Queue directly to workspace navigation and restored the missing installable-PWA icon assets."
       ]
@@ -191,7 +205,7 @@
       "title": "Optional Online Playback (Beta)",
       "changes": [
         "Added an accessible Offline / Online source switch; Offline remains the default on fresh installations.",
-        "Integrated the supplied Machhar backend for online search and stream resolution without replacing Mujic\u2019s audio engine or main UI.",
+        "Integrated the supplied Machhar backend for online search and stream resolution without replacing Mujic’s audio engine or main UI.",
         "Added first-use beta consent, a persistent online-mode warning, request timeouts, and clearer failure states.",
         "Remote stream URLs and catalogue results remain session-only and are not saved as local audio or local-library tracks."
       ]
@@ -317,7 +331,7 @@
       "date": "2026-10-12",
       "title": "Gemini Auth API compatibility",
       "changes": [
-        "Switched Gemini key testing and AI song identification to Google\u2019s Interactions REST API, the documented flow for current Gemini Auth API keys.",
+        "Switched Gemini key testing and AI song identification to Google’s Interactions REST API, the documented flow for current Gemini Auth API keys.",
         "Corrected current Flash model fallback order and improved response parsing for Interactions API steps.",
         "Added explicit diagnostics for legacy Standard keys, invalid keys, project permissions, quotas, model availability, and network errors.",
         "Updated Gemini key setup help with the current Auth-key migration requirement."
@@ -343,7 +357,7 @@
         "Added a compact Gemini API key help guide with setup steps and common error troubleshooting.",
         "Added Favorite Artists beside Playlists on wide Home layouts and retained a compact stacked layout on phones.",
         "Added horizontal swipes between Home, Library, Search and Settings without hijacking vertical scrolls, tracks, rails, controls or settings subpages.",
-        "Simplified the footer to \u201cMade with \u2665 by Machhar\u201d.",
+        "Simplified the footer to “Made with ♥ by Machhar”.",
         "Hid the waveform canvas and effect-only styling when Audio Waveform is Off; regular playback progress remains visible without glow."
       ]
     },

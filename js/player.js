@@ -9,9 +9,10 @@
                     Stats.consumeAudioDelta(State.currentTime);
                     UI.updateProgress();
                     AudioAdapter.updateMediaSessionPosition();
-                    if (State.resumePlayback && State.currentTrackId && Date.now() - State.lastPositionSave > 5000) {
+                    if (State.currentTrackId && Date.now() - State.lastPositionSave > 5000) {
                         State.lastPositionSave = Date.now();
-                        StorageAdapter.saveSettings();
+                        if(State.resumePlayback)StorageAdapter.saveSettings();
+                        if(window.OnlineWorkspace)OnlineWorkspace.saveQueueSnapshot(State.playbackSourceMode==='online'?'online':'offline');
                     }
                     AudioAdapter.maybeSkipSilence();
                     if (State.isLyricsMode && State.currentLyrics && State.currentLyrics.isSynced) {
@@ -21,10 +22,12 @@
                 AudioAdapter.audio.addEventListener('loadedmetadata', () => {
                     State.duration = AudioAdapter.audio.duration;
                     const t = Player.getCurrentTrack();
-                    if (State.resumePosition > 0 && t && State.resumePlayback && State.currentTrackId === t.id) {
+                    const switchingResume = Boolean(t && State.modeResumePendingTrackId && String(State.modeResumePendingTrackId) === String(t.id));
+                    if (State.resumePosition > 0 && t && (State.resumePlayback || switchingResume) && State.currentTrackId === t.id) {
                         const resume = Math.max(0, Math.min(State.resumePosition, Math.max(0, State.duration - 0.25)));
                         try { AudioAdapter.audio.currentTime = resume; } catch (e) { Utils.warn(e); }
                         State.currentTime = resume;
+                        if (switchingResume) State.modeResumePendingTrackId = null;
                     }
                     UI.updateDuration(); UI.updateProgress(); AudioAdapter.updateMediaSessionPosition();
                     if(t && (!t.duration || Math.abs(t.duration - State.duration) > 2)) {
@@ -43,10 +46,21 @@
                     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
                 });
                 AudioAdapter.audio.addEventListener('pause', () => { 
-                    State.isPlaying = false; State.resumePosition = State.currentTime; UI.updatePlayPause(); AudioAdapter.stopVisualizerLoop();
+                    State.isPlaying = false;
+                    const pausedTime=Number(AudioAdapter.audio.currentTime);
+                    if(Number.isFinite(pausedTime)&&pausedTime>=0)State.currentTime=pausedTime;
+                    State.resumePosition = State.currentTime;
+                    UI.updatePlayPause(); AudioAdapter.stopVisualizerLoop();
                     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
                     Stats.flush();
                     if (State.resumePlayback && State.currentTrackId) { State.lastPositionSave = Date.now(); StorageAdapter.saveSettings(); }
+                    // Persist the correct workspace snapshot even when global Resume Playback is off.
+                    // During a mode switch the mode flag may already have changed, so derive the
+                    // snapshot target from the current track to avoid overwriting the other queue.
+                    if(window.OnlineWorkspace&&State.currentTrackId){
+                        const current=Player.getCurrentTrack();
+                        OnlineWorkspace.saveQueueSnapshot(current?.source==='machhar-online'?'online':'offline');
+                    }
                 });
                 AudioAdapter.audio.addEventListener('error', (e) => {
                     const track = Player.getCurrentTrack();
@@ -528,8 +542,12 @@
                     State.lastPositionSave = Date.now();
                     StorageAdapter.saveSettings().catch(()=>{});
                 }
+                const restored=State.restoredPlaybackResume&&String(State.restoredPlaybackResume.trackId)===String(track.id)?State.restoredPlaybackResume:null;
+                State.restoredPlaybackResume=null;
+                State.modeResumePendingTrackId=restored&&Number(restored.position)>0?track.id:null;
                 State.currentTrackId = track.id;
-                State.currentTime = 0; State.duration = 0; State.resumePosition = 0; State.statsLastAudioTime = null; AudioAdapter._wf = null;
+                const restorePosition=restored?Math.max(0,Number(restored.position)||0):0;
+                State.currentTime = restorePosition; State.duration = restored?Math.max(0,Number(restored.duration)||0):0; State.resumePosition = restorePosition; State.statsLastAudioTime = null; AudioAdapter._wf = null;
                 UI.updateProgress(); UI.updateDuration();
                 
                 const isOnline = track.source === 'machhar-online';
@@ -581,10 +599,12 @@
                         if (isOnline) {
                             if (shouldRememberOnlineTrack && window.OnlineRecommendations) OnlineRecommendations.remember(track);
                             if (window.OnlineWorkspace) OnlineWorkspace.recordPlay(track);
+                            const warmUpcoming=()=> (State.playbackOrder||[]).slice(State.queueIndex+1,State.queueIndex+3).map(id=>Player.getTrackById(id)).filter(item=>item?.source==='machhar-online');
+                            // Begin warming an existing next track immediately during current playback.
+                            if(window.OnlineMusic)OnlineMusic.prefetchStreams(warmUpcoming()).catch(()=>{});
                             if (window.OnlineRecommendations) {
                                 Promise.resolve(OnlineRecommendations.primeQueue(track)).finally(() => {
-                                    const upcoming=(State.playbackOrder||[]).slice(State.queueIndex+1,State.queueIndex+3).map(id=>Player.getTrackById(id)).filter(item=>item?.source==='machhar-online');
-                                    if (window.OnlineMusic) OnlineMusic.prefetchStreams(upcoming).catch(()=>{});
+                                    if (window.OnlineMusic) OnlineMusic.prefetchStreams(warmUpcoming()).catch(()=>{});
                                     if (window.OnlineWorkspace) OnlineWorkspace.saveQueueSnapshot('online');
                                 });
                             }

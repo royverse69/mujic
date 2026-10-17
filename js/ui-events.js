@@ -36,6 +36,8 @@
                 const miniNext = mini?.querySelector('[data-action="next-track"]');
                 miniPlay?.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); Player.togglePlay(); }, true);
                 miniNext?.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); Player.next(); }, true);
+                const miniMore = mini?.querySelector('[data-action="mini-track-options"]');
+                miniMore?.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); const track=Player.getCurrentTrack(); if(track) UI.openTrackOptions(track.id); else UI.showToast('Nothing is playing yet.','info'); }, true);
                 mini?.querySelector('.mini-progress-bar')?.addEventListener('click', e => e.stopPropagation());
                 mini?.querySelector('.mini-progress-bar')?.addEventListener('pointerdown', e => e.stopPropagation());
                 // One long-press controller for playlist cards and Home songs.
@@ -335,12 +337,19 @@
                                 await OnlineMusic.setMode('online');
                                 return;
                             }
+                            case 'mini-track-options':
+                                e.preventDefault(); e.stopPropagation(); { const track=Player.getCurrentTrack(); if(track) await UI.openTrackOptions(track.id); else UI.showToast('Nothing is playing yet.','info'); } return;
                             case 'track-options':
                                 e.preventDefault(); e.stopPropagation(); await UI.openTrackOptions(btn.dataset.id); return;
                             case 'online-download-track':
                                 e.preventDefault(); e.stopPropagation();
                                 UI.closeSheets();
-                                await OnlineDownloader.download(Player.getTrackById(btn.dataset.id || State.actionTargetId));
+                                await OnlineDownloader.download(Player.getTrackById(btn.dataset.id || State.actionTargetId) || OnlineMusic.getTrack(btn.dataset.id || State.actionTargetId));
+                                return;
+                            case 'online-open-track-playlist':
+                                e.preventDefault(); e.stopPropagation();
+                                if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
+                                OnlineWorkspace.openPlaylistPicker(btn.dataset.id || State.actionTargetId);
                                 return;
                             case 'switch-offline':
                                 e.preventDefault(); e.stopPropagation(); await OnlineMusic.setMode('offline'); return;
@@ -451,6 +460,8 @@
                     else if (action === 'context-opt-next') { Player.addNext(State.actionTargetId); }
                     else if (action === 'context-opt-queue') { Player.addQueue(State.actionTargetId); }
                     else if (action === 'context-opt-fav') { Player.toggleFavorite(State.actionTargetId); }
+                    else if (action === 'context-opt-info') { await TrackActions.showInfo(State.actionTargetId); }
+                    else if (action === 'context-opt-share') { const id=State.actionTargetId; UI.closeSheets(); await TrackActions.share(id); }
                     else if (action === 'context-opt-playlist') {
                         const selected=Player.getTrackById(State.actionTargetId);
                         UI.closeSheets();
@@ -495,22 +506,55 @@
                 // Native-style horizontal navigation between the four primary tabs. Vertical scrolling,
                 // nested rails, lyrics, inputs, controls and the expanded player keep their own gestures.
                 const mainContent = document.getElementById('main-content');
-                // On desktop, a conventional mouse wheel is vertical. Translate it to
-                // horizontal movement only while the pointer is over a scrollable rail.
-                // Trackpads and Shift+wheel keep their native horizontal behavior.
-                document.querySelectorAll('.horizontal-rail').forEach((rail) => {
-                    if (rail.dataset.desktopWheelBound === '1') return;
-                    rail.dataset.desktopWheelBound = '1';
-                    rail.addEventListener('wheel', (event) => {
+                // Mouse wheel and click-safe pointer dragging for both the offline-compatible
+                // horizontal rails and dynamically-rendered Online card/artist rails.
+                const wheelRailSelector='.horizontal-rail,.online-card-rail';
+                const dragRailSelector='.online-card-rail';
+                const attachRailWheel = rail => {
+                    if (!rail || rail.dataset.mujicWheelBound === '1') return;
+                    rail.dataset.mujicWheelBound = '1';
+                    rail.addEventListener('wheel', event => {
                         if (window.matchMedia('(max-width: 767px)').matches || event.shiftKey) return;
+                        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
                         const maxScroll = rail.scrollWidth - rail.clientWidth;
-                        if (maxScroll <= 1 || Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
-                        const nextScroll = Math.max(0, Math.min(maxScroll, rail.scrollLeft + event.deltaY));
-                        if (nextScroll === rail.scrollLeft) return; // preserve normal page scrolling at either rail edge
-                        event.preventDefault();
-                        rail.scrollLeft = nextScroll;
-                    }, { passive: false });
-                });
+                        if (maxScroll <= 1) return;
+                        const next = Math.max(0, Math.min(maxScroll, rail.scrollLeft + event.deltaY));
+                        if (next === rail.scrollLeft) return;
+                        event.preventDefault(); rail.scrollLeft = next;
+                    }, {passive:false});
+                };
+                const attachRailsIn = node => {
+                    if (!node || node.nodeType !== 1) return;
+                    if (node.matches?.(wheelRailSelector)) attachRailWheel(node);
+                    node.querySelectorAll?.(wheelRailSelector).forEach(attachRailWheel);
+                };
+                document.querySelectorAll(wheelRailSelector).forEach(attachRailWheel);
+                const railObserver = new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(attachRailsIn)));
+                railObserver.observe(mainContent || document.body, {childList:true, subtree:true});
+                let railDrag=null, suppressRailClickUntil=0;
+                document.addEventListener('pointerdown',(event)=>{
+                    if(event.pointerType!=='mouse'||event.button!==0)return;
+                    const rail=event.target.closest(dragRailSelector);if(!rail||rail.scrollWidth-rail.clientWidth<=2)return;
+                    railDrag={rail,startX:event.clientX,startScroll:rail.scrollLeft,pointerId:event.pointerId,moved:false};
+                },true);
+                document.addEventListener('pointermove',(event)=>{
+                    if(!railDrag||event.pointerId!==railDrag.pointerId)return;
+                    const dx=event.clientX-railDrag.startX;
+                    if(!railDrag.moved&&Math.abs(dx)<5)return;
+                    railDrag.moved=true;railDrag.rail.classList.add('is-pointer-dragging');
+                    railDrag.rail.scrollLeft=railDrag.startScroll-dx;
+                    event.preventDefault();
+                },{passive:false});
+                const finishRailDrag=(event)=>{
+                    if(!railDrag||event.pointerId!==railDrag.pointerId)return;
+                    if(railDrag.moved)suppressRailClickUntil=Date.now()+260;
+                    railDrag.rail.classList.remove('is-pointer-dragging');railDrag=null;
+                };
+                document.addEventListener('pointerup',finishRailDrag,true);document.addEventListener('pointercancel',finishRailDrag,true);
+                document.addEventListener('click',(event)=>{
+                    if(Date.now()>=suppressRailClickUntil||!event.target.closest(dragRailSelector))return;
+                    event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();suppressRailClickUntil=0;
+                },true);
                 const primaryViews = ['home','library','search','settings'];
                 let navSwipeStart = null;
                 const swipeIgnoreSelector = 'input,textarea,select,a,.horizontal-rail,.tab-bar,.search-container,.settings-subpage:not(.hidden),.player-lyrics-container,.scrubber-wrap,.bottom-sheet,.dialog-box,[data-eq-band],.lyrics-offset-control';

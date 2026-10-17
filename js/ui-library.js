@@ -205,18 +205,21 @@
                 const def = Utils.generateDefaultArt(t.title);
                 const artHtml = State.showArtworkLists ? `<img src="${def}" data-art-id="${t.artworkId||''}" data-seed="${Utils.escapeHTML(t.title)}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';">` : `<div class="track-art-small art-placeholder" style="background-image:url('${def}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">music_note</span></div>`;
                 const safeId = Utils.escapeHTML(t.id);
+                const isOnline=t.source==='machhar-online';
+                const isCurrentOnline=isOnline&&String(State.currentTrackId||'')===String(t.id);
                 const rowArt = (t.source === 'machhar-online' && t.artworkUrl)
                     ? `<img src="${Utils.escapeHTML(t.artworkUrl)}" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
                     : artHtml;
-                const playlistControls = t.source === 'machhar-online'
-                    ? `<button class="icon-btn" data-action="track-options" data-id="${safeId}" aria-label="More options for ${Utils.escapeHTML(t.title)}"><span class="material-symbols-rounded" style="pointer-events:none;">more_horiz</span></button>`
+                const playlistControls = isOnline
+                    ? `<span class="online-row-playing-state ${isCurrentOnline?'is-current':''}" aria-label="${isCurrentOnline?'Current track':''}">${isCurrentOnline?`<span class="online-now-playing-bars" aria-hidden="true"><i></i><i></i><i></i></span>`:''}</span><button class="icon-btn online-row-action" data-action="online-open-track-playlist" data-id="${safeId}" aria-label="Add ${Utils.escapeHTML(t.title)} to streaming playlist" title="Add to playlist"><span class="material-symbols-rounded" style="pointer-events:none;">playlist_add</span></button><button class="icon-btn online-row-action" data-action="online-download-track" data-id="${safeId}" aria-label="Download ${Utils.escapeHTML(t.title)}" title="Download highest-quality AAC"><span class="material-symbols-rounded" style="pointer-events:none;">download</span></button><button class="icon-btn online-row-action" data-action="track-options" data-id="${safeId}" aria-label="More options for ${Utils.escapeHTML(t.title)}" title="More actions"><span class="material-symbols-rounded" style="pointer-events:none;">more_horiz</span></button>`
                     : (contextName === 'playlist' && contextData ? `
                     <button class="icon-btn" data-action="move-playlist-track" data-key1="${Utils.escapeHTML(contextData.playlistId)}" data-index="${contextData.playlistIndex}" data-direction="up" ${contextData.playlistIndex===0?'disabled':''} aria-label="Move track up"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_up</span></button>
                     <button class="icon-btn" data-action="move-playlist-track" data-key1="${Utils.escapeHTML(contextData.playlistId)}" data-index="${contextData.playlistIndex}" data-direction="down" ${contextData.playlistIndex===contextData.playlistLength-1?'disabled':''} aria-label="Move track down"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_down</span></button>
                     <button class="icon-btn" data-action="remove-from-playlist" data-key1="${Utils.escapeHTML(contextData.playlistId)}" data-index="${contextData.playlistIndex}" aria-label="Remove track from playlist"><span class="material-symbols-rounded" style="pointer-events:none;">remove_circle_outline</span></button>
                 ` : `${isF ? '<span class="material-symbols-rounded" style="font-size:16px; margin-right:8px; color:var(--accent-color)">favorite</span>' : ''}<button class="icon-btn" data-action="track-options" data-id="${safeId}"><span class="material-symbols-rounded" style="pointer-events:none;">more_horiz</span></button>`);
                 const homeLongPress = contextName === 'home' ? ' home-track-longpress-target' : '';
-                return `<div class="track-row${homeLongPress}" data-action="play-track" data-id="${safeId}" data-context="${contextName}" data-longpress-track="${contextName === 'home' ? '1' : '0'}">
+                const onlineCurrentClass=isCurrentOnline?' online-playing-row':'';
+                return `<div class="track-row${homeLongPress}${onlineCurrentClass}" data-action="play-track" data-id="${safeId}" data-context="${contextName}" data-longpress-track="${contextName === 'home' ? '1' : '0'}" ${isCurrentOnline?'aria-current="true"':''}>
                     ${rowArt}
                     <div class="track-meta"><div class="item-title">${Utils.escapeHTML(t.title)}</div><div class="item-subtitle">${Utils.escapeHTML(t.artist)}</div></div>
                     ${playlistControls}
@@ -262,6 +265,8 @@
                 document.getElementById('ctx-fav-text').innerText = isF ? 'Remove Favorite' : 'Favorite';
                 const download = document.getElementById('ctx-download');
                 if (download) { download.hidden = !isOnlineTrack; download.dataset.id = isOnlineTrack ? id : ''; }
+                const infoAction = document.getElementById('ctx-info'); if (infoAction) infoAction.hidden = false;
+                const shareAction = document.getElementById('ctx-share'); if (shareAction) shareAction.hidden = !isOnlineTrack;
                 // Online tracks can be organized in the Online workspace's own playlists.
                 ['ctx-fav', 'ctx-remove'].forEach(elementId => {
                     const el = document.getElementById(elementId); if (el) el.hidden = isOnlineTrack;

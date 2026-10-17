@@ -265,7 +265,7 @@
     const renderTrackCards = (tracks, context, emptyText='') => {
         const items=(tracks||[]).filter(Boolean).slice(0,40);if(!items.length)return emptyText?`<div class="online-empty-inline">${esc(emptyText)}</div>`:'';
         shelfContexts.set(context,items);
-        return `${items.map(t=>`<div class="online-media-card-shell"><button class="online-media-card" data-action="online-play-track" data-id="${esc(t.id)}" data-context="${esc(context)}"><span class="online-media-art"><img loading="lazy" decoding="async" src="${esc(t.artworkUrl||'')||'./icons/icon-192.png'}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-card-play material-symbols-rounded">play_arrow</span></span><span class="online-media-title">${esc(t.title)}</span><span class="online-media-subtitle">${esc(t.artist||'')}</span></button><button type="button" class="online-media-more" data-action="track-options" data-id="${esc(t.id)}" aria-label="More actions for ${esc(t.title)}" title="Add to playlist or queue"><span class="material-symbols-rounded">more_horiz</span></button></div>`).join('')}`;
+        return `${items.map(t=>`<div class="online-media-card-shell"><button class="online-media-card" data-action="online-play-track" data-id="${esc(t.id)}" data-context="${esc(context)}"><span class="online-media-art"><img loading="lazy" decoding="async" src="${esc(t.artworkUrl||'')||'./icons/icon-192.png'}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-card-play material-symbols-rounded">play_arrow</span></span><span class="online-media-title">${esc(t.title)}</span><span class="online-media-subtitle">${esc(t.artist||'')}</span></button><div class="online-media-actions"><button type="button" class="online-media-action" data-action="online-open-track-playlist" data-id="${esc(t.id)}" aria-label="Add ${esc(t.title)} to a playlist" title="Add to playlist"><span class="material-symbols-rounded">playlist_add</span></button><button type="button" class="online-media-action" data-action="online-download-track" data-id="${esc(t.id)}" aria-label="Download ${esc(t.title)}" title="Download highest-quality AAC"><span class="material-symbols-rounded">download</span></button><button type="button" class="online-media-action online-media-more" data-action="track-options" data-id="${esc(t.id)}" aria-label="More actions for ${esc(t.title)}" title="More actions"><span class="material-symbols-rounded">more_horiz</span></button></div></div>`).join('')}`;
     };
     const renderEntityGrid = (items, kind, emptyText='') => {
         if(!items?.length)return emptyText?`<div class="online-empty-inline">${esc(emptyText)}</div>`:'';
@@ -517,7 +517,22 @@
         ['online-shelf-artists-wrap','online-shelf-recent-artists-wrap','online-shelf-popular-artists-wrap'].forEach(id=>{const el=document.getElementById(id);if(el)el.hidden=true;});
         const userWrap=document.getElementById('online-shelf-collections-wrap');if(userWrap){userWrap.hidden=false;userWrap.style.display='block';}
         const userNode=document.getElementById('online-home-playlists');if(userNode)userNode.innerHTML=renderUserPlaylistCards(playlists.slice(0,30));
-        const brandFooter=document.querySelector('#view-online-home .online-brand-footer');if(brandFooter){brandFooter.hidden=false;brandFooter.style.display='block';}
+        const homeView=document.getElementById('view-online-home');
+        let brandFooter=homeView?.querySelector('.online-brand-footer');
+        if(homeView&&!brandFooter){brandFooter=document.createElement('footer');brandFooter.className='online-brand-footer';brandFooter.setAttribute('aria-label','Mujic watermark');brandFooter.innerHTML='<div class="online-brand-wordmark" aria-hidden="true">Mujic</div>';}
+        if(brandFooter&&homeView){
+            if(!brandFooter.querySelector('.online-brand-wordmark'))brandFooter.innerHTML='<div class="online-brand-wordmark" aria-hidden="true">Mujic</div>';
+            const wordmark=brandFooter.querySelector('.online-brand-wordmark');
+            if(wordmark.textContent.trim()!=='Mujic')wordmark.textContent='Mujic';
+            // Force a visible brand footer from JS as well as CSS. Older theme rules previously
+            // made the wordmark nearly black on a black Home background.
+            brandFooter.hidden=false;brandFooter.removeAttribute('hidden');
+            Object.assign(brandFooter.style,{display:'block',visibility:'visible',contentVisibility:'visible',opacity:'1',position:'relative',minHeight:'clamp(130px,16vw,230px)',overflow:'visible'});
+            Object.assign(wordmark.style,{display:'block',visibility:'visible',opacity:'1',width:'max-content',maxWidth:'100%',fontSize:'clamp(82px,16vw,224px)',fontWeight:'850',letterSpacing:'-.09em',lineHeight:'.88',whiteSpace:'nowrap',color:'rgba(255,255,255,.28)',WebkitTextFillColor:'rgba(255,255,255,.28)',pointerEvents:'none'});
+            wordmark.style.setProperty('color','rgba(255,255,255,.28)','important');
+            wordmark.style.setProperty('-webkit-text-fill-color','rgba(255,255,255,.28)','important');
+            if(brandFooter!==homeView.lastElementChild)homeView.appendChild(brandFooter);
+        }
         renderSearchHistory();
         if(!navigator.onLine){renderConnectivityState();return;}
         if(Date.now()-homeLastLoaded>HOME_TTL||!Object.keys(homeShelves).length)loadHomeShelves(false);
@@ -756,7 +771,7 @@
         const showMore=(kind==='playlists'&&Number(e.total)>tracks.length)||(kind==='artists'&&e.hasMoreTracks);
         const more=showMore?'<div class="online-load-more-wrap"><button class="btn" data-action="online-load-remote-more">Load more</button></div>':'';
         const artistHeading=kind==='artists'?`<div class="online-artist-detail-heading"><h3>Songs</h3><span class="online-artist-progress">${e.loadingTracks?`${tracks.length.toLocaleString()}${e.total?` / ${Number(e.total).toLocaleString()}`:''} loading`:tracks.length.toLocaleString()+' tracks'}</span></div>`:`<div class="online-collection-heading"><h3>${tracks.length?`${tracks.length} songs`: 'Songs'}</h3></div>`;
-        const similar=kind==='artists'&&e.artists?.length?`<section class="online-detail-albums online-detail-similar"><div class="online-shelf-heading"><h2>Similar Artists</h2></div><div class="online-card-rail online-artist-rail">${renderEntityRail(e.artists,'artists')}</div></section>`:'';
+        const similar=kind==='artists'&&e.artists?.length?`<section class="online-detail-albums online-detail-similar"><div class="online-shelf-heading"><h2>Similar Artists</h2><div class="online-rail-controls"><button class="icon-btn online-shelf-more" data-action="online-scroll-rail" data-target="online-detail-similar-rail" data-direction="left" aria-label="Scroll similar artists left"><span class="material-symbols-rounded">arrow_back</span></button><button class="icon-btn online-shelf-more" data-action="online-scroll-rail" data-target="online-detail-similar-rail" data-direction="right" aria-label="Scroll similar artists right"><span class="material-symbols-rounded">arrow_forward</span></button></div></div><div id="online-detail-similar-rail" class="online-card-rail online-artist-rail">${renderEntityRail(e.artists,'artists')}</div></section>`:'';
         const albums=kind==='artists'&&e.albums?.length?`<section class="online-detail-albums"><div class="online-shelf-heading"><h2>Albums</h2>${e.totalAlbums>e.albums.length?`<button class="text-action" data-action="online-load-artist-albums">More</button>`:''}</div><div class="online-card-rail">${renderEntityRail(e.albums,'albums')}</div></section>`:'';
         const loadingNote=kind==='artists'&&e.loadingTracks&&tracks.length===0?'<div class="online-empty-inline">Loading tracks…</div>':'';
         const errorNote=kind==='artists'&&e.artistLoadError?'<div class="online-empty-inline">Some tracks may be missing. Try again when connected.</div>':'';
@@ -853,10 +868,22 @@
             const trackRecords=allIds.map(trackById).filter(track=>track && OnlineMusic.isOnlineTrack(track)).map(serializeTrack);
             const known=new Set(trackRecords.map(track=>track.id));
             const keep=arr=>(Array.isArray(arr)?arr:[]).filter(id=>known.has(id));
-            queueSnapshots.online={queue:keep(State.queue),playbackOrder:keep(State.playbackOrder),queueIndex:Number(State.queueIndex),currentTrackId:OnlineMusic.isOnlineId(State.currentTrackId)?State.currentTrackId:null,tracks:trackRecords,savedAt:Date.now()};
+            const currentId=OnlineMusic.isOnlineId(State.currentTrackId)?State.currentTrackId:null;
+            const audioElement=typeof AudioAdapter!=='undefined'?AudioAdapter.audio:null;
+            const audioTime=Number(audioElement?.currentTime);
+            const position=currentId&&currentId===Player.getCurrentTrack()?.id&&audioElement&&String(audioElement.dataset?.mujicTrackId||'')===String(currentId)&&Number.isFinite(audioTime)&&audioElement.readyState>0?Math.max(0,audioTime):Math.max(0,Number(State.currentTime)||0);
+            const audioDuration=Number(audioElement?.duration);
+            const duration=Number.isFinite(audioDuration)&&audioDuration>0?audioDuration:Math.max(0,Number(State.duration)||0);
+            queueSnapshots.online={queue:keep(State.queue),playbackOrder:keep(State.playbackOrder),queueIndex:Number(State.queueIndex),currentTrackId:currentId,position,duration,wasPlaying:Boolean(State.isPlaying),tracks:trackRecords,savedAt:Date.now()};
         } else {
             const keep=arr=>(Array.isArray(arr)?arr:[]).filter(isLocalId);
-            queueSnapshots.offline={queue:keep(State.queue),playbackOrder:keep(State.playbackOrder),queueIndex:Number(State.queueIndex),currentTrackId:isLocalId(State.currentTrackId)?State.currentTrackId:null,savedAt:Date.now()};
+            const currentId=isLocalId(State.currentTrackId)?State.currentTrackId:null;
+            const audioElement=typeof AudioAdapter!=='undefined'?AudioAdapter.audio:null;
+            const audioTime=Number(audioElement?.currentTime);
+            const position=currentId&&currentId===Player.getCurrentTrack()?.id&&audioElement&&String(audioElement.dataset?.mujicTrackId||'')===String(currentId)&&Number.isFinite(audioTime)&&audioElement.readyState>0?Math.max(0,audioTime):Math.max(0,Number(State.currentTime)||0);
+            const audioDuration=Number(audioElement?.duration);
+            const duration=Number.isFinite(audioDuration)&&audioDuration>0?audioDuration:Math.max(0,Number(State.duration)||0);
+            queueSnapshots.offline={queue:keep(State.queue),playbackOrder:keep(State.playbackOrder),queueIndex:Number(State.queueIndex),currentTrackId:currentId,position,duration,wasPlaying:Boolean(State.isPlaying),savedAt:Date.now()};
         }
         try { localStorage.setItem(KEYS.queues,JSON.stringify(queueSnapshots)); } catch (_) {}
     };
@@ -873,9 +900,14 @@
         const keep=arr=>(Array.isArray(arr)?arr:[]).filter(id=>allowed.has(id));
         State.queue=keep(snapshot.queue); State.playbackOrder=keep(snapshot.playbackOrder);
         if (!State.playbackOrder.length && State.queue.length) State.playbackOrder=[...State.queue];
+        const snapshotCurrent=String(snapshot.currentTrackId||'');
+        const currentIndex=snapshotCurrent?State.playbackOrder.indexOf(snapshotCurrent):-1;
         const savedIndex=Number(snapshot.queueIndex);
-        State.queueIndex=State.playbackOrder.length && Number.isInteger(savedIndex) && savedIndex>=0 ? Math.min(savedIndex,State.playbackOrder.length-1) : -1;
+        State.queueIndex=currentIndex>=0?currentIndex:(State.playbackOrder.length && Number.isInteger(savedIndex) && savedIndex>=0 ? Math.min(savedIndex,State.playbackOrder.length-1) : -1);
         State.currentTrackId=State.queueIndex>=0 ? (State.playbackOrder[State.queueIndex] || null) : null;
+        const resumePosition=Math.max(0,Number(snapshot.position)||0);
+        State.currentTime=resumePosition;State.resumePosition=resumePosition;State.duration=Math.max(0,Number(snapshot.duration)||0);State.isPlaying=false;
+        State.restoredPlaybackResume=State.currentTrackId?{trackId:State.currentTrackId,position:resumePosition,duration:Math.max(0,Number(snapshot.duration)||0),mode}:null;
         State.transitionFadePending=false;
         const current=Player.getCurrentTrack();
         if (current) { UI.showMiniPlayer(); UI.updatePlayerMeta(current).catch(()=>{}); }

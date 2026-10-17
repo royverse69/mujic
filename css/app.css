@@ -79,7 +79,9 @@
         #main-content {
             flex: 1; overflow-y: auto; overflow-x: hidden;
             padding: calc(var(--safe-top) + 12px) var(--space-24) calc(var(--nav-height) + var(--mini-player-height) + 32px + var(--safe-bottom)) var(--space-24);
-            scroll-behavior: smooth;
+            scroll-behavior: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
         }
 
         .glass-surface { background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: var(--glass-border); }
@@ -1435,4 +1437,37 @@ body.online-mode .online-search-box .btn-primary { background:#ff453a; color:#ff
   .home-header{margin-top:3px!important}
   .home-title-row{gap:6px}
   .home-title-row .workspace-toggle-mini{width:36px;min-width:36px;height:31px}
+}
+
+
+/* v12.0.41 — restrained mini-player chrome and lower-cost scrolling. */
+#mini-player {
+  background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+  -webkit-backdrop-filter: blur(15px) saturate(125%);
+  backdrop-filter: blur(15px) saturate(125%);
+  border-color: color-mix(in srgb, var(--border-subtle) 75%, transparent);
+  box-shadow: 0 5px 20px rgba(0,0,0,.22);
+  transition: transform .26s cubic-bezier(.22,.61,.36,1), opacity .16s ease;
+}
+#mini-art { width:42px; height:42px; min-width:42px; max-width:42px; border-radius:8px; margin-right:10px; }
+#mini-player .mini-meta { padding:1px 5px 1px 0; }
+#mini-title { font-size:13.5px; line-height:1.25; font-weight:650; letter-spacing:-.015em; }
+#mini-artist { font-size:11.5px; line-height:1.25; opacity:.78; }
+#mini-player .mini-controls { gap:1px; }
+#mini-player .mini-action { width:36px; height:36px; flex:0 0 36px; border-radius:50%; background:transparent; border-color:transparent; color:var(--text-secondary); transition:color .12s ease, background-color .12s ease; }
+#mini-player .mini-action:hover, #mini-player .mini-action:focus-visible { color:var(--text-primary); background:var(--bg-hover); }
+#mini-player .mini-action .material-symbols-rounded { font-size:21px; }
+#mini-player .mini-more-btn .material-symbols-rounded { font-size:22px; }
+#mini-player .mini-progress-bar { height:2px; background:rgba(128,128,128,.13); }
+#mini-player .mini-progress-fill { transition:width .08s linear; }
+#main-content { scroll-behavior:auto; -webkit-overflow-scrolling:touch; }
+@media (max-width:560px) {
+  #mini-player { height:64px; padding-left:8px; padding-right:5px; border-radius:13px; }
+  #mini-art { width:38px; height:38px; min-width:38px; max-width:38px; margin-right:8px; }
+  #mini-player .mini-action { width:33px; height:33px; flex-basis:33px; }
+  #mini-title { font-size:12.5px; }
+  #mini-artist { font-size:10.8px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  #mini-player, #mini-player .mini-action, #mini-player .mini-progress-fill { transition:none!important; }
 }

@@ -402,3 +402,68 @@ body:not(.dark-mode) #view-online-home .online-brand-wordmark{color:rgba(0,0,0,.
   #view-online-home .online-brand-wordmark{font-size:clamp(66px,18vw,126px)!important;letter-spacing:-.09em}
 }
 @media(max-width:390px){#view-online-home .online-media-card-shell{flex-basis:125px}}
+
+
+/* v12.0.39: visible Home signature and explicit per-track actions. */
+#view-online-home .online-brand-footer{display:block!important;visibility:visible!important;content-visibility:visible!important;contain:none!important;position:relative;z-index:1;min-height:clamp(112px,15vw,220px);margin-top:clamp(64px,9vw,140px)!important;margin-bottom:calc(28px + env(safe-area-inset-bottom,0px))!important;padding:0 0 clamp(22px,4vw,42px)!important;overflow:visible;border-bottom:1px solid var(--border-subtle)}
+#view-online-home .online-brand-wordmark{display:block!important;visibility:visible!important;opacity:1!important;width:max-content;max-width:100%;font-size:clamp(80px,16vw,220px)!important;font-weight:850;letter-spacing:-.09em;line-height:.88;color:rgba(255,255,255,.19)!important;-webkit-text-stroke:1px rgba(255,255,255,.025);white-space:nowrap;user-select:none;pointer-events:none}
+body:not(.dark-mode) #view-online-home .online-brand-wordmark{color:rgba(255,255,255,.19)!important;-webkit-text-stroke:1px rgba(255,255,255,.025)}
+#view-online-home .online-media-card-shell{position:relative}
+#view-online-home .online-media-actions{position:absolute;z-index:4;top:6px;right:6px;display:flex;gap:4px;align-items:center;opacity:.96;transition:opacity .16s ease,transform .16s ease}
+#view-online-home .online-media-action{display:inline-flex;align-items:center;justify-content:center;width:27px;height:27px;padding:0;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:rgba(8,8,10,.82);color:#fff;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);cursor:pointer}
+#view-online-home .online-media-action .material-symbols-rounded{font-size:17px;line-height:1;pointer-events:none}
+#view-online-home .online-media-action:hover{background:rgba(60,60,66,.95);transform:scale(1.05)}
+@media(hover:hover){#view-online-home .online-media-actions{opacity:.56}#view-online-home .online-media-card-shell:hover .online-media-actions,#view-online-home .online-media-card-shell:focus-within .online-media-actions{opacity:1}}
+.online-row-action{flex:0 0 auto}
+.online-mode .track-row.online-playing-row{position:relative;background:linear-gradient(90deg,color-mix(in srgb,var(--accent-color) 15%,transparent),color-mix(in srgb,var(--accent-color) 5%,transparent));box-shadow:inset 3px 0 0 var(--accent-color),0 4px 18px rgba(0,0,0,.12);border-radius:12px;transition:background .2s ease,box-shadow .2s ease}
+.online-mode .track-row.online-playing-row .item-title{color:var(--accent-color);font-weight:700}
+.online-row-playing-state{display:inline-flex;align-items:center;justify-content:center;min-width:0;width:0;overflow:hidden}
+.online-row-playing-state.is-current{width:19px;min-width:19px;margin-right:7px;overflow:visible;color:var(--accent-color)}
+.online-now-playing-bars{display:inline-flex;height:16px;align-items:center;gap:2px}
+.online-now-playing-bars i{display:block;width:3px;border-radius:3px;background:currentColor;height:7px;animation:mujic-now-playing .72s ease-in-out infinite alternate}
+.online-now-playing-bars i:nth-child(2){height:14px;animation-delay:.18s}.online-now-playing-bars i:nth-child(3){height:9px;animation-delay:.36s}
+@keyframes mujic-now-playing{from{transform:scaleY(.35);opacity:.65}to{transform:scaleY(1);opacity:1}}
+.online-card-rail{cursor:grab}
+.online-card-rail.is-pointer-dragging{cursor:grabbing!important;scroll-snap-type:none!important;user-select:none!important}
+.online-card-rail.is-pointer-dragging *{cursor:grabbing!important;user-select:none!important}
+@media(max-width:767px){#view-online-home .online-brand-footer{min-height:90px;margin-top:64px!important;margin-bottom:calc(24px + env(safe-area-inset-bottom,0px))!important}#view-online-home .online-brand-wordmark{font-size:clamp(68px,18vw,130px)!important}#view-online-home .online-media-actions{top:4px;right:4px;gap:3px;opacity:1}#view-online-home .online-media-action{width:25px;height:25px}#view-online-home .online-media-action .material-symbols-rounded{font-size:16px}}
+@media(prefers-reduced-motion:reduce){.online-now-playing-bars i{animation:none!important;transform:none!important}}
+
+
+/* v12.0.40 — explicit Online watermark, desktop scrollers, queue state and action discoverability. */
+body.online-mode #view-online-home .online-brand-footer,
+body.online-mode #view-online-home .online-brand-footer[hidden]{display:block!important;visibility:visible!important;content-visibility:visible!important;contain:none!important;opacity:1!important;position:relative!important;z-index:2!important;min-height:clamp(150px,17vw,245px)!important;margin:clamp(70px,10vw,145px) 0 calc(26px + env(safe-area-inset-bottom,0px))!important;padding:0 0 40px!important;overflow:visible!important;border-bottom:1px solid var(--border-subtle)!important;isolation:isolate}
+body.online-mode #view-online-home .online-brand-wordmark{display:block!important;visibility:visible!important;content-visibility:visible!important;opacity:1!important;width:max-content!important;max-width:100%!important;font-size:clamp(86px,17vw,236px)!important;font-weight:900!important;letter-spacing:-.095em!important;line-height:.88!important;color:rgba(255,255,255,.30)!important;-webkit-text-fill-color:rgba(255,255,255,.30)!important;-webkit-text-stroke:0!important;text-shadow:0 0 1px rgba(255,255,255,.06)!important;white-space:nowrap!important;user-select:none!important;pointer-events:none!important}
+body.online-mode #view-online-home{padding-bottom:12px!important;overflow:visible!important}
+.online-rail-controls{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+.online-rail-controls .icon-btn{width:34px!important;min-width:34px!important;height:34px!important}
+.online-artist-rail,.online-card-rail{scroll-behavior:smooth;scroll-padding-inline:8px}
+@media(min-width:768px){
+  .online-card-rail{cursor:grab;user-select:none}
+  .online-card-rail.is-pointer-dragging{cursor:grabbing!important;scroll-snap-type:none!important;user-select:none!important}
+  .online-artist-rail .online-artist-card{flex-shrink:0;min-width:clamp(150px,14vw,240px)}
+  .online-artist-rail .online-artist-orb{width:clamp(142px,13.5vw,225px)}
+  .online-media-actions{opacity:1}
+  .online-media-action{min-width:30px;min-height:30px}
+}
+.online-row-playing-state{display:inline-flex;align-items:center;justify-content:center;min-width:24px;flex:0 0 24px;color:var(--accent-color)}
+.online-mode #queue-list .track-row.online-playing-row{padding-top:10px;padding-bottom:10px}
+.online-mode #queue-list .track-row.online-playing-row .item-title{color:var(--accent-color);font-weight:750}
+.online-mode #queue-list .track-row.online-playing-row .track-meta{min-width:0}
+.online-mode #queue-list .track-row.online-playing-row:after{content:'NOW PLAYING';display:inline-flex;align-items:center;align-self:center;margin-left:6px;padding:4px 7px;border-radius:6px;background:color-mix(in srgb,var(--accent-color) 16%,transparent);color:var(--accent-color);font-size:9px;letter-spacing:.08em;font-weight:800;white-space:nowrap}
+@media(max-width:767px){
+  body.online-mode #view-online-home .online-brand-footer{min-height:110px!important;margin:64px 0 calc(24px + env(safe-area-inset-bottom,0px))!important;padding-bottom:28px!important}
+  body.online-mode #view-online-home .online-brand-wordmark{font-size:clamp(72px,19vw,140px)!important}
+  .online-rail-controls .icon-btn{width:30px!important;min-width:30px!important;height:30px!important}
+  .online-mode #queue-list .track-row.online-playing-row:after{content:'';width:7px;height:7px;border-radius:50%;padding:0;font-size:0;min-width:7px}
+}
+@media(prefers-reduced-motion:reduce){.online-card-rail,.online-artist-rail{scroll-behavior:auto!important}}
+
+
+/* v12.0.41 — rail motion uses native scrolling; keep vertical page motion unanimated. */
+.online-card-rail,.online-artist-rail { scroll-behavior:auto; overscroll-behavior-x:contain; }
+@media (hover:hover) and (min-width:768px) {
+  .online-card-rail,.online-artist-rail { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.13) transparent; }
+  .online-card-rail:hover,.online-artist-rail:hover { scrollbar-color:rgba(255,255,255,.28) transparent; }
+}
+@media (prefers-reduced-motion:reduce) { .online-card-rail,.online-artist-rail { scroll-behavior:auto!important; } }

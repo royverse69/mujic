@@ -1,13 +1,13 @@
-const CACHE_NAME = 'mujic-pwa-v12.0.38-online-home-media-chunks';
-const MEDIA_CHUNK_CACHE = 'mujic-media-chunks-v1';
-const MEDIA_IMAGE_CACHE = 'mujic-media-images-v1';
+const CACHE_NAME = 'mujic-pwa-v12.0.41-minimal-player-share-scroll';
+const MEDIA_CHUNK_CACHE = 'mujic-media-chunks-v3';
+const MEDIA_IMAGE_CACHE = 'mujic-media-images-v3';
 const BACKEND_MEDIA_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/media';
 const MAX_MEDIA_CHUNK_BYTES = 262144;
 const MAX_MEDIA_IMAGE_ENTRIES = 50;
 const MAX_MEDIA_IMAGE_BYTES = 20 * 1024 * 1024;
 const APP_SHELL = [
   './', './index.html', './VERSION', './manifest.webmanifest', './changlog.json', './css/app.css', './css/online-workspace.css',
-  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js', './js/ui-player.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
+  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
   './icons/icon-192.png', './icons/icon-512.png'
 ];
 const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];
@@ -19,7 +19,11 @@ self.addEventListener('install', event => {
   })());
 });
 self.addEventListener('activate', event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('mujic-pwa-') && k !== CACHE_NAME).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k =>
+    (k.startsWith('mujic-pwa-') && k !== CACHE_NAME) ||
+    /^mujic-media-chunks-v\d+$/.test(k) && k !== MEDIA_CHUNK_CACHE ||
+    /^mujic-media-images-v\d+$/.test(k) && k !== MEDIA_IMAGE_CACHE
+  ).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 const allowedMediaUrl = value => {
   try {

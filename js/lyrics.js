@@ -67,7 +67,7 @@
                     const embedded = LyricsFetcher.makeData(track.lyrics, LyricsFetcher.isLRC(track.lyrics));
                     if (embedded.isSynced) embedded.parsed = LyricsFetcher.parseLRC(embedded.text);
                     LyricsFetcher.cache.set(track.id, embedded);
-                    if (track.source !== 'machhar-online') StorageAdapter.saveLyricsCache(track.id, embedded).catch(()=>{});
+                    StorageAdapter.saveLyricsCache(track.id, embedded).catch(()=>{});
                     return embedded;
                 }
 
@@ -87,7 +87,8 @@
 
                 if (LyricsFetcher.cache.has(track.id)) {
                     const cached = LyricsFetcher.cache.get(track.id);
-                    if (!(track.source === 'machhar-online' && cached?.unavailable && navigator.onLine)) return cached;
+                    if (!(cached?.unavailable && navigator.onLine)) return cached;
+                    // A prior negative lookup is not permanent: try the complete fallback chain again online.
                     LyricsFetcher.cache.delete(track.id);
                 }
                 if (track.source !== 'machhar-online') {
@@ -147,7 +148,27 @@
                     }
                 }
 
-                // 4. LyricsPlus is a timed final fallback. It is only reached from the lazy lyrics path,
+                // 4. Free Lyrics.ovh fallback, relayed through the Render backend so the browser
+                // does not need direct access to another upstream service. Use the actual title and
+                // lead artist from both Online catalogue results and local file metadata.
+                if(!lyricsData&&navigator.onLine&&cleanTitle&&cleanArtist){
+                    const artists=[...new Set([cleanArtist,String(lookupTrack.artist||'').split(/,|&|\bfeat(?:uring)?\.?\b|\bft\.?\b/i)[0].trim()].filter(Boolean))];
+                    for(const artistName of artists.slice(0,2)){
+                        try{
+                            const params=new URLSearchParams({track_name:cleanTitle,artist_name:artistName});
+                            const res=await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics/ovh?${params.toString()}`,5000);
+                            if(!res.ok)continue;
+                            const payload=await res.json();
+                            const text=payload?.lyrics||payload?.text||payload?.data?.lyrics||'';
+                            if(typeof text==='string'&&text.trim()){
+                                lyricsData={text:text.trim(),isSynced:LyricsFetcher.isLRC(text),source:'Lyrics.ovh'};
+                                break;
+                            }
+                        }catch(e){Utils.warn(e);}
+                    }
+                }
+
+                // 5. LyricsPlus is a timed final fallback. It is only reached from the lazy lyrics path,
                 // never from app startup or normal track changes. Public instances can be unavailable.
                 if (!lyricsData && navigator.onLine && State.lyricsPlusEnabled !== false && cleanTitle && cleanArtist) {
                     try { lyricsData = await LyricsFetcher.fetchLyricsPlus(lookupTrack, cleanTitle, cleanArtist); } catch (e) { /* optional provider */ }
@@ -159,7 +180,7 @@
 
                 if (lyricsData.isSynced) lyricsData.parsed = LyricsFetcher.parseLRC(lyricsData.text);
                 LyricsFetcher.cache.set(track.id, lyricsData);
-                if (!lyricsData.unavailable && lyricsData.text && track.source !== 'machhar-online') StorageAdapter.saveLyricsCache(track.id, lyricsData).catch(()=>{});
+                if (!lyricsData.unavailable && lyricsData.text) StorageAdapter.saveLyricsCache(track.id, lyricsData).catch(()=>{});
                 return lyricsData;
             },
             fetchLyricsPlus: async (track, cleanTitle, cleanArtist) => {

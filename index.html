@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.38">
+    <meta name="application-version" content="12.0.41">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -188,7 +188,7 @@
                     <div class="online-artist-mosaic online-home-artist-mosaic" id="online-home-artists-mosaic"></div>
                 </section>
                 <section class="online-shelf" id="online-shelf-for-you-artists-wrap">
-                    <div class="online-shelf-heading"><h2>Artists</h2><button class="text-action" data-action="online-show-all-artists">Explore</button></div>
+                    <div class="online-shelf-heading"><h2>Artists</h2><div class="online-rail-controls"><button class="icon-btn online-shelf-more" data-action="online-scroll-rail" data-target="online-shelf-for-you-artists" data-direction="left" aria-label="Scroll artists left" title="Previous artists"><span class="material-symbols-rounded">arrow_back</span></button><button class="icon-btn online-shelf-more" data-action="online-scroll-rail" data-target="online-shelf-for-you-artists" data-direction="right" aria-label="Scroll artists right" title="Next artists"><span class="material-symbols-rounded">arrow_forward</span></button><button class="text-action" data-action="online-show-all-artists">Explore</button></div></div>
                     <div class="online-card-rail online-artist-rail" id="online-shelf-for-you-artists"></div>
                 </section>
                 <section class="online-shelf" id="online-shelf-recent-artists-wrap" hidden>
@@ -711,7 +711,8 @@
         </div>
         <div class="mini-controls">
             <button class="icon-btn mini-action" data-action="toggle-play" aria-label="Play/Pause"><span class="material-symbols-rounded" id="mini-play-btn" style="font-variation-settings: 'FILL' 1;">play_arrow</span></button>
-            <button class="icon-btn mini-action" data-action="next-track" aria-label="Next" title="Next track"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_next</span></button>
+            <button class="icon-btn mini-action" data-action="next-track" aria-label="Next" title="Next track" type="button"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_next</span></button>
+            <button class="icon-btn mini-action mini-more-btn" data-action="mini-track-options" aria-label="Song options" title="Song options" type="button"><span class="material-symbols-rounded">more_horiz</span></button>
         </div>
         <div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-progress"></div></div>
     </div>
@@ -835,6 +836,8 @@
         <div class="sheet-option" id="ctx-next" data-action="context-opt-next"><span class="material-symbols-rounded">playlist_play</span> Play Next</div>
         <div class="sheet-option" id="ctx-queue" data-action="context-opt-queue"><span class="material-symbols-rounded">queue_music</span> Add to Queue</div>
         <div class="sheet-option" id="ctx-fav" data-action="context-opt-fav"><span class="material-symbols-rounded" id="ctx-fav-icon">favorite_border</span> <span id="ctx-fav-text">Favorite</span></div>
+        <div class="sheet-option" id="ctx-info" data-action="context-opt-info"><span class="material-symbols-rounded">info</span><span>Song info</span></div>
+        <div class="sheet-option" id="ctx-share" data-action="context-opt-share" hidden><span class="material-symbols-rounded">share</span><span>Share song link</span></div>
         <div class="sheet-option" id="ctx-download" data-action="online-download-track" data-id="" hidden><span class="material-symbols-rounded">download</span><span>Download AAC · Highest quality</span></div>
         <div class="sheet-option" id="ctx-playlist" data-action="context-opt-playlist"><span class="material-symbols-rounded" id="ctx-playlist-icon">playlist_add</span> <span id="ctx-playlist-text">Add to Playlist</span></div>
         <div class="sheet-option destructive" id="ctx-remove" data-action="context-opt-remove"><span class="material-symbols-rounded">delete</span> Remove from Library</div>
@@ -970,6 +973,7 @@
     <script defer src="./js/ui-lyrics.js"></script>
     <script defer src="./js/ui-history.js"></script>
     <script defer src="./js/ui-player.js"></script>
+    <script defer src="./js/track-actions.js"></script>
     <script defer src="./js/ui-events.js"></script>
     <script defer src="./js/keyboard.js"></script>
     <script defer src="./js/app.js"></script>
