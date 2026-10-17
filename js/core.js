@@ -41,7 +41,7 @@
 
         const State = {
             library: [], playlists: [], history: [], favorites: [], favoriteArtists: [],
-            queue: [], playbackOrder: [], queueIndex: -1, currentTrackId: null,
+            queue: [], playbackOrder: [], queueIndex: -1, currentTrackId: null, playbackSourceMode: 'offline',
             isPlaying: false, currentTime: 0, duration: 0, isFullPlayerOpen: false,
             
             volume: 1, muted: false, playbackRate: 1, eq: 'off', eqPreset: 'flat', eqBands: [0,0,0,0,0], shuffle: false, repeat: 0, 
@@ -76,6 +76,7 @@
             getUrl: async (trackOrArtId, titleFallback) => {
                 const artId = typeof trackOrArtId === 'string' ? trackOrArtId : trackOrArtId?.artworkId;
                 const seedStr = titleFallback || (typeof trackOrArtId === 'object' ? trackOrArtId?.title : '');
+                if (typeof trackOrArtId === 'object' && trackOrArtId?.source === 'machhar-online' && trackOrArtId.artworkUrl) return trackOrArtId.artworkUrl;
                 
                 if (!artId) return Utils.generateDefaultArt(seedStr);
                 if (State.artworkUrls.has(artId)) return State.artworkUrls.get(artId);

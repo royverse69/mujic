@@ -1,0 +1,16 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const provider = fs.readFileSync(path.join(root, 'js/online-provider.js'), 'utf8');
+const workspace = fs.readFileSync(path.join(root, 'js/online-workspace.js'), 'utf8');
+const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const check = (condition, message) => { if (!condition) throw new Error(message); };
+check(/const fetchArtistSongs = async \(id, page = 0, artistName = ''\)/.test(provider), 'Artist-song loading must accept a profile name for fallback discovery.');
+check(/search\(String\(artistName\)\.trim\(\),\{page:pageIndex,limit:40,background:true\}\)/.test(provider), 'Artist-song fallback must query the documented song-search endpoint.');
+check(/songBelongsToArtist\(track,sourceId,artistName\)/.test(provider), 'Fallback songs must be filtered by the selected artist identity.');
+check(/OnlineMusic\.fetchArtistSongs\(sourceId,0,data\.title\)/.test(workspace) && /OnlineMusic\.fetchArtistSongs\(sourceId,page,data\.title\)/.test(workspace) && /OnlineMusic\.fetchArtistSongs\(sourceId,page,current\.title\)/.test(workspace), 'Initial, background pagination and Load more requests must pass the selected artist name.');
+check(/const failedPages=new Set\(!firstRows\.length\?\[0\]:\[\]\)/.test(workspace), 'Empty first pages must remain retryable rather than being treated as completed catalogues.');
+check(/No songs loaded yet\. Use Load more to retry\./.test(workspace), 'Empty artist results must explain the retry path.');
+check(/const CACHE_NAME = 'mujic-pwa-v\d+\.\d+\.\d+-/.test(sw), 'The current service-worker cache must use a versioned namespace.');
+console.log('v12.0.31 regressions OK: foreign artist fallback, exact artist matching, retryable empty pages and retry messaging.');

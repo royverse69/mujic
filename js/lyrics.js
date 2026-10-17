@@ -1,4 +1,4 @@
-/* Lyrics providers: embedded/cache first, then LRCLIB, Render, and optional LyricsPlus. */
+/* Lyrics providers: embedded or music-catalogue text first, then verified fallbacks. */
         const BACKEND_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
 
         const LyricsFetcher = {
@@ -67,15 +67,35 @@
                     const embedded = LyricsFetcher.makeData(track.lyrics, LyricsFetcher.isLRC(track.lyrics));
                     if (embedded.isSynced) embedded.parsed = LyricsFetcher.parseLRC(embedded.text);
                     LyricsFetcher.cache.set(track.id, embedded);
-                    StorageAdapter.saveLyricsCache(track.id, embedded).catch(()=>{});
+                    if (track.source !== 'machhar-online') StorageAdapter.saveLyricsCache(track.id, embedded).catch(()=>{});
                     return embedded;
                 }
 
-                if (LyricsFetcher.cache.has(track.id)) return LyricsFetcher.cache.get(track.id);
-                try {
-                    const stored = await StorageAdapter.getLyricsCache(track.id);
-                    if (stored?.text) { LyricsFetcher.cache.set(track.id, stored); return stored; }
-                } catch (e) { Utils.warn(e); }
+                let musicSourceLyrics = null;
+                // Always attempt exact result/song-detail lyrics before reading a cache populated by a
+                // secondary provider. The catalogue source has priority for every online track.
+                if (track.source === 'machhar-online' && navigator.onLine && window.OnlineLyrics?.fetchFromMusicSource) {
+                    try { musicSourceLyrics = await OnlineLyrics.fetchFromMusicSource(track); } catch (_) { musicSourceLyrics = null; }
+                    if (musicSourceLyrics?.text) {
+                        const authoritative = LyricsFetcher.makeData(musicSourceLyrics.text, musicSourceLyrics.isSynced);
+                        if (authoritative.isSynced) authoritative.parsed = LyricsFetcher.parseLRC(authoritative.text);
+                        authoritative.source = musicSourceLyrics.source || 'Music catalogue';
+                        LyricsFetcher.cache.set(track.id, authoritative);
+                        return authoritative;
+                    }
+                }
+
+                if (LyricsFetcher.cache.has(track.id)) {
+                    const cached = LyricsFetcher.cache.get(track.id);
+                    if (!(track.source === 'machhar-online' && cached?.unavailable && navigator.onLine)) return cached;
+                    LyricsFetcher.cache.delete(track.id);
+                }
+                if (track.source !== 'machhar-online') {
+                    try {
+                        const stored = await StorageAdapter.getLyricsCache(track.id);
+                        if (stored?.text) { LyricsFetcher.cache.set(track.id, stored); return stored; }
+                    } catch (e) { Utils.warn(e); }
+                }
 
                 let lyricsData = null;
                 const lookupTrack = track;
@@ -83,11 +103,12 @@
                 const cleanArtist = String(lookupTrack.artist || '').split(',')[0].trim();
 
                 if (navigator.onLine) {
+                    // First fallback: exact lyrics metadata match from LRCLIB only after the music source was checked.
                     // 1. Exact LRCLIB lookup.
-                    try {
+                    if (!lyricsData) try {
                         const durParams = lookupTrack.duration ? `&duration=${Math.round(lookupTrack.duration)}` : '';
                         const query = `track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}&album_name=${encodeURIComponent(lookupTrack.album || '')}${durParams}`;
-                        const res = await LyricsFetcher.fetchWithTimeout(`https://lrclib.net/api/get?${query}`, 4000);
+                        const res = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics/get?${query}`, 4000);
                         if (res.ok) {
                             const data = await res.json();
                             const exactResult = LyricsFetcher.matchesSearchResult(lookupTrack, data) ? data : null;
@@ -100,7 +121,7 @@
                     // 2. LRCLIB search only accepts a result with matching title + duration (and artist when available).
                     if (!lyricsData) {
                         try {
-                            const res = await LyricsFetcher.fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`, 4000);
+                            const res = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`, 4000);
                             if (res.ok) {
                                 const results = await res.json();
                                 const match = Array.isArray(results) ? results.find(r => LyricsFetcher.matchesSearchResult(lookupTrack, r)) : null;
@@ -110,8 +131,8 @@
                         } catch (e) { Utils.warn(e); }
                     }
 
-                    // 3. Render backend fallback.
-                    if (!lyricsData && cleanTitle && State.lyricsRenderEnabled !== false) {
+                    // 3. Legacy non-catalogue fallback for local-track lookup.
+                    if (!lyricsData && track.source !== 'machhar-online' && cleanTitle && State.lyricsRenderEnabled !== false) {
                         try {
                             const res = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics?track=${encodeURIComponent(cleanTitle)}&artist=${encodeURIComponent(cleanArtist)}`, 5000);
                             if (res.ok) {
@@ -138,17 +159,14 @@
 
                 if (lyricsData.isSynced) lyricsData.parsed = LyricsFetcher.parseLRC(lyricsData.text);
                 LyricsFetcher.cache.set(track.id, lyricsData);
-                if (!lyricsData.unavailable && lyricsData.text) StorageAdapter.saveLyricsCache(track.id, lyricsData).catch(()=>{});
+                if (!lyricsData.unavailable && lyricsData.text && track.source !== 'machhar-online') StorageAdapter.saveLyricsCache(track.id, lyricsData).catch(()=>{});
                 return lyricsData;
             },
             fetchLyricsPlus: async (track, cleanTitle, cleanArtist) => {
                 // LyricsPlus exposes a backend API; keep this optional, fast-failing, and off startup.
                 // Responses from v2 group word timings by line key. Convert each line start to LRC time.
-                const hosts = [
-                    'https://lyricsplus.prjktla.my.id',
-                    'https://lyricsplus.prjktla.workers.dev',
-                    'https://lyricsplus-seven.vercel.app'
-                ];
+                // LyricsPlus hosts are reached server-side through the same Render backend.
+                const hosts = [`${BACKEND_BASE.replace(/\/$/, '')}/lyricsplus`];
                 const params = new URLSearchParams({ title: cleanTitle, artist: cleanArtist, album: track.album || '', duration: String(Number(track.duration) || 0), source: 'apple,musixmatch,spotify,qq' });
                 const requestOne = async (host) => {
                     const res = await LyricsFetcher.fetchWithTimeout(`${host}/v2/lyrics/get?${params.toString()}`, 1500);

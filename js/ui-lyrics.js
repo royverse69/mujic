@@ -35,9 +35,9 @@
                 State.lyricsTimeout = setTimeout(() => {
                     if (State.isLyricsMode && State.currentTrackId === t.id && !State.currentLyrics) {
                         UI.toggleLyricsMode();
-                        UI.showToast('Lyrics lookup timed out. Try again when the connection is available.', 'lyrics');
+                        UI.showToast('Lyrics could not be loaded. Check your connection and try again.', 'lyrics');
                     }
-                }, 5000);
+                }, t.source === 'machhar-online' ? 14000 : 5000);
                 let lyricsData;
                 try { lyricsData = await LyricsFetcher.getLyrics(t); }
                 catch (e) { lyricsData = { text: "Lyrics unavailable offline.", isSynced: false, unavailable: true }; }
@@ -51,7 +51,7 @@
                         const detailsQ = encodeURIComponent(`${t.title} ${t.artist} ${t.album || ''}`);
                         lyricsContent.innerHTML = `<div class="lyrics-unavailable-card">
                             <div class="lyrics-unavailable-title">Lyrics unavailable</div>
-                            <div class="lyrics-unavailable-text">${navigator.onLine ? 'No verified lyrics source matched this track.' : 'You are offline. Check your saved lyrics cache first.'}</div>
+                            <div class="lyrics-unavailable-text">${navigator.onLine ? 'No verified lyrics source matched this track.' : 'You are offline. Online lyrics need a connection.'}</div>
                             <div class="lyrics-unavailable-actions">
                                 <button class="btn" data-action="check-lyrics-cache" data-id="${Utils.escapeHTML(t.id)}">Check cache</button>
                                 <a class="btn" href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener noreferrer">Search lyrics on Google</a>

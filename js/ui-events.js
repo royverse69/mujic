@@ -99,6 +99,135 @@
                         switch (action) {
                             case 'switch-view':
                                 e.preventDefault(); e.stopPropagation(); UI.switchView(btn.dataset.view); return;
+                            case 'set-playback-mode':
+                                e.preventDefault(); e.stopPropagation(); await OnlineMusic.setMode(btn.dataset.mode); return;
+                            case 'toggle-playback-mode':
+                                e.preventDefault(); e.stopPropagation(); await OnlineMusic.setMode(State.playbackSourceMode === 'online' ? 'offline' : 'online'); return;
+                            case 'online-library-tab':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.setLibraryTab(btn.dataset.tab || 'playlists'); return;
+                            case 'online-open-liked-from-home':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.openLikedFromHome(); return;
+                            case 'online-load-artist-albums':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.loadMoreArtistAlbums(); return;
+                            case 'online-show-all-artists':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.showAllArtists(); return;
+                            case 'online-artists-back':
+                                e.preventDefault(); e.stopPropagation(); UI.switchView('online-home'); return;
+                            case 'online-sort-artists':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.sortArtists(btn.dataset.sort || 'recommended'); return;
+                            case 'online-scroll-rail': {
+                                e.preventDefault(); e.stopPropagation();
+                                const rail=document.getElementById(btn.dataset.target || '');
+                                if(rail)rail.scrollBy({left:(btn.dataset.direction==='left'?-1:1)*Math.max(rail.clientWidth*.72,180),behavior:document.body.classList.contains('reduced-motion')?'auto':'smooth'});
+                                return;
+                            }
+                            case 'online-shift-artist-wall': {
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.shiftHomeArtistWall(btn.dataset.direction || 'right'); return;
+                            }
+                            case 'retry-online-home':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.refreshActiveView(); return;
+                            case 'online-set-search-type': {
+                                e.preventDefault(); e.stopPropagation();
+                                if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
+                                OnlineWorkspace.filterSearchType(btn.dataset.type || 'songs');
+                                UI.switchView('online-search');
+                                return;
+                            }
+                            case 'online-browse-playlists': {
+                                e.preventDefault(); e.stopPropagation();
+                                if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
+                                OnlineWorkspace.filterSearchType('playlists');
+                                const input=document.getElementById('online-search-input'); if(input) input.value=btn.dataset.query || 'Hindi romantic';
+                                UI.switchView('online-search');
+                                return;
+                            }
+                            case 'online-clear-search':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.clearSearch(); return;
+                            case 'online-open-entity':
+                                e.preventDefault(); e.stopPropagation();
+                                if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
+                                await OnlineWorkspace.openRemoteEntity(btn.dataset.type,btn.dataset.id); return;
+                            case 'online-play-track':
+                                e.preventDefault(); e.stopPropagation();
+                                if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
+                                OnlineWorkspace.playTrackFromShelf(btn.dataset.id,btn.dataset.context); UI.switchView('online-queue'); return;
+                            case 'online-detail-back':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.backFromDetail(); return;
+                            case 'online-play-remote-entity':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.playRemoteEntity(); UI.switchView('online-queue'); return;
+                            case 'online-save-remote-playlist':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.saveRemotePlaylist(); return;
+                            case 'online-load-remote-more':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.loadMoreRemote(); return;
+                            case 'online-more-public-playlists':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.loadPublicPlaylists(undefined,true); return;
+                            case 'retry-online-search':
+                                e.preventDefault(); e.stopPropagation();
+                                if (State.playbackSourceMode === 'online') { const onlineInput=document.getElementById('online-search-input'); if(onlineInput?.value?.trim()) OnlineWorkspace.performSearch(onlineInput.value); else OnlineWorkspace.refreshActiveView(); }
+                                else OnlineMusic.searchAndRender(document.getElementById('search-input')?.value || '');
+                                return;
+                            case 'online-submit-search':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.performSearch(document.getElementById('online-search-input')?.value || ''); return;
+                            case 'online-load-more':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.loadMore(); return;
+                            case 'online-refresh-search':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.performSearch(document.getElementById('online-search-input')?.value || ''); return;
+                            case 'online-search-query': {
+                                e.preventDefault(); e.stopPropagation();
+                                if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
+                                const input=document.getElementById('online-search-input'); if(input) input.value=btn.dataset.query || '';
+                                OnlineWorkspace.filterSearchType('songs');
+                                UI.switchView('online-search');
+                                return;
+                            }
+                            case 'online-open-reference': {
+                                e.preventDefault(); e.stopPropagation();
+                                const reference=await Dialog.show({type:'prompt',title:'Open a music link or ID',message:'Paste a JioSaavn song, artist, album or playlist link, or enter a song ID.',confirmText:'Open',defaultText:''});
+                                if(reference)await OnlineWorkspace.openReference(reference);
+                                return;
+                            }
+                            case 'online-create-playlist':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.createPlaylist(); return;
+                            case 'online-open-playlist':
+                            case 'online-playlist-menu':
+                                e.preventDefault(); e.stopPropagation();
+                                if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
+                                OnlineWorkspace.openPlaylist(btn.dataset.id); UI.switchView('online-playlists'); return;
+                            case 'online-back-playlists':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.backToPlaylists(); return;
+                            case 'online-playlist-play':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.playPlaylist(btn.dataset.id); UI.switchView('online-queue'); return;
+                            case 'online-share-to-offline':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.copyOnlinePlaylistToOffline(btn.dataset.id); return;
+                            case 'online-rename-playlist':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.renamePlaylist(btn.dataset.id); return;
+                            case 'online-delete-playlist':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.deletePlaylist(btn.dataset.id); return;
+                            case 'online-clear-history':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.clearHistory(); return;
+                            case 'online-queue-play': {
+                                e.preventDefault(); e.stopPropagation();
+                                if (State.playbackOrder.length) { if(State.queueIndex<0) State.queueIndex=0; Player.playQueueIndex(Math.max(0,State.queueIndex)); }
+                                else UI.showToast('Search for a song to start a streaming queue.','info');
+                                return;
+                            }
+                            case 'online-queue-clear':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.clearQueue(); return;
+                            case 'toggle-workspaces-link':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.setLinked(!!btn.checked); return;
+                            case 'clear-online-cache':
+                                e.preventDefault(); e.stopPropagation(); OnlineMusic.clearCache(); UI.showToast('Streaming catalogue cache cleared.','delete'); return;
+                            case 'share-offline-playlist-online':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.shareOfflinePlaylistToOnline(State.currentPlaylistId); return;
+                            case 'online-create-and-add': {
+                                e.preventDefault(); e.stopPropagation();
+                                const trackId=OnlineWorkspace.getPendingTrackId();
+                                const playlist=await OnlineWorkspace.createPlaylist('',trackId);
+                                if(playlist) UI.closeSheets();
+                                return;
+                            }
+                            case 'online-add-to-playlist':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.addTrackToPlaylist(OnlineWorkspace.getPendingTrackId(),btn.dataset.playlistId); UI.closeSheets(); return;
                             case 'open-settings-group':
                                 e.preventDefault(); e.stopPropagation(); UI.openSettingsGroup(btn.dataset.group); return;
                             case 'settings-group-back':
@@ -132,18 +261,39 @@
                                 const row = btn.closest('.home-track-longpress-target');
                                 if (row?.dataset.longPressTriggered === '1') { row.dataset.longPressTriggered = '0'; return; }
                                 const id = btn.dataset.id;
-                                if (!id || !State.library.some(track => track.id === id)) { UI.showToast('This track is no longer in your library.', 'error'); return; }
+                                const selectedTrack = Player.getTrackById(id);
+                                if (!id || !selectedTrack) { UI.showToast('This track is no longer available. Search again to refresh it.', 'error'); return; }
                                 const contextName = btn.dataset.context || 'library';
-                                let list = State.library;
+                                if (selectedTrack.source === 'machhar-online') {
+                                    if (State.playbackSourceMode !== 'online') { UI.showToast('Switch to streaming playback to play catalogue tracks.', 'info'); return; }
+                                    if (contextName === 'online-search') { OnlineWorkspace.playSearchResult(id); return; }
+                                    const matches = OnlineWorkspace.getPlaybackContext(contextName, id);
+                                    // Manual selection is intentional: keep all visible search hits and
+                                    // user-curated playlist entries, including alternate versions.
+                                    // Duplicate/remix suppression is reserved for automatic recommendations.
+                                    const sourceList = matches.length > 0 ? matches : [selectedTrack];
+                                    const seenIds = new Set();
+                                    const list = sourceList.filter(track => {
+                                        if (!track?.id || seenIds.has(track.id)) return false;
+                                        seenIds.add(track.id); return true;
+                                    });
+                                    // Start from the exact row the user tapped, then keep the rest of
+                                    // the current online search/playlist as the upcoming queue.
+                                    const startIndex = Math.max(0, list.findIndex(track => track.id === id));
+                                    Player.playContext(list, startIndex);
+                                    return;
+                                }
+                                const contextList = State.library;
+                                let list = contextList;
                                 if (contextName === 'search') {
-                                    const matches = Array.isArray(State.searchResults) ? State.searchResults.filter(track => State.library.some(item => item.id === track.id)) : [];
+                                    const matches = Array.isArray(State.searchResults) ? State.searchResults.filter(track => contextList.some(item => item.id === track.id)) : [];
                                     // A single search hit should not create a one-track dead-end queue.
-                                    list = matches.length > 1 ? matches : State.library;
+                                    list = matches.length > 1 ? matches : contextList;
                                 } else if ((contextName === 'playlist' || contextName === 'context') && Array.isArray(State.currentContextView) && State.currentContextView.some(track => track.id === id)) {
                                     list = State.currentContextView;
                                 }
                                 let index = list.findIndex(track => track.id === id);
-                                if (index < 0) { list = State.library; index = list.findIndex(track => track.id === id); }
+                                if (index < 0) { list = contextList; index = list.findIndex(track => track.id === id); }
                                 if (index >= 0) Player.playContext(list, index);
                                 return;
                             }
@@ -182,18 +332,18 @@
                                 e.preventDefault(); e.stopPropagation(); await UI.savePlaylistTrackPicker(); return;
                             case 'find-music-online': {
                                 e.preventDefault(); e.stopPropagation();
-                                const input = document.getElementById('search-input');
-                                const rawQuery = String(input?.value || '').trim();
-                                if (!rawQuery) { UI.showToast('Enter a song, artist or album to search online.', 'info'); return; }
-                                const query = /\bsong\b/i.test(rawQuery) ? rawQuery : `${rawQuery} song`;
-                                const targetUrl = `https://royverse69.github.io/mujic/dloader.html?q=${encodeURIComponent(query)}`;
-                                const opened = window.open(targetUrl, '_blank');
-                                if (opened) opened.opener = null;
-                                else UI.showToast('Allow pop-ups to open the music downloader.', 'info');
+                                await OnlineMusic.setMode('online');
                                 return;
                             }
                             case 'track-options':
                                 e.preventDefault(); e.stopPropagation(); await UI.openTrackOptions(btn.dataset.id); return;
+                            case 'online-download-track':
+                                e.preventDefault(); e.stopPropagation();
+                                UI.closeSheets();
+                                await OnlineDownloader.download(Player.getTrackById(btn.dataset.id || State.actionTargetId));
+                                return;
+                            case 'switch-offline':
+                                e.preventDefault(); e.stopPropagation(); await OnlineMusic.setMode('offline'); return;
                             case 'toggle-favorite':
                                 e.preventDefault(); e.stopPropagation(); Player.toggleFavorite(); return;
                             case 'toggle-fav-artist': {
@@ -288,12 +438,26 @@
                             });
                         }
                     }
-                    else if (action === 'context-opt-play') { Player.playContext(State.library, State.library.findIndex(t=>t.id===State.actionTargetId)); UI.closeSheets(); }
+                    else if (action === 'context-opt-play') {
+                        const selected = Player.getTrackById(State.actionTargetId);
+                        if (selected?.source === 'machhar-online') {
+                            if(State.playbackSourceMode!=='online'){UI.showToast('Switch to streaming playback to play this track.','info');return;}
+                            const found = OnlineWorkspace.getPlaybackContext(null, selected.id);
+                            const context = OnlineRecommendations.filterPlaybackContext(found.length ? found : [selected], selected.id);
+                            Player.playContext(context, 0);
+                        } else Player.playContext(State.library, State.library.findIndex(t=>t.id===State.actionTargetId));
+                        UI.closeSheets();
+                    }
                     else if (action === 'context-opt-next') { Player.addNext(State.actionTargetId); }
                     else if (action === 'context-opt-queue') { Player.addQueue(State.actionTargetId); }
                     else if (action === 'context-opt-fav') { Player.toggleFavorite(State.actionTargetId); }
-                    else if (action === 'context-opt-playlist') { UI.closeSheets(); setTimeout(() => UI.showSheet('add-playlist-sheet'), 300); }
-                    else if (action === 'context-opt-remove') { 
+                    else if (action === 'context-opt-playlist') {
+                        const selected=Player.getTrackById(State.actionTargetId);
+                        UI.closeSheets();
+                        setTimeout(() => { if(selected?.source==='machhar-online') OnlineWorkspace.openPlaylistPicker(State.actionTargetId); else UI.showSheet('add-playlist-sheet'); }, 180);
+                    }
+                    else if (action === 'context-opt-remove') {
+                        if (OnlineMusic.isOnlineId(State.actionTargetId)) { UI.showToast('Streaming results are separate from your local library.', 'info'); UI.closeSheets(); return; }
                         const confirmed = await Dialog.show({ type: 'confirm', title: 'Remove Track', message: 'Remove this track from your library?', confirmText: 'Remove', destructive: true });
                         if(confirmed) Library.removeTrack(State.actionTargetId); 
                     }

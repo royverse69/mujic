@@ -36,15 +36,19 @@
 
                         // Only attempt metadata completion when the artist is genuinely missing.
                         // Never attach a fuzzy result based only on the first search hit. Require exact normalized title + duration match.
-                        if (title && !artist && parsed.duration > 0 && navigator.onLine) {
+                        if (title && !artist && navigator.onLine) {
                             try {
-                                const res = await LyricsFetcher.fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(title)}`, 3500);
+                                const backend = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
+                                const endpoint = `${backend}lyrics?track=${encodeURIComponent(title)}&artist=`;
+                                const res = await LyricsFetcher.fetchWithTimeout(endpoint, 5000, { headers: { Accept: 'application/json' }, cache: 'no-store', credentials: 'omit' });
                                 if (res.ok) {
-                                    const results = await res.json();
-                                    const match = Array.isArray(results) ? results.find(r => LyricsFetcher.matchesSearchResult({title, artist:'', duration:parsed.duration}, r)) : null;
-                                    if (match) {
-                                        artist = match.artistName || match.artist || artist;
-                                        parsed.album = parsed.album || match.albumName || match.album || null;
+                                    const result = await res.json();
+                                    const resultTitle = result?.trackName || result?.title || result?.name || '';
+                                    const normalizedWanted = LyricsFetcher.normalizeTitle(title);
+                                    const normalizedResult = LyricsFetcher.normalizeTitle(resultTitle);
+                                    if (normalizedResult && normalizedWanted === normalizedResult) {
+                                        artist = result.artistName || result.artist || artist;
+                                        parsed.album = parsed.album || result.albumName || result.album || null;
                                     }
                                 }
                             } catch (e) { Utils.warn(e); }

@@ -112,6 +112,21 @@
                 } catch (error) {
                     // Keep the update page useful when launched from file:// or while offline.
                     const fallbackEntries = [
+                        { version: '12.0.28', date: '2026-10-17', title: 'Artist profiles, suggestions and playlist deduplication', changes: [
+                            'Rebuilt Home artist discovery around exact artist names, clickable portrait cards and artist-specific artwork fallback from the documented API response.',
+                            'Fixed retry/pagination handling for artist catalogues and removed equivalent recordings from playlists, liked songs, history and automatic suggestions.',
+                            'Added initials-based artist portrait fallbacks, tightened Offline Home spacing, aligned the mode toggle and repaired Settings descriptions while preserving the Offline layout.'
+                        ]},
+                        { version: '12.0.27', date: '2026-10-17', title: 'Artist catalogue and workspace polish', changes: [
+                            'Added a swipeable, clickable Artist rail on Home and fixed artist-detail navigation.',
+                            'Improved paginated artist loading, retry behavior, duplicate filtering, artwork fallbacks and share-link/song-ID opening.',
+                            'Refined streaming Home spacing, mode-switch animation, Library-sharing copy and the Mujic footer wordmark while preserving the Offline workspace.'
+                        ]},
+                        { version: '12.0.20', date: '2026-10-17', title: 'Optional streaming playback (Beta)', changes: [
+                            'Added an Offline / Online source switch; Offline remains the default on fresh installations.',
+                            'Integrated the Machhar backend for online search and stream resolution while retaining Mujic’s audio engine and UI.',
+                            'Added first-use consent, a visible beta warning, request timeouts, and session-only remote tracks and URLs.'
+                        ]},
                         { version: '12.0.15', date: '2026-10-14', title: 'Desktop playlist navigation and player visual polish', changes: [
                             'Desktop users can scroll Home playlist and Top Picks rails with the mouse wheel; normal page scrolling is preserved at rail edges.',
                             'Hardened playlist detail opening and artwork refresh so a previous playlist cover cannot carry over.',

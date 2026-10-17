@@ -1,0 +1,31 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const html = read('index.html');
+const workspace = read('js/online-workspace.js');
+const events = read('js/ui-events.js');
+const recs = read('js/online-recommendations.js');
+const provider = read('js/online-provider.js');
+const css = read('css/online-workspace.css');
+const check = (condition, message) => { if (!condition) throw new Error(message); };
+const offlineHeader = html.match(/<div class="home-header">([\s\S]*?)<\/div>\s*<div id="home-empty-state"/);
+const onlineHeader = html.match(/<header class="home-header online-home-heading">([\s\S]*?)<\/header>/);
+check(offlineHeader && onlineHeader, 'Offline and Online Home headers must both use the shared home-header layout.');
+for (const cls of ['home-header-copy','home-title-row','home-title','workspace-toggle-mini','home-greeting','home-actions','home-action-btn']) {
+    check(offlineHeader[0].includes(cls) && onlineHeader[0].includes(cls), `Home header mismatch: ${cls} is not shared.`);
+}
+check(/if\s*\(contextName\s*===\s*'online-search'\)\s*\{\s*OnlineWorkspace\.playSearchResult\(id\);\s*return;\s*\}/.test(events), 'Online search clicks must play the selected result only.');
+check(/const playSearchResult = id =>[\s\S]*?Player\.playContext\(\[selected\],0\)/.test(workspace), 'Search selection must start a one-track queue before related-track autoplay.');
+check(/songs\/\$\{encodeURIComponent\(track\.onlineTrackId\)\}\/suggestions/.test(provider), 'Suggestions should use the documented per-song API endpoint.');
+check(!/fetchTrending\(\)/.test(recs.slice(recs.indexOf('const getCandidates'), recs.indexOf('const addToQueue'))), 'Automatic queue candidates must not be padded with unrelated trending songs.');
+const queryBlock = workspace.slice(workspace.indexOf('const HOME_ARTIST_QUERIES = ['), workspace.indexOf('const hasRealArtistImage'));
+check((queryBlock.match(/'[^']+'/g)||[]).length >= 38, 'Artist discovery needs a catalogue of at least 38 named artist targets.');
+check(html.includes('data-sort="popular"') && html.includes('data-sort="recent"'), 'The artist explorer should expose Most played and Recently played sorting.');
+check(html.includes('id="view-online-artists"') && html.includes('id="online-artists-directory"') && html.includes('id="online-artists-feature-mosaic"'), 'Artist Explorer view/mosaic/directory are required.');
+check(html.includes('id="online-shelf-for-you-artists"') && html.includes('id="online-shelf-recent-artists"') && html.includes('id="online-shelf-popular-artists"'), 'Home must include suggested, recently played, and most-played artist shelves.');
+check(html.indexOf('Show Artwork List Icons') < html.indexOf('Share playlists between libraries') && html.indexOf('Share playlists between libraries') < html.indexOf('Clear streaming cache'), 'Library sharing/cache controls must be grouped after the Library controls.');
+check(!html.includes('<h2 class="section-title">Library sharing</h2>'), 'A standalone Library sharing section should not remain.');
+check(css.includes('#view-online-home .online-home-heading .home-action-btn') && css.includes('@media(max-width:380px)'), 'Online Home responsive dimensions must match Offline breakpoints.');
+check(!workspace.includes("artistCache:'mujic-online-artist-cache-v2'") && !workspace.includes("shelves:'mujic-online-shelves-v4'"), 'Artist/shelf cache namespaces must be bumped for the new layout.');
+console.log('v12.0.30 checks OK: shared header geometry, single-result search playback, related-only autoplay, artist discovery, artist explorer/shelves, grouped settings and cache invalidation.');

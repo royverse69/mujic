@@ -4,6 +4,7 @@
                 try {
                     UI.init();
                     await StorageAdapter.init(); await StorageAdapter.loadSettings();
+                    OnlineMusic.updateModeUI();
                     if (!State.eqPreset) State.eqPreset = State.eq === 'off' ? 'flat' : 'custom';
                     try { if (navigator.storage?.persist) navigator.storage.persist().catch(()=>{}); } catch (e) { Utils.warn(e); }
                     UI.applySettings();
@@ -19,12 +20,15 @@
                     AudioAdapter.init(); AudioAdapter.applySettings(); UI.updateVolumeUI(); UI.updatePlayerSettingsLabels(); UI.updateVisualizerUI(); UI.updateStatsUI(); UI.renderHome(); AudioAdapter.resizeVisualizer(); UI.updateLibraryStorageStats();
                     
                     UI.renderLibrary(); UI.renderPlaylists();
+                    if (window.OnlineWorkspace) OnlineWorkspace.init();
+                    OnlineMusic.updateModeUI();
+                    if (State.playbackSourceMode === 'online') UI.switchView('online-home', true);
                     
                     const rb = document.getElementById('repeat-btn'); rb.classList.toggle('active-state', State.repeat > 0);
                     rb.innerHTML = `<span class="material-symbols-rounded">${State.repeat === 2 ? 'repeat_one' : 'repeat'}</span>`;
                     const sb = document.getElementById('shuffle-btn'); sb.classList.toggle('active-state', State.shuffle);
                     
-                    if (State.resumePlayback && State.queue.length > 0 && State.currentTrackId) {
+                    if (State.playbackSourceMode === 'offline' && State.resumePlayback && State.queue.length > 0 && State.currentTrackId) {
                         State.playbackOrder = State.shuffle ? Player._generateShuffle(State.queue, State.currentTrackId) : [...State.queue];
                         const idx = State.playbackOrder.indexOf(State.currentTrackId); State.queueIndex = idx > -1 ? idx : 0;
                         
@@ -45,7 +49,8 @@
                                 }, { once:true });
                             }
                         }
-                    } else { State.queue = []; State.playbackOrder = []; State.currentTrackId = null; State.queueIndex = -1; }
+                    } else if (State.playbackSourceMode === 'offline') { State.queue = []; State.playbackOrder = []; State.currentTrackId = null; State.queueIndex = -1; }
+                    else { const onlineCurrent=Player.getCurrentTrack(); if(onlineCurrent?.source==='machhar-online') { UI.showMiniPlayer(); UI.updatePlayerMeta(onlineCurrent).catch(()=>{}); } UI.renderQueue(); }
                 } catch (e) {
                     console.error("Initialization failed", e); UI.showToast("Database initialization failed.", "error");
                 }

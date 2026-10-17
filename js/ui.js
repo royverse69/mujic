@@ -31,7 +31,7 @@
                     try { initialize.call(UI); }
                     catch (error) { console.error(`Mujic ${label} initialization failed; continuing startup.`, error); }
                 }
-                setTimeout(() => { const g = document.getElementById('greeting-text'); if (g) g.classList.add('hidden'); }, 25000);
+                setTimeout(() => { document.querySelectorAll('.home-greeting').forEach(g => g.classList.add('hidden')); }, 25000);
                 const persistResume = () => {
                     if (State.resumePlayback && State.currentTrackId) { State.resumePosition = State.currentTime; State.lastPositionSave = Date.now(); StorageAdapter.saveSettings(); }
                 };
@@ -39,7 +39,7 @@
                 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') persistResume(); });
             },
             setupHistory: () => {
-                const validViews = ['home', 'library', 'search', 'settings', 'context-detail'];
+                const validViews = ['home', 'library', 'search', 'settings', 'context-detail', 'online-home', 'online-search', 'online-playlists', 'online-history', 'online-queue', 'online-detail', 'online-artists'];
                 const hashView = location.hash.startsWith('#') ? location.hash.slice(1) : '';
                 const initialView = validViews.includes(hashView) ? hashView : 'home';
                 if (UI.supportsUrlHistory() && (!history.state || !history.state.mujic)) UI.replaceHistoryState({ mujic:true, view:initialView, player:false, sheet:null }, `#${initialView}`);
@@ -57,6 +57,18 @@
                 UI.switchView(UI._prevView || 'library', true);
             },
             switchView: (vid, fromHistory = false) => {
+                // Online History and Queue are Library tabs, not extra navigation destinations.
+                if (State.playbackSourceMode === 'online' && (vid === 'online-history' || vid === 'online-queue')) {
+                    if (window.OnlineWorkspace) OnlineWorkspace.setLibraryTab(vid === 'online-history' ? 'history' : 'queue');
+                    vid = 'online-playlists';
+                }
+                const onlineViews = new Set(['online-home','online-search','online-playlists','online-history','online-queue','online-detail','online-artists']);
+                const offlineViews = new Set(['home','library','search','context-detail']);
+                if (State.playbackSourceMode === 'online' && offlineViews.has(vid)) {
+                    vid = vid === 'search' ? 'online-search' : 'online-home';
+                } else if (State.playbackSourceMode !== 'online' && onlineViews.has(vid)) {
+                    if (vid === 'online-search') vid = 'search'; else vid = 'home';
+                }
                 UI.closeSheets(true);
                 const preservePlayer = fromHistory && !!history.state?.mujic && !!history.state?.player;
                 if (!preservePlayer) UI.closeFullPlayer(true);
@@ -69,7 +81,8 @@
                 
                 const el = document.getElementById(`view-${vid}`); 
                 if(el) { el.classList.remove('hidden'); el.classList.add('active'); }
-                const nav = document.querySelector(`.nav-item[data-view="${vid}"]`); 
+                const navView = vid === 'online-detail' && window.OnlineWorkspace ? OnlineWorkspace.getNavView() : vid === 'online-artists' ? 'online-home' : vid;
+                const nav = document.querySelector(`.nav-item[data-view="${navView}"]`);
                 if(nav) nav.classList.add('active');
                 
                 if (vid === 'home') UI.renderHome();
@@ -78,9 +91,8 @@
                     const activeTab = document.querySelector('.tab-item.active');
                     if(activeTab) UI.switchLibraryTab(activeTab.dataset.tab);
                 }
-                if (vid === 'search') {
-                    UI.handleSearch({target: document.getElementById('search-input')});
-                }
+                if (vid === 'search') { UI.handleSearch({target: document.getElementById('search-input')}); }
+                if (onlineViews.has(vid) && window.OnlineWorkspace) OnlineWorkspace.renderActiveView(vid);
                 const main = document.getElementById('main-content'); if (main) main.scrollTop = 0;
             },
             switchLibraryTab: (tab) => {

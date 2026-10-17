@@ -40,7 +40,7 @@
                 req.onsuccess = () => r(req.result || []); req.onerror = () => r([]);
             }),
             
-            saveTrackMeta: (t) => StorageAdapter._put('tracks', t),
+            saveTrackMeta: (t) => t?.source === 'machhar-online' ? Promise.resolve(null) : StorageAdapter._put('tracks', t),
             deleteTrack: async (id) => { await StorageAdapter._delete('tracks', id); await StorageAdapter._delete('audioBlobs', id); await StorageAdapter._delete('lyricsCache', id); },
             deleteArtwork: (artId) => StorageAdapter._delete('artworks', artId),
             getLibrary: () => StorageAdapter._getAll('tracks'),
@@ -98,7 +98,7 @@
             },
             
             // Every persisted preference lives in this one list. Add a key here and loadSettings() validates it.
-            SAVED_KEYS: ['favorites','favoriteArtists','history','queue','currentTrackId','volume','muted','repeat','shuffle','eq','eqPreset','eqBands',
+            SAVED_KEYS: ['favorites','favoriteArtists','history','queue','currentTrackId','playbackSourceMode','volume','muted','repeat','shuffle','eq','eqPreset','eqBands',
                 'theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','interfaceStyle','cornerRadius','motion',
                 'lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis',
                 'playerBackground','playerArtworkMode','visualizerMode','resumePlayback','resumePosition','librarySort','librarySortDir','showArtworkLists','playStats',
@@ -107,6 +107,14 @@
             saveSettings: () => {
                 const s = {};
                 StorageAdapter.SAVED_KEYS.forEach(key => { s[key] = State[key]; });
+                // Remote catalogue entries are intentionally session-only. Never restore an online
+                // track as if it were a locally stored file after reload.
+                const isRemoteId = (id) => typeof id === 'string' && id.startsWith('machhar:');
+                s.currentTrackId = isRemoteId(s.currentTrackId) ? null : s.currentTrackId;
+                s.queue = (Array.isArray(s.queue) ? s.queue : []).filter(id => !isRemoteId(id));
+                s.history = (Array.isArray(s.history) ? s.history : []).filter(id => !isRemoteId(id));
+                s.favorites = (Array.isArray(s.favorites) ? s.favorites : []).filter(id => !isRemoteId(id));
+                if (!['offline','online'].includes(s.playbackSourceMode)) s.playbackSourceMode = 'offline';
                 s.rate = State.playbackRate; // legacy storage name kept for existing users
                 return StorageAdapter._put('settings', s, 'app_state');
             },
@@ -116,6 +124,7 @@
                 if(s) {
                     State.favorites = s.favorites || []; State.favoriteArtists = s.favoriteArtists || []; State.history = s.history || [];
                     State.queue = s.queue || []; State.currentTrackId = s.currentTrackId || null;
+                    State.playbackSourceMode = s.playbackSourceMode === 'online' ? 'online' : 'offline';
                     if(s.volume !== undefined) State.volume = s.volume; if(s.muted !== undefined) State.muted = s.muted;
                     if(s.repeat !== undefined) State.repeat = s.repeat; if(s.shuffle !== undefined) State.shuffle = s.shuffle;
                     if(s.rate !== undefined) State.playbackRate = s.rate;

@@ -20,7 +20,8 @@
                     } else { input.style.display = 'none'; }
 
                     confirmBtn.innerText = opts.confirmText || 'OK';
-                    confirmBtn.className = 'dialog-btn ' + (opts.destructive ? 'destructive' : 'primary');
+                    cancelBtn.innerText = opts.cancelText || 'Cancel';
+                    cancelBtn.className = 'dialog-btn ' + (opts.destructive ? 'destructive' : 'primary');
                     box.classList.add('active');
 
                     const cleanup = () => {

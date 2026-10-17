@@ -2,10 +2,12 @@
         Object.assign(UI, {
             renderQueue: () => {
                 document.getElementById('queue-list').innerHTML = State.playbackOrder.map((id, i) => {
-                    const t = State.library.find(x => x.id === id); if(!t) return '';
+                    const t = Player.getTrackById(id); if(!t) return '';
                     const isP = i === State.queueIndex;
                     const def = Utils.generateDefaultArt(t.title);
-                    const artHtml = State.showArtworkLists ? `<img src="${def}" data-art-id="${t.artworkId||''}" data-seed="${Utils.escapeHTML(t.title)}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';">` : `<div class="track-art-small art-placeholder" style="background-image:url('${def}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">music_note</span></div>`;
+                    const artHtml = t.source === 'machhar-online' && t.artworkUrl
+                        ? `<img src="${Utils.escapeHTML(t.artworkUrl)}" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
+                        : (State.showArtworkLists ? `<img src="${def}" data-art-id="${t.artworkId||''}" data-seed="${Utils.escapeHTML(t.title)}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';">` : `<div class="track-art-small art-placeholder" style="background-image:url('${def}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">music_note</span></div>`);
                     return `<div class="track-row" data-action="play-queue-index" data-index="${i}" data-queue-index="${i}">
                         <div style="cursor: grab; margin-right: 8px; color: var(--text-tertiary); touch-action:none; user-select:none;" class="drag-handle" role="button" aria-label="Reorder queue item" tabindex="0"><span class="material-symbols-rounded" style="pointer-events:none;">drag_indicator</span></div>
                         ${artHtml}
@@ -86,7 +88,7 @@
                 document.getElementById('mini-title').innerText = t.title; document.getElementById('mini-artist').innerText = t.artist; 
                 document.getElementById('full-title').innerText = t.title; document.getElementById('full-artist').innerText = t.artist;
                 
-                const favBtn = document.getElementById('fav-btn'); const isF = State.favorites.includes(t.id);
+                const favBtn = document.getElementById('fav-btn'); const isF = OnlineMusic?.isOnlineTrack?.(t) ? Boolean(window.OnlineWorkspace?.isFavorite?.(t.id)) : State.favorites.includes(t.id);
                 favBtn.innerHTML = `<span class="material-symbols-rounded" style="font-variation-settings: 'FILL' ${isF?1:0}; color: ${isF?'var(--accent-color)':'inherit'};">favorite</span>`;
                 
                 clearTimeout(State.lyricsTimeout);

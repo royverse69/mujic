@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.19">
+    <meta name="application-version" content="12.0.38">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -26,30 +26,29 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
 
     <link rel="stylesheet" href="./css/app.css">
+    <link rel="stylesheet" href="./css/online-workspace.css">
 </head>
 <body>
     <div id="app-layout">
         <nav id="bottom-nav" class="glass-surface">
             <div class="brand-header">Mujic</div>
-            <div class="nav-item active" data-view="home" data-action="switch-view">
-                <span class="material-symbols-rounded">home</span><span>Home</span>
-            </div>
-            <div class="nav-item" data-view="library" data-action="switch-view">
-                <span class="material-symbols-rounded">library_music</span><span>Library</span>
-            </div>
-            <div class="nav-item" data-view="search" data-action="switch-view">
-                <span class="material-symbols-rounded">search</span><span>Search</span>
-            </div>
-            <div class="nav-item" data-view="settings" data-action="switch-view">
-                <span class="material-symbols-rounded">settings</span><span>Settings</span>
-            </div>
+            <div class="nav-item active" data-workspace="offline" data-view="home" data-action="switch-view"><span class="material-symbols-rounded">home</span><span>Home</span></div>
+            <div class="nav-item" data-workspace="offline" data-view="library" data-action="switch-view"><span class="material-symbols-rounded">library_music</span><span>Library</span></div>
+            <div class="nav-item" data-workspace="offline" data-view="search" data-action="switch-view"><span class="material-symbols-rounded">search</span><span>Search</span></div>
+            <div class="nav-item" data-workspace="online" data-view="online-home" data-action="switch-view" hidden><span class="material-symbols-rounded">home</span><span>Home</span></div>
+            <div class="nav-item" data-workspace="online" data-view="online-playlists" data-action="switch-view" hidden><span class="material-symbols-rounded">library_music</span><span>Library</span></div>
+            <div class="nav-item" data-workspace="online" data-view="online-search" data-action="switch-view" hidden><span class="material-symbols-rounded">search</span><span>Search</span></div>
+            <div class="nav-item" data-workspace="shared" data-view="settings" data-action="switch-view"><span class="material-symbols-rounded">settings</span><span>Settings</span></div>
         </nav>
 
         <main id="main-content">
             <section id="view-home" class="view active">
                 <div class="home-header">
                     <div class="home-header-copy">
-                        <h1 class="home-title">Home</h1>
+                        <div class="home-title-row">
+                            <h1 class="home-title">Home</h1>
+                            <button type="button" class="workspace-toggle-mini" data-action="toggle-playback-mode" data-mode-target="online" aria-label="Switch to streaming music" title="Switch music mode" aria-pressed="false"><span class="workspace-toggle-track"><span class="workspace-toggle-thumb"></span></span><span class="workspace-toggle-beta" aria-hidden="true"></span></button>
+                        </div>
                         <div class="home-greeting" id="greeting-text">Good evening</div>
                     </div>
                     <div class="home-actions" aria-label="Home actions">
@@ -98,6 +97,7 @@
                         <div class="track-list" id="home-tracks"></div>
                     </div>
                 </div>
+                <section class="online-panel online-linked-panel" id="home-linked-online" hidden></section>
             </section>
 
             <section id="view-library" class="view">
@@ -136,6 +136,7 @@
                     <div class="playlist-header-actions" id="detail-context-actions">
                         <button class="btn btn-primary" data-action="play-context-all">Play</button>
                         <button class="btn" data-action="shuffle-context-all">Shuffle</button>
+                        <button class="btn" id="share-offline-playlist-online" data-action="share-offline-playlist-online" hidden><span class="material-symbols-rounded">cloud_upload</span> Copy to streaming library</button>
                     </div>
                 </div>
                 <div class="track-list" id="detail-tracks"></div>
@@ -150,6 +151,123 @@
                 <div id="search-results">
                     <div class="empty-state"><div class="empty-desc">Search your local library.</div></div>
                 </div>
+            </section>
+
+            <section id="view-online-home" class="view online-workspace-view" data-workspace-root="online">
+                <header class="home-header online-home-heading">
+                    <div class="home-header-copy">
+                        <div class="home-title-row"><h1 class="home-title">Home</h1><button type="button" class="workspace-toggle-mini" data-action="toggle-playback-mode" data-mode-target="offline" aria-label="Switch to offline music" title="Switch music mode" aria-pressed="true"><span class="workspace-toggle-track"><span class="workspace-toggle-thumb"></span></span><span class="workspace-toggle-beta" aria-hidden="true"></span></button></div>
+                        <div class="home-greeting" id="online-greeting-text">Good evening</div>
+                    </div>
+                    <div class="home-actions" aria-label="Home actions"><button class="icon-btn home-action-btn" data-action="online-create-playlist" aria-label="New playlist" title="New playlist"><span class="material-symbols-rounded">add</span></button><button class="icon-btn home-action-btn" data-action="switch-view" data-view="online-history" aria-label="Listening history" title="History"><span class="material-symbols-rounded">history</span></button></div>
+                </header>
+                <div class="online-connection-state" id="online-home-connection" hidden><span class="online-connection-dot"></span><span id="online-home-status">No connection</span><button class="text-action" data-action="retry-online-home">Retry</button></div>
+                <div id="online-home-fallback" hidden></div>
+                <section class="online-shelf" id="online-shelf-collections-wrap">
+                    <div class="online-shelf-heading"><h2>Your Playlists</h2><button class="icon-btn online-shelf-more" data-action="switch-view" data-view="online-playlists" aria-label="All playlists"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-card-rail" id="online-home-playlists"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-quick-wrap" hidden>
+                    <div class="online-shelf-heading"><h2>Quick Picks</h2><button class="icon-btn online-shelf-more" data-action="online-search-query" data-query="songs for you" aria-label="More quick picks"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-card-rail" id="online-shelf-quick"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-romantic-wrap">
+                    <div class="online-shelf-heading"><h2>Featured Playlists</h2><button class="icon-btn online-shelf-more" data-action="online-browse-playlists" data-query="Hindi romantic" aria-label="More playlists"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-card-rail" id="online-shelf-romantic"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-trending-wrap">
+                    <div class="online-shelf-heading"><h2>Top Hits</h2><button class="icon-btn online-shelf-more" data-action="online-search-query" data-query="trending Hindi songs" aria-label="More top hits"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-card-rail" id="online-shelf-trending"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-suggested-wrap">
+                    <div class="online-shelf-heading"><h2>Suggested for You</h2><button class="icon-btn online-shelf-more" data-action="online-search-query" data-query="Arijit Singh romantic songs" aria-label="More suggestions"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-card-rail" id="online-shelf-suggested"></div>
+                </section>
+                <section class="online-shelf online-shelf-artist-wall" id="online-shelf-artists-wrap" hidden>
+                    <div class="online-shelf-heading online-artists-heading"><h2>ARTISTS</h2><div class="online-rail-controls"><button class="icon-btn online-shelf-more" data-action="online-shift-artist-wall" data-direction="left" aria-label="Previous artists"><span class="material-symbols-rounded">arrow_back</span></button><button class="icon-btn online-shelf-more" data-action="online-shift-artist-wall" data-direction="right" aria-label="Next artists"><span class="material-symbols-rounded">arrow_forward</span></button><button class="text-action online-show-all-artists" data-action="online-show-all-artists">All artists</button></div></div>
+                    <div class="online-artist-mosaic online-home-artist-mosaic" id="online-home-artists-mosaic"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-for-you-artists-wrap">
+                    <div class="online-shelf-heading"><h2>Artists</h2><button class="text-action" data-action="online-show-all-artists">Explore</button></div>
+                    <div class="online-card-rail online-artist-rail" id="online-shelf-for-you-artists"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-recent-artists-wrap" hidden>
+                    <div class="online-shelf-heading"><h2>Recently Played Artists</h2><button class="text-action" data-action="online-show-all-artists">View all</button></div>
+                    <div class="online-card-rail online-artist-rail" id="online-shelf-recent-artists"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-popular-artists-wrap" hidden>
+                    <div class="online-shelf-heading"><h2>Most Played Artists</h2><button class="text-action" data-action="online-show-all-artists">View all</button></div>
+                    <div class="online-card-rail online-artist-rail" id="online-shelf-popular-artists"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-hits-wrap">
+                    <div class="online-shelf-heading"><h2>Hindi Hits</h2><button class="icon-btn online-shelf-more" data-action="online-search-query" data-query="Hindi hits" aria-label="More Hindi hits"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-card-rail" id="online-shelf-hits"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-english-hits-wrap">
+                    <div class="online-shelf-heading"><h2>English Hits</h2><button class="icon-btn online-shelf-more" data-action="online-search-query" data-query="English hits" aria-label="More English hits"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-card-rail" id="online-shelf-english-hits"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-punjabi-wrap">
+                    <div class="online-shelf-heading"><h2>Punjabi Love Songs</h2><button class="icon-btn online-shelf-more" data-action="online-browse-playlists" data-query="Punjabi love songs" aria-label="More Punjabi playlists"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-card-rail" id="online-shelf-punjabi"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-albums-wrap">
+                    <div class="online-shelf-heading"><h2>Albums for You</h2><button class="icon-btn online-shelf-more" data-action="online-set-search-type" data-type="albums" aria-label="More albums"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-card-rail" id="online-shelf-albums"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-recent-wrap" hidden>
+                    <div class="online-shelf-heading"><h2>Recently Played</h2><button class="icon-btn online-shelf-more" data-action="switch-view" data-view="online-history" aria-label="Full listening history"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-card-rail" id="online-home-recent"></div>
+                </section>
+                <footer class="online-brand-footer" aria-label="Mujic"><div class="online-brand-wordmark">Mujic</div></footer>
+            </section>
+
+            <section id="view-online-artists" class="view online-workspace-view online-artists-page" data-workspace-root="online">
+                <header class="online-artists-page-header"><button class="icon-btn" data-action="online-artists-back" aria-label="Back to Home" title="Back"><span class="material-symbols-rounded">arrow_back</span></button><h1>ARTISTS</h1><span id="online-artists-total">Discover</span></header>
+                <div id="online-artists-feature-mosaic" class="online-artist-mosaic"></div>
+                <div class="online-artist-directory-heading"><div><h2>All artists</h2><p>Discover performers, revisit favourites and explore new music.</p></div><div class="online-artist-sort" role="group" aria-label="Sort artists"><button class="active" data-action="online-sort-artists" data-sort="recommended">For you</button><button data-action="online-sort-artists" data-sort="recent">Recent</button><button data-action="online-sort-artists" data-sort="popular">Most played</button><button data-action="online-sort-artists" data-sort="alpha">A–Z</button></div></div>
+                <div id="online-artists-directory" class="online-artist-directory"></div>
+            </section>
+
+            <section id="view-online-search" class="view online-workspace-view" data-workspace-root="online">
+                <header class="online-page-heading">
+                    <h1 class="online-page-title">Search</h1>
+                    <div class="online-page-actions">
+                        <button class="icon-btn" data-action="online-open-reference" aria-label="Open a share link or song ID" title="Open share link or song ID"><span class="material-symbols-rounded">link</span></button>
+                        <button class="icon-btn" data-action="online-create-playlist" aria-label="New playlist" title="New playlist"><span class="material-symbols-rounded">add</span></button>
+                    </div>
+                </header>
+                <div class="online-search-box"><span class="material-symbols-rounded">search</span><input id="online-search-input" type="search" placeholder="Songs, artists, albums, playlists…" autocomplete="off" spellcheck="false" aria-label="Search music"><button class="icon-btn online-search-clear" data-action="online-clear-search" aria-label="Clear search" title="Clear" hidden><span class="material-symbols-rounded">close</span></button></div>
+                <div class="online-search-tabs" role="tablist" aria-label="Search category">
+                    <button class="online-search-tab active" role="tab" aria-selected="true" data-action="online-set-search-type" data-type="all">All</button>
+                    <button class="online-search-tab" role="tab" aria-selected="false" data-action="online-set-search-type" data-type="songs">Songs</button>
+                    <button class="online-search-tab" role="tab" aria-selected="false" data-action="online-set-search-type" data-type="playlists">Playlists</button>
+                    <button class="online-search-tab" role="tab" aria-selected="false" data-action="online-set-search-type" data-type="albums">Albums</button>
+                    <button class="online-search-tab" role="tab" aria-selected="false" data-action="online-set-search-type" data-type="artists">Artists</button>
+                </div>
+                <div id="online-search-results"></div>
+            </section>
+
+            <section id="view-online-playlists" class="view online-workspace-view" data-workspace-root="online">
+                <header class="online-page-heading"><h1 class="online-page-title">Library</h1><div class="online-page-actions"><button class="icon-btn" data-action="online-create-playlist" aria-label="New playlist" title="New playlist"><span class="material-symbols-rounded">add</span></button></div></header>
+                <div class="online-library-tabs" role="tablist" aria-label="Your library">
+                    <button class="online-library-tab active" role="tab" aria-selected="true" data-action="online-library-tab" data-tab="playlists">Playlists</button>
+                    <button class="online-library-tab" role="tab" aria-selected="false" data-action="online-library-tab" data-tab="liked">Liked</button>
+                    <button class="online-library-tab" role="tab" aria-selected="false" data-action="online-library-tab" data-tab="history">History</button>
+                    <button class="online-library-tab" role="tab" aria-selected="false" data-action="online-library-tab" data-tab="queue">Queue</button>
+                </div>
+                <section class="online-library-panel" id="online-library-playlists-panel">
+                    <div id="online-playlists-content"></div>
+                    <section class="online-shelf online-discover-section"><div class="online-shelf-heading"><h2>Discover</h2></div><div class="online-chip-list"><button class="online-category-chip" data-action="online-browse-playlists" data-query="Hindi romantic">Romantic</button><button class="online-category-chip" data-action="online-browse-playlists" data-query="Punjabi hits">Punjabi</button><button class="online-category-chip" data-action="online-browse-playlists" data-query="90s Bollywood">90s Bollywood</button><button class="online-category-chip" data-action="online-browse-playlists" data-query="Lo-fi chill">Lo-fi</button></div><div id="online-public-playlists"></div></section>
+                </section>
+                <section class="online-library-panel" id="online-library-liked-panel" hidden><div id="online-liked-content"></div></section>
+                <section class="online-library-panel" id="online-library-history-panel" hidden><div class="online-library-panel-actions"><h2>Recently Played</h2><button class="text-action" data-action="online-clear-history">Clear</button></div><div id="online-history-content"></div></section>
+                <section class="online-library-panel" id="online-library-queue-panel" hidden><div class="online-library-panel-actions"><h2>Up Next</h2><button class="text-action" data-action="online-queue-clear">Clear</button></div><div id="online-queue-content"></div></section>
+            </section>
+
+            <section id="view-online-detail" class="view online-workspace-view" data-workspace-root="online">
+                <header class="online-page-heading"><button class="text-action" data-action="online-detail-back"><span class="material-symbols-rounded">arrow_back</span> Back</button><div class="online-page-actions"></div></header>
+                <div id="online-remote-detail"></div>
             </section>
 
             <section id="view-settings" class="view">
@@ -473,6 +591,11 @@
                             <input type="checkbox" id="show-artwork-lists" class="settings-control" data-setting="showArtworkLists">
                         </div>
                     </div>
+                    <div class="settings-row workspace-sharing-row keep-desc">
+                        <div class="settings-text"><div class="settings-label">Share playlists between libraries</div><div class="settings-desc" id="link-workspaces-status">Liked songs, listening history and playlists stay separate. Enable only to copy playlists between libraries.</div></div>
+                        <label class="settings-switch"><input type="checkbox" id="link-workspaces-toggle" data-action="toggle-workspaces-link"><span></span></label>
+                    </div>
+                    <div class="settings-row workspace-cache-row keep-desc"><div class="settings-text"><div class="settings-label">Clear streaming cache</div><div class="settings-desc">Remove cached catalogue details and stream links. Your downloaded and local audio stays untouched.</div></div><button class="btn workspace-cache-button" data-action="clear-online-cache">Clear cache</button></div>
                 </div>
                 
                 <div class="settings-section">
@@ -712,7 +835,8 @@
         <div class="sheet-option" id="ctx-next" data-action="context-opt-next"><span class="material-symbols-rounded">playlist_play</span> Play Next</div>
         <div class="sheet-option" id="ctx-queue" data-action="context-opt-queue"><span class="material-symbols-rounded">queue_music</span> Add to Queue</div>
         <div class="sheet-option" id="ctx-fav" data-action="context-opt-fav"><span class="material-symbols-rounded" id="ctx-fav-icon">favorite_border</span> <span id="ctx-fav-text">Favorite</span></div>
-        <div class="sheet-option" id="ctx-playlist" data-action="context-opt-playlist"><span class="material-symbols-rounded">playlist_add</span> Add to Playlist</div>
+        <div class="sheet-option" id="ctx-download" data-action="online-download-track" data-id="" hidden><span class="material-symbols-rounded">download</span><span>Download AAC · Highest quality</span></div>
+        <div class="sheet-option" id="ctx-playlist" data-action="context-opt-playlist"><span class="material-symbols-rounded" id="ctx-playlist-icon">playlist_add</span> <span id="ctx-playlist-text">Add to Playlist</span></div>
         <div class="sheet-option destructive" id="ctx-remove" data-action="context-opt-remove"><span class="material-symbols-rounded">delete</span> Remove from Library</div>
     </div>
 
@@ -806,6 +930,12 @@
         <div class="playlist-track-picker-actions"><button type="button" class="btn" data-action="close-sheets">Cancel</button><button type="button" class="btn btn-primary" data-action="save-playlist-selected-songs">Add selected</button></div>
     </div>
 
+    <div class="bottom-sheet glass-surface" id="online-playlist-picker-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header"><div class="sheet-title-area"><div class="sheet-title">Add to Streaming Playlist</div><div class="sheet-subtitle">Streaming playlists stay separate from your local collections.</div></div></div>
+        <div id="online-playlist-picker-list" class="track-list"></div>
+    </div>
+
     <div class="bottom-sheet glass-surface" id="add-playlist-sheet">
         <div class="sheet-handle"></div>
         <div class="sheet-header"><div class="sheet-title">Add to Playlist</div></div>
@@ -824,6 +954,12 @@
     <script defer src="./js/core.js"></script>
     <script defer src="./js/storage.js"></script>
     <script defer src="./js/lyrics.js"></script>
+    <script defer src="./js/online-cache.js"></script>
+    <script defer src="./js/online-provider.js"></script>
+    <script defer src="./js/online-lyrics.js"></script>
+    <script defer src="./js/online-recommendations.js"></script>
+    <script defer src="./js/online-downloader.js"></script>
+    <script defer src="./js/online-workspace.js"></script>
     <script defer src="./js/dialogs.js"></script>
     <script defer src="./js/player.js"></script>
     <script defer src="./js/library.js"></script>

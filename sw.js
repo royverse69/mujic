@@ -1,7 +1,13 @@
-const CACHE_NAME = 'mujic-pwa-v12.0.19-stability';
+const CACHE_NAME = 'mujic-pwa-v12.0.38-online-home-media-chunks';
+const MEDIA_CHUNK_CACHE = 'mujic-media-chunks-v1';
+const MEDIA_IMAGE_CACHE = 'mujic-media-images-v1';
+const BACKEND_MEDIA_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/media';
+const MAX_MEDIA_CHUNK_BYTES = 262144;
+const MAX_MEDIA_IMAGE_ENTRIES = 50;
+const MAX_MEDIA_IMAGE_BYTES = 20 * 1024 * 1024;
 const APP_SHELL = [
-  './', './index.html', './VERSION', './manifest.webmanifest', './changlog.json', './css/app.css',
-  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js', './js/ui-player.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
+  './', './index.html', './VERSION', './manifest.webmanifest', './changlog.json', './css/app.css', './css/online-workspace.css',
+  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js', './js/ui-player.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
   './icons/icon-192.png', './icons/icon-512.png'
 ];
 const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];
@@ -15,11 +21,136 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('mujic-pwa-') && k !== CACHE_NAME).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
+const allowedMediaUrl = value => {
+  try {
+    const u = new URL(value);
+    const host = u.hostname.toLowerCase().replace(/\.$/, '');
+    return u.protocol === 'https:' && !u.username && !u.password && (!u.port || u.port === '443') &&
+      (host === 'saavncdn.com' || host.endsWith('.saavncdn.com') || host === 'jiosaavn.com' || host.endsWith('.jiosaavn.com'));
+  } catch (_) { return false; }
+};
+const mediaSourceFromRoute = url => {
+  const src = url.searchParams.get('src') || '';
+  return allowedMediaUrl(src) ? new URL(src).href : '';
+};
+const mediaRouteKey = (pathname, source) => {
+  const key = new URL(pathname, self.location.origin);
+  key.searchParams.set('src', source);
+  return new Request(key.href, { method:'GET' });
+};
+const fetchBackendMedia = (source, request, rangeOverride = '') => {
+  const target = new URL(BACKEND_MEDIA_BASE);
+  target.searchParams.set('url', source);
+  const headers = new Headers();
+  for (const name of ['Range','If-Range','Accept']) {
+    const value = name === 'Range' && rangeOverride ? rangeOverride : request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  if (rangeOverride) headers.set('Range', rangeOverride);
+  return fetch(target.href, { method:'GET', headers, credentials:'omit', cache:'no-store', redirect:'follow' });
+};
+const storeMediaChunk = async (cache, key, response) => {
+  const range = response.headers.get('Content-Range') || '';
+  const match = range.match(/^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i);
+  if (response.status !== 206 || !match || Number(match[1]) !== 0 || !Number.isFinite(Number(match[3])) || Number(match[2]) - Number(match[1]) + 1 > MAX_MEDIA_CHUNK_BYTES + 1024) return false;
+  const lengthHint=Number(response.headers.get('Content-Length'));
+  if(Number.isFinite(lengthHint)&&lengthHint>MAX_MEDIA_CHUNK_BYTES+1024)return false;
+  const bytes = await response.arrayBuffer();
+  if (!bytes.byteLength || bytes.byteLength > MAX_MEDIA_CHUNK_BYTES + 1024 || bytes.byteLength !== Number(match[2]) - Number(match[1]) + 1) return false;
+  const headers = new Headers({
+    'Content-Type':response.headers.get('Content-Type') || 'audio/mpeg',
+    'X-Mujic-Chunk-Start':match[1], 'X-Mujic-Chunk-End':match[2],
+    'X-Mujic-Total-Length':match[3], 'X-Mujic-Cached-At':String(Date.now()),
+    'Accept-Ranges':'bytes'
+  });
+  await cache.put(key, new Response(bytes, { status:200, headers }));
+  const keys = await cache.keys();
+  const records = [];
+  for (const record of keys) {
+    const res = await cache.match(record);
+    records.push({record, at:Number(res?.headers.get('X-Mujic-Cached-At'))||0});
+  }
+  records.sort((a,b)=>b.at-a.at);
+  await Promise.all(records.slice(6).map(item=>cache.delete(item.record)));
+  return true;
+};
+const serveCachedMediaRange = async (cache, key, requestRange) => {
+  if (!requestRange) return null;
+  const match = String(requestRange).match(/^bytes=(\d+)-(\d*)$/i);
+  if (!match) return null;
+  const start = Number(match[1]);
+  const entry = await cache.match(key);
+  if (!entry) return null;
+  if (Date.now() - Number(entry.headers.get('X-Mujic-Cached-At')||0) > 30*60*1000) { await cache.delete(key); return null; }
+  const endChunk = Number(entry.headers.get('X-Mujic-Chunk-End'));
+  const total = Number(entry.headers.get('X-Mujic-Total-Length'));
+  if (!Number.isFinite(endChunk) || !Number.isFinite(total) || start > endChunk || start >= total) return null;
+  const requestedEnd = match[2] ? Number(match[2]) : endChunk;
+  const end = Math.min(Number.isFinite(requestedEnd) ? requestedEnd : endChunk, endChunk, total-1);
+  if (end < start) return null;
+  const bytes = await entry.arrayBuffer();
+  const body = bytes.slice(start, end+1);
+  return new Response(body, { status:206, headers:{
+    'Content-Type':entry.headers.get('Content-Type')||'audio/mpeg',
+    'Content-Length':String(body.byteLength), 'Content-Range':`bytes ${start}-${end}/${total}`,
+    'Accept-Ranges':'bytes', 'Cache-Control':'no-store'
+  }});
+};
+const handleMediaRoute = async request => {
+  const url = new URL(request.url);
+  const source = mediaSourceFromRoute(url);
+  if (!source) return new Response('Unsupported media source', {status:403,headers:{'Content-Type':'text/plain; charset=utf-8'}});
+  const prefetch = url.searchParams.get('_mujic_prefetch') === '1';
+  const chunkCache = await caches.open(MEDIA_CHUNK_CACHE);
+  const key = mediaRouteKey(url.pathname, source);
+  if (prefetch) {
+    const response = await fetchBackendMedia(source, request, `bytes=0-${MAX_MEDIA_CHUNK_BYTES-1}`);
+    if (response.status === 206) {
+      const clone = response.clone();
+      try { await storeMediaChunk(chunkCache, key, clone); } catch (_) {}
+    }
+    return response;
+  }
+  const range = request.headers.get('Range');
+  const cachedRange = await serveCachedMediaRange(chunkCache, key, range);
+  if (cachedRange) return cachedRange;
+  const imageRequest = /(?:^|,|\s)image\//i.test(request.headers.get('Accept')||'');
+  const imageCache = await caches.open(MEDIA_IMAGE_CACHE);
+  if (imageRequest && !range) {
+    const cached = await imageCache.match(key);
+    if (cached && Date.now()-Number(cached.headers.get('X-Mujic-Cached-At')||0)<7*24*60*60*1000) return cached;
+  }
+  const response = await fetchBackendMedia(source, request);
+  if (imageRequest && !range && response.ok && response.status===200 && (response.headers.get('Content-Type')||'').toLowerCase().startsWith('image/')) {
+    try {
+      const headers = new Headers(response.headers);
+      headers.set('X-Mujic-Cached-At',String(Date.now()));
+      const body = await response.clone().arrayBuffer();
+      headers.set('X-Mujic-Size-Bytes',String(body.byteLength));
+      if (body.byteLength <= 1536*1024) {
+        await imageCache.put(key,new Response(body,{status:200,headers}));
+        const keys=await imageCache.keys();
+        const records=[];let totalBytes=0;
+        for(const record of keys){const item=await imageCache.match(record);const bytes=Number(item?.headers.get('X-Mujic-Size-Bytes'))||0;totalBytes+=bytes;records.push({record,at:Number(item?.headers.get('X-Mujic-Cached-At'))||0,bytes});}
+        records.sort((a,b)=>b.at-a.at);
+        const remove=new Set(records.slice(MAX_MEDIA_IMAGE_ENTRIES).map(item=>item.record.url));
+        for(const item of records){if(totalBytes<=MAX_MEDIA_IMAGE_BYTES)break;if(!remove.has(item.record.url)){remove.add(item.record.url);totalBytes-=item.bytes;}}
+        await Promise.all(records.filter(item=>remove.has(item.record.url)).map(item=>imageCache.delete(item.record)));
+      }
+    } catch (_) {}
+  }
+  return response;
+};
+
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   const same = url.origin === self.location.origin;
+  if (same && url.pathname.endsWith('/__mujic_media__')) {
+    event.respondWith(handleMediaRoute(req).catch(() => new Response('Media proxy unavailable', {status:502,headers:{'Content-Type':'text/plain; charset=utf-8'}})));
+    return;
+  }
   const isFontCss = !same && url.hostname === 'fonts.googleapis.com';
   const isFontFile = !same && url.hostname === 'fonts.gstatic.com';
   if (!same && !isFontCss && !isFontFile) return; // lyrics/provider APIs never block the offline shell
@@ -44,4 +175,10 @@ self.addEventListener('fetch', event => {
       return Response.error();
     }
   })());
+});
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'CLEAR_ONLINE_MEDIA_CACHE') {
+    event.waitUntil(Promise.all([caches.delete(MEDIA_CHUNK_CACHE), caches.delete(MEDIA_IMAGE_CACHE)]));
+  }
 });

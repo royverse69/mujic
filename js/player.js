@@ -27,8 +27,9 @@
                         State.currentTime = resume;
                     }
                     UI.updateDuration(); UI.updateProgress(); AudioAdapter.updateMediaSessionPosition();
-                    if(t && (!t.duration || Math.abs(t.duration - State.duration) > 2)) { 
-                        t.duration = State.duration; StorageAdapter.saveTrackMeta(t); 
+                    if(t && (!t.duration || Math.abs(t.duration - State.duration) > 2)) {
+                        t.duration = State.duration;
+                        if (t.source !== 'machhar-online') StorageAdapter.saveTrackMeta(t);
                     }
                 });
                 AudioAdapter.audio.addEventListener('ended', () => {
@@ -49,6 +50,12 @@
                 });
                 AudioAdapter.audio.addEventListener('error', (e) => {
                     const track = Player.getCurrentTrack();
+                    if (track?.source === 'machhar-online') {
+                        OnlineMusic.invalidateStream(track.id);
+                        console.error('Online stream error', e);
+                        UI.showToast('Streaming audio failed. Tap play to refresh the stream.', 'error');
+                        return;
+                    }
                     if (track && State.autoSkipOnError && State.playbackOrder.length > 1) AudioAdapter.handlePlaybackFailure(State.playbackRequestId, track.fileName || track.title, e);
                     else { console.error("Audio error", e); UI.showToast("Playback error occurred", "error"); Player.pause(); }
                 });
@@ -177,8 +184,29 @@
                 if (AudioAdapter.requiresWebAudio()) { try { await AudioAdapter.initWebAudio(); } catch (e) { Utils.warn(e); } }
                 if(requestId!==State.playbackRequestId) return false;
                 if (AudioAdapter.masterGain) { try { const now=AudioAdapter.ctx.currentTime; AudioAdapter.masterGain.gain.cancelScheduledValues(now); AudioAdapter.masterGain.gain.setValueAtTime(fadeIn ? 0 : 1, now); } catch (e) { Utils.warn(e); } }
-                try{ await AudioAdapter.audio.play(); if (fadeIn) AudioAdapter.fadeMaster(1,220); return true; }
+                try{ await AudioAdapter.audio.play(); AudioAdapter.audio.dataset.mujicTrackId=State.currentTrackId || ''; if (fadeIn) AudioAdapter.fadeMaster(1,220); return true; }
                 catch(e){ AudioAdapter.handlePlaybackFailure(requestId, trackName, e); return false; }
+            },
+            playRemote: async (url, trackName='streaming track', requestId=State.playbackRequestId, fadeIn=false) => {
+                if (requestId !== State.playbackRequestId || !url) return false;
+                if (AudioAdapter.currentObjectUrl) { URL.revokeObjectURL(AudioAdapter.currentObjectUrl); AudioAdapter.currentObjectUrl = null; }
+                // Match the Machhar player's CORS-enabled audio setup. A remote URL is never
+                // downloaded into IndexedDB; it is streamed through the same native audio element.
+                AudioAdapter.audio.pause();
+                AudioAdapter.audio.crossOrigin = 'anonymous';
+                AudioAdapter.audio.preload = 'metadata';
+                AudioAdapter.audio.src = url;
+                if (AudioAdapter.requiresWebAudio()) { try { await AudioAdapter.initWebAudio(); } catch (e) { Utils.warn(e); } }
+                if (requestId !== State.playbackRequestId) return false;
+                if (AudioAdapter.masterGain) { try { const now=AudioAdapter.ctx.currentTime; AudioAdapter.masterGain.gain.cancelScheduledValues(now); AudioAdapter.masterGain.gain.setValueAtTime(fadeIn ? 0 : 1, now); } catch (e) { Utils.warn(e); } }
+                try { await AudioAdapter.audio.play(); AudioAdapter.audio.dataset.mujicTrackId=State.currentTrackId || ''; if (fadeIn) AudioAdapter.fadeMaster(1, 220); return true; }
+                catch (e) {
+                    if (requestId === State.playbackRequestId) {
+                        console.warn('Online stream could not start', e);
+                        UI.showToast('Streaming audio failed to start. Tap play to request a fresh stream.', 'error');
+                    }
+                    return false;
+                }
             },
             pause: () => { AudioAdapter.audio.pause(); },
             play: async () => { try { if (AudioAdapter.requiresWebAudio()) await AudioAdapter.initWebAudio(); if (AudioAdapter.masterGain) { const p=AudioAdapter.masterGain.gain; p.cancelScheduledValues(AudioAdapter.ctx.currentTime); p.setTargetAtTime(1,AudioAdapter.ctx.currentTime,.025); } await AudioAdapter.audio.play(); } catch(e) { console.error("Play resume failed", e); } },
@@ -457,10 +485,11 @@
         };
 
         const Player = {
+            getTrackById: (id) => State.library.find(t => t.id === id) || OnlineMusic.getTrack(id),
             getCurrentTrack: () => {
                 if (State.queueIndex < 0 || State.queueIndex >= State.playbackOrder.length) return null;
                 const id = State.playbackOrder[State.queueIndex];
-                return State.library.find(t => t.id === id);
+                return Player.getTrackById(id);
             },
             _generateShuffle: (arr, preserveCurrentId) => {
                 let a = [...arr];
@@ -479,6 +508,7 @@
                 if (State.shuffle) { State.playbackOrder = Player._generateShuffle(State.queue, startId); State.queueIndex = 0; } 
                 else { State.playbackOrder = [...State.queue]; State.queueIndex = startIndex; }
                 Player.startCurrentTrack();
+                if (contextList.some(track => track?.source === 'machhar-online') && window.OnlineWorkspace) OnlineWorkspace.saveQueueSnapshot('online');
             },
             shuffleContext: (contextList) => {
                 if (!contextList || contextList.length === 0) return;
@@ -491,6 +521,7 @@
                 const requestId = ++State.playbackRequestId;
                 const track = Player.getCurrentTrack();
                 if (!track) { AudioAdapter.pause(); return; }
+                const shouldRememberOnlineTrack = track.source === 'machhar-online' && State.currentTrackId !== track.id;
                 
                 if (State.currentTrackId && State.currentTrackId !== track.id && State.resumePlayback) {
                     State.resumePosition = State.currentTime;
@@ -501,24 +532,31 @@
                 State.currentTime = 0; State.duration = 0; State.resumePosition = 0; State.statsLastAudioTime = null; AudioAdapter._wf = null;
                 UI.updateProgress(); UI.updateDuration();
                 
-                let blob;
-                try {
-                    blob = await StorageAdapter.getAudioBlob(track.id);
-                } catch (err) {
-                    console.warn("Storage fetch failed", err);
+                const isOnline = track.source === 'machhar-online';
+                if (isOnline && State.playbackSourceMode !== 'online') {
+                    UI.showToast('Switch to streaming playback to play catalogue tracks.', 'info');
+                    return;
                 }
-                
+                // Pause the previous source while resolving an online stream, so a slow
+                // backend response cannot leave old audio playing under new track metadata.
+                if (isOnline) AudioAdapter.pause();
+                let blob = null;
+                if (!isOnline) {
+                    try { blob = await StorageAdapter.getAudioBlob(track.id); }
+                    catch (err) { console.warn('Storage fetch failed', err); }
+                }
                 if (requestId !== State.playbackRequestId) return;
-
-                if (!blob) { 
-                    UI.showToast("Audio file not found or unavailable offline.", "error"); 
-                    Player.pause(); 
-                    return; 
+                if (!isOnline && !blob) {
+                    UI.showToast('Audio file not found or unavailable offline.', 'error');
+                    Player.pause();
+                    return;
                 }
 
-                State.history = State.history.filter(id => id !== track.id);
-                State.history.unshift(track.id);
-                if(State.history.length > 100) State.history.pop();
+                if (!isOnline) {
+                    State.history = State.history.filter(id => id !== track.id);
+                    State.history.unshift(track.id);
+                    if (State.history.length > 100) State.history.pop();
+                }
                 StorageAdapter.saveSettings();
 
                 const fadeIn = !!State.transitionFadePending;
@@ -527,35 +565,103 @@
                 UI.updatePlayerMeta(track).catch(err => console.warn('Player metadata update failed', err));
                 UI.showMiniPlayer(); UI.updateHighlights(false); UI.renderQueue();
                 try {
-                    const played = await AudioAdapter.playBlob(blob, track.fileName, requestId, fadeIn);
+                    let played = false;
+                    if (isOnline) {
+                        const streamUrl = await OnlineMusic.resolveStream(track);
+                        if (requestId !== State.playbackRequestId) return;
+                        if (!streamUrl) throw new Error('No online stream URL was returned.');
+                        played = await AudioAdapter.playRemote(streamUrl, track.fileName || track.title, requestId, fadeIn);
+                        if (!played) OnlineMusic.invalidateStream(track.id);
+                    } else {
+                        played = await AudioAdapter.playBlob(blob, track.fileName, requestId, fadeIn);
+                    }
                     if (played && requestId === State.playbackRequestId) {
-                        Stats.recordPlay(track);
-                        StorageAdapter.recordPlayHistory(track).then(entry => { if (entry) { State.playHistory.unshift(entry); State.playHistoryOffset = (Number(State.playHistoryOffset) || 0) + 1; } }).catch(()=>{});
+                        // Keep online and local listening histories isolated. Online recommendations
+                        // begin after first successful playback; they never block start-up audio.
+                        if (isOnline) {
+                            if (shouldRememberOnlineTrack && window.OnlineRecommendations) OnlineRecommendations.remember(track);
+                            if (window.OnlineWorkspace) OnlineWorkspace.recordPlay(track);
+                            if (window.OnlineRecommendations) {
+                                Promise.resolve(OnlineRecommendations.primeQueue(track)).finally(() => {
+                                    const upcoming=(State.playbackOrder||[]).slice(State.queueIndex+1,State.queueIndex+3).map(id=>Player.getTrackById(id)).filter(item=>item?.source==='machhar-online');
+                                    if (window.OnlineMusic) OnlineMusic.prefetchStreams(upcoming).catch(()=>{});
+                                    if (window.OnlineWorkspace) OnlineWorkspace.saveQueueSnapshot('online');
+                                });
+                            }
+                        } else {
+                            Stats.recordPlay(track);
+                            StorageAdapter.recordPlayHistory(track).then(entry => { if (entry) { State.playHistory.unshift(entry); State.playHistoryOffset = (Number(State.playHistoryOffset) || 0) + 1; } }).catch(()=>{});
+                        }
                     }
                 } catch(e) {
-                    UI.showToast("Failed to play track.", "error");
+                    if (requestId === State.playbackRequestId) {
+                        UI.updatePlayPause();
+                        UI.showToast(isOnline ? 'Streaming audio is unavailable. Try another result or retry later.' : 'Failed to play track.', 'error');
+                    }
+                    console.warn('Playback start failed:', e);
                 }
                 if (requestId !== State.playbackRequestId) return;
                 AudioAdapter.updateMediaSessionMeta(track);
             },
             togglePlay: () => {
-                if (State.queueIndex === -1 && State.playbackOrder.length > 0) { State.queueIndex = 0; Player.startCurrentTrack(); } 
+                const current = Player.getCurrentTrack();
+                if (!current) {
+                    if (State.playbackOrder.length > 0) { State.queueIndex = Math.max(0,State.queueIndex); Player.startCurrentTrack(); }
+                    return;
+                }
+                if (current.source === 'machhar-online' && State.playbackSourceMode !== 'online') { UI.showToast('Switch to streaming playback to resume this track.', 'info'); return; }
+                if (State.queueIndex === -1 && State.playbackOrder.length > 0) { State.queueIndex = 0; Player.startCurrentTrack(); }
+                else if (AudioAdapter.audio.paused && (AudioAdapter.audio.dataset.mujicTrackId !== current.id || (current.source === 'machhar-online' && AudioAdapter.audio.error))) Player.startCurrentTrack();
                 else if (AudioAdapter.audio.paused) AudioAdapter.play();
                 else AudioAdapter.pause();
             },
             pause: () => AudioAdapter.pause(),
             next: async (options = {}) => {
                 if (State.playbackOrder.length === 0) return;
+                const currentTrack = Player.getCurrentTrack();
+                const originalQueueIndex = State.queueIndex;
+                let skippedEquivalentTracks = 0;
+                // Search pages may intentionally show the original, remix and slowed versions so
+                // each can be manually selected. On natural track end, however, do not auto-play a
+                // song equivalent to something already heard in this session or recent history.
+                if (options.ended && State.repeat === 0 && State.playbackSourceMode === 'online' && window.OnlineRecommendations?.wasPlayedOrEquivalent) {
+                    const maxSkips = State.playbackOrder.length;
+                    while (State.queueIndex + 1 < State.playbackOrder.length && skippedEquivalentTracks < maxSkips) {
+                        const candidate = Player.getTrackById(State.playbackOrder[State.queueIndex + 1]);
+                        if (!candidate || candidate.source !== 'machhar-online' || !OnlineRecommendations.wasPlayedOrEquivalent(candidate)) break;
+                        State.queueIndex++; skippedEquivalentTracks++;
+                    }
+                    if (skippedEquivalentTracks) {
+                        UI.renderQueue();
+                        if (window.OnlineWorkspace) OnlineWorkspace.saveQueueSnapshot('online');
+                    }
+                }
+                const isAtQueueEnd = State.queueIndex >= State.playbackOrder.length - 1;
+                const shouldAutoplayRecommend = !!(options.ended && isAtQueueEnd && State.repeat === 0 &&
+                    State.playbackSourceMode === 'online' && currentTrack?.source === 'machhar-online' && window.OnlineRecommendations);
                 const ticket = ++State.playbackRequestId;
                 const canFade = !!(State.crossfade && !options.skipTransition && !options.ended && !AudioAdapter.audio.paused && AudioAdapter.masterGain);
                 if (canFade) await AudioAdapter.fadeMaster(0, 200);
                 if (ticket !== State.playbackRequestId) return;
                 AudioAdapter.pause();
                 State.transitionFadePending = canFade;
+                if (shouldAutoplayRecommend) {
+                    try {
+                        const appended = await OnlineRecommendations.enqueueNext(currentTrack);
+                        if (ticket !== State.playbackRequestId) return;
+                        if (appended) {
+                            State.queueIndex++;
+                            Player.startCurrentTrack();
+                            return;
+                        }
+                    } catch (error) {
+                        console.warn('Online recommendation failed:', error);
+                    }
+                }
                 State.queueIndex++;
                 if (State.queueIndex >= State.playbackOrder.length) {
                     if (State.repeat === 1) { State.queueIndex = 0; }
-                    else { State.queueIndex = State.playbackOrder.length - 1; State.transitionFadePending=false; AudioAdapter.pause(); AudioAdapter.seek(0); return; }
+                    else { State.queueIndex = skippedEquivalentTracks ? originalQueueIndex : State.playbackOrder.length - 1; State.transitionFadePending=false; AudioAdapter.pause(); AudioAdapter.seek(0); return; }
                 }
                 Player.startCurrentTrack();
             },
@@ -596,6 +702,7 @@
             toggleFavorite: (targetId = null) => {
                 const id = targetId || State.currentTrackId;
                 if (!id) return;
+                if (OnlineMusic.isOnlineId(id)) { if (window.OnlineWorkspace) OnlineWorkspace.toggleFavorite(id); else UI.showToast('Unable to save this track right now.', 'info'); return; }
                 const idx = State.favorites.indexOf(id); const isF = idx === -1;
                 if(isF) State.favorites.push(id); else State.favorites.splice(idx, 1);
                 StorageAdapter.saveSettings(); 
@@ -613,30 +720,48 @@
             },
             addNext: (id) => {
                 if (State.preventDuplicateQueue && State.playbackOrder.includes(id)) { UI.showToast('That song is already in the queue', 'info'); UI.closeSheets(); return; }
-                if (State.playbackOrder.length === 0) return Player.playContext(State.library, State.library.findIndex(t=>t.id===id));
+                const track = Player.getTrackById(id);
+                if (!track) return;
+                if (State.playbackOrder.length === 0) {
+                    if (track.source === 'machhar-online') {
+                        const list = window.OnlineWorkspace ? OnlineWorkspace.getPlaybackContext(null,id) : (State.searchResults || []).filter(item => item.source === 'machhar-online');
+                        const context = OnlineRecommendations.filterPlaybackContext(list.length ? list : [track], id);
+                        return Player.playContext(context, 0);
+                    }
+                    return Player.playContext(State.library, State.library.findIndex(t=>t.id===id));
+                }
                 State.playbackOrder.splice(State.queueIndex + 1, 0, id);
                 if (!State.queue.includes(id)) State.queue.push(id);
-                UI.renderQueue(); UI.showToast("Playing next", "playlist_play"); UI.closeSheets();
+                UI.renderQueue(); if(track.source==='machhar-online' && window.OnlineWorkspace) OnlineWorkspace.saveQueueSnapshot('online'); UI.showToast("Playing next", "playlist_play"); UI.closeSheets();
             },
             addQueue: (id) => {
                 if (State.preventDuplicateQueue && State.playbackOrder.includes(id)) { UI.showToast('That song is already in the queue', 'info'); UI.closeSheets(); return; }
-                if (State.playbackOrder.length === 0) return Player.playContext(State.library, State.library.findIndex(t=>t.id===id));
+                const track = Player.getTrackById(id);
+                if (!track) return;
+                if (State.playbackOrder.length === 0) {
+                    if (track.source === 'machhar-online') {
+                        const list = window.OnlineWorkspace ? OnlineWorkspace.getPlaybackContext(null,id) : (State.searchResults || []).filter(item => item.source === 'machhar-online');
+                        const context = OnlineRecommendations.filterPlaybackContext(list.length ? list : [track], id);
+                        return Player.playContext(context, 0);
+                    }
+                    return Player.playContext(State.library, State.library.findIndex(t=>t.id===id));
+                }
                 State.playbackOrder.push(id);
                 if (!State.queue.includes(id)) State.queue.push(id);
-                UI.renderQueue(); UI.showToast("Added to queue", "queue_music"); UI.closeSheets();
+                UI.renderQueue(); if(track.source==='machhar-online' && window.OnlineWorkspace) OnlineWorkspace.saveQueueSnapshot('online'); UI.showToast("Added to queue", "queue_music"); UI.closeSheets();
             },
             clearQueue: () => {
                 if (State.queueIndex < 0) return;
                 const curId = State.playbackOrder[State.queueIndex];
                 State.playbackOrder = [curId]; State.queue = [curId]; State.queueIndex = 0;
-                UI.renderQueue(); UI.showToast("Queue cleared", "clear_all");
+                UI.renderQueue(); if(window.OnlineWorkspace && State.playbackSourceMode==='online') OnlineWorkspace.saveQueueSnapshot('online'); UI.showToast("Queue cleared", "clear_all");
             },
             removeFromQueue: (index) => {
                 if (index < 0 || index >= State.playbackOrder.length || index === State.queueIndex) return;
                 const id = State.playbackOrder[index]; State.playbackOrder.splice(index, 1);
                 const qIdx = State.queue.indexOf(id); if(qIdx > -1) State.queue.splice(qIdx, 1);
                 if (index < State.queueIndex) State.queueIndex--;
-                UI.renderQueue();
+                UI.renderQueue(); if(window.OnlineWorkspace && State.playbackSourceMode==='online') OnlineWorkspace.saveQueueSnapshot('online');
             },
             playQueueIndex: (index) => {
                 if (index >= 0 && index < State.playbackOrder.length) { State.queueIndex = index; Player.startCurrentTrack(); }
@@ -650,7 +775,7 @@
                 else if (State.queueIndex < from && State.queueIndex >= to) State.queueIndex++;
                 // While shuffled, State.queue keeps the original order so turning shuffle off restores it.
                 if (!State.shuffle) State.queue = [...State.playbackOrder];
-                StorageAdapter.saveSettings(); UI.renderQueue();
+                StorageAdapter.saveSettings(); UI.renderQueue(); if(window.OnlineWorkspace && State.playbackSourceMode==='online') OnlineWorkspace.saveQueueSnapshot('online');
             },
             setSleepTimer: (val) => {
                 clearInterval(State.sleepTimer.intervalId); State.sleepTimer.intervalId = null;

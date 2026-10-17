@@ -1,8 +1,201 @@
 {
+  "latest": {
+    "version": "12.0.38",
+    "date": "2026-10-17",
+    "title": "Online Home, Playlist Actions and Next-Track Chunk Cache",
+    "changes": [
+      "Moved Your Playlists to the top of Online Home and made the bottom Mujic wordmark explicitly visible with proper end-of-page spacing.",
+      "Deduplicated artist rails and directory data by artist ID and normalized name so repeated artist cards don't appear.",
+      "Added a track-actions button to Online song cards, opening the existing playlist picker and queue actions for custom streaming playlists.",
+      "Added service-worker-backed next-track prefetch for the first 256 KiB only, keyed by the selected media source, and serves the cached range to matching playback Range requests before continuing with upstream byte ranges.",
+      "Added bounded lazy artwork caching and expanded Online desktop content width while keeping phone rails compact.",
+      "Kept changes scoped to Online UI/provider and service worker; Offline track/library view and local audio path were not changed."
+    ]
+  },
   "app": "Mujic",
-  "version": "12.0.18",
-  "updatedAt": "2026-10-16",
+  "version": "12.0.38",
+  "updatedAt": "2026-10-17",
   "entries": [
+    {
+      "version": "12.0.38",
+      "date": "2026-10-17",
+      "title": "Online Home, Playlist Actions and Next-Track Chunk Cache",
+      "changes": [
+        "Moved Your Playlists to the top of Online Home and made the bottom Mujic wordmark explicitly visible with proper end-of-page spacing.",
+        "Deduplicated artist rails and directory data by artist ID and normalized name so repeated artist cards don't appear.",
+        "Added a track-actions button to Online song cards, opening the existing playlist picker and queue actions for custom streaming playlists.",
+        "Added service-worker-backed next-track prefetch for the first 256 KiB only, keyed by the selected media source, and serves the cached range to matching playback Range requests before continuing with upstream byte ranges.",
+        "Added bounded lazy artwork caching and expanded Online desktop content width while keeping phone rails compact.",
+        "Kept changes scoped to Online UI/provider and service worker; Offline track/library view and local audio path were not changed."
+      ]
+    },
+    {
+      "version": "12.0.37",
+      "date": "2026-10-17",
+      "title": "Online Home Simplification and Playback Efficiency",
+      "changes": [
+        "Reduced Online Home to one artist scroller; full artist directory remains accessible.",
+        "Added a Liked Songs tile beside custom Online playlists, with direct navigation to Online liked songs.",
+        "Matched the Online mobile navigation active highlight to the Offline navigation treatment.",
+        "Kept artwork lazy-loaded and changed remote audio to metadata-first native streaming; existing next-track stream prefetch remains enabled for upcoming queue items.",
+        "Bumped service-worker cache namespace. Offline UI and local playback logic remain unchanged."
+      ]
+    },
+    {
+      "version": "12.0.36",
+      "date": "2026-10-17",
+      "title": "Online Performance, Artist Lazy Loading and Home Polish",
+      "changes": [
+        "Artist detail requests no duplicate profile-song preview batch and load one bounded song page initially; additional pages load only on demand.",
+        "Select only the highest-quality artwork URL for display and one highest-quality source for playback, while retaining independent AAC/M4A filtering for downloads.",
+        "Removed hidden artwork preloads that duplicated visible image requests and kept track metadata caching bounded.",
+        "Added the ListenFree-style artist mosaic to Online Home, interactive artist-wall controls, Quick Picks, English Hits and a muted Mujic wordmark at the bottom of Home.",
+        "Fixed Online liked-song hydration for older namespaced saved IDs and kept artist/profile cache bounded.",
+        "Changed only Online workspace styling and Online-specific logic; the Offline interface and local-library behavior remain unchanged."
+      ]
+    },
+    {
+      "version": "12.0.33",
+      "date": "2026-10-17",
+      "title": "Render-Only API and Media Routing",
+      "changes": [
+        "Kept every documented catalogue API request on the Render backend /api route and routed LRCLIB/LyricsPlus calls through fixed Render endpoints.",
+        "Added a same-backend media relay for known Saavn/JioSaavn audio and artwork CDNs, including byte-range forwarding so playback seeking remains supported.",
+        "Restricted media proxy requests and redirects to HTTPS hosts under saavncdn.com and jiosaavn.com instead of creating an arbitrary URL proxy.",
+        "Included a merge-safe Flask patch and deployment instructions; the live Render service must be updated and redeployed separately.",
+        "Kept app UI and Offline workspace unchanged and bumped the PWA cache namespace."
+      ]
+    },
+    {
+      "version": "12.0.32",
+      "date": "2026-10-17",
+      "title": "Render-Only API Routing",
+      "changes": [
+        "Routed all catalogue API requests through the configured Render backend under /api, preserving the documented search, song, suggestion, artist, album and playlist paths.",
+        "Added fixed-origin, allowlisted server-side proxy routes for the catalogue API; arbitrary destination URLs are not accepted.",
+        "Routed LRCLIB exact/search and LyricsPlus fallback requests through the same Render backend instead of calling those API hosts from the browser.",
+        "Included a merge-safe backend route patch and deployment instructions; these server routes must be merged into the live Render backend and redeployed to activate proxy endpoints.",
+        "Kept the app UI and Offline workspace unchanged and bumped the PWA cache namespace."
+      ]
+    },
+    {
+      "version": "12.0.31",
+      "date": "2026-10-17",
+      "title": "Foreign Artist Song Retrieval Fix",
+      "changes": [
+        "Added an artist-name-based song-search fallback when the documented artist-song endpoint returns an empty collection for an international artist.",
+        "Filter fallback songs by exact artist ID or normalized artist name, preventing unrelated search results from leaking into artist pages.",
+        "Keep empty artist song pages retryable rather than rendering a zero-result API response as a completed catalogue.",
+        "Improve song artist display by checking artistMap primary-artist metadata when normal artist arrays are absent."
+      ]
+    },
+    {
+      "version": "12.0.30",
+      "date": "2026-10-17",
+      "title": "Seamless Home, Artist Discovery and Search Queue Fixes",
+      "changes": [
+        "Kept Online Home title, mode switch and action buttons on the same responsive geometry as Offline Home without changing the Offline view.",
+        "Added Most Played Artists Home shelf beside suggested and recently played artists, backed by local play-count and recency statistics.",
+        "Rejected explicitly non-artist API entities from artist discovery and refreshed artist/catalogue cache namespaces.",
+        "Ensured tapping a search result starts only that song and automatic Up Next prioritizes the documented similar-song endpoint.",
+        "Improved multi-word search relevance to prevent unrelated partial word matches from being queued.",
+        "Kept sharing and streaming-cache controls together in Library & Listening settings, and bumped the PWA cache version."
+      ]
+    },
+    {
+      "version": "12.0.29",
+      "date": "2026-10-17",
+      "title": "Artist Explorer and Search Queue Fixes",
+      "changes": [
+        "Aligned Online Home header geometry with Offline Home.",
+        "Added an API-backed Artists explorer with personalized artist shelves and play-count sorting.",
+        "Fixed search taps to play the selected song and improved related-track-only autoplay suggestions.",
+        "Moved library sharing and streaming cache controls into Library & Listening settings."
+      ]
+    },
+    {
+      "version": "12.0.28",
+      "date": "2026-10-17",
+      "title": "Artist profiles, suggestions and playlist deduplication",
+      "changes": [
+        "Rebuilt Home artist discovery around exact artist names, clickable portrait cards and artist-specific image fallback from the documented artist and song-artist records.",
+        "Improved artist detail retries and pagination so a failed first page or a short preview does not silently mark a catalogue complete.",
+        "Removed equivalent recordings from imported and saved online playlists, liked songs, history, playback lists and automatic suggestions, including duplicates with different catalogue IDs.",
+        "Added initials-based portrait fallbacks instead of generic artist icons, and removed the misleading Unknown Artist subtitle from artist entities.",
+        "Tightened the offline Home top spacing, positioned its mode toggle beside Home, and repaired Library-sharing and streaming-cache settings descriptions without redesigning the Offline workspace.",
+        "Versioned the PWA cache and expanded regression coverage for artist portrait recovery, catalogue links and queue-safe suggestion deduplication."
+      ]
+    },
+    {
+      "version": "12.0.27",
+      "date": "2026-10-17",
+      "title": "Artist catalogue and workspace polish",
+      "changes": [
+        "Added a swipeable Artist shelf to Home; artist cards open a detail page and preserve the correct root navigation selection.",
+        "Fixed artist song pagination so page-size inference uses returned rows, retries failed pages, and avoids caching incomplete catalogues as complete.",
+        "Fixed artwork fallback parsing, duplicate-track filtering, direct song IDs/share links, and playback messages.",
+        "Reduced extra Home spacing, placed the mode switch beside Home, added a mode transition animation and a large muted Mujic footer wordmark.",
+        "Retained the four-tab navigation, separate local/streaming liked songs and playlists, and refined the Library sharing and cache settings."
+      ]
+    },
+    {
+      "version": "12.0.26",
+      "date": "2026-10-17",
+      "title": "Minimal streaming UX and full artist catalogue",
+      "changes": [
+        "Merged the online listening history and upcoming queue into tabs in the Online Library; kept the Offline navigation unchanged.",
+        "Removed repeated per-track mode badges, tightened the Online top edge, and kept a compact mode switch beside the Home actions.",
+        "Added a swipeable, clickable circular artist rail and complete paginated artist songs/albums detail loading.",
+        "Fixed short-page pagination metadata and search shelf collection so catalogue APIs capped at a few results per page can still continue.",
+        "Artist Play waits for the full fetched track catalogue and removes equivalent duplicate recordings before building playback context.",
+        "Kept Online Favorites/playlists/history/queue separate from Offline; appearance settings remain shared through the app settings model.",
+        "Added ID/link support for song lookup and detail helpers for albums, artists and playlists; updated regression checks and app-shell version."
+      ]
+    },
+    {
+      "version": "12.0.25",
+      "date": "2026-10-17",
+      "title": "Clean streaming workspace",
+      "changes": [
+        "Redesigned the streaming workspace with clean horizontal music and public-playlist shelves, collection details, and a compact mode switch beside the add action.",
+        "Kept streaming-specific layout and behavior in its own stylesheet and dedicated JavaScript modules; the Offline stylesheet was not changed in this release.",
+        "Improved short-page search handling so initial search fills up to 24 unique results and further results remain available through Load More.",
+        "Strengthened duplicate and remix detection in autoplay recommendations while preserving alternate tracks that users explicitly select in search.",
+        "Added public playlist discovery plus album, artist, and playlist detail loading using the documented catalogue endpoints.",
+        "Lyrics lookup inspects embedded response text and song details before using external fallback sources; no undocumented lyrics endpoint is assumed.",
+        "Updated the service-worker shell cache for the isolated streaming stylesheet and refreshed version metadata."
+      ]
+    },
+    {
+      "version": "12.0.23",
+      "date": "2026-10-17",
+      "title": "Separate Online and Offline workspaces",
+      "changes": [
+        "Switched the primary online catalogue adapter to the supplied supplied catalogue API contract: song search uses query/page/limit, song details, and documented suggestions endpoints; Machhar remains a compatibility fallback.",
+        "Separated Online search, online search history, listening history, playlists and queue snapshots from the Offline library, history, playlists and queues.",
+        "Manual search/playlist playback keeps all visible results and variants. Strong duplicate/remix/version filtering applies to automatic recommendations so a user-selected remix remains playable.",
+        "Short API pages now trigger a bounded automatic page probe and Load More remains available; online metadata cache can retain up to 50 recent result records and warms a small number of artworks.",
+        "Improved queue switching/resume source safety and recommendation queue filling so online playback can continue beyond the initial search results.",
+        "Added optional Linked workspaces for copying offline playlists to matched online catalogue tracks and online playlists to tracks already present in the local library.",
+        "Added a clear red Online mode marker with yellow beta/disconnected status, dedicated connectivity/error recovery, and separate workspace navigation.",
+        "Updated lyrics lookup to respect the supplied spec: catalog/details first where lyric text is available, then LRCLIB and optional LyricsPlus; the spec does not define a dedicated lyrics endpoint.",
+        "Updated service-worker cache and project documentation for the new dual-workspace build.",
+        "Fixed a pagination calculation bug: short pages now compare the provider\u2019s actual start offset plus returned count against the documented total, not the requested page size.",
+        "Natural autoplay skips an exact track or likely remix/alternate recording already heard in recent Online history; manual selection of those search results remains allowed.",
+        "Added the Online Queue directly to workspace navigation and restored the missing installable-PWA icon assets."
+      ]
+    },
+    {
+      "version": "12.0.20",
+      "date": "2026-10-17",
+      "title": "Optional Online Playback (Beta)",
+      "changes": [
+        "Added an accessible Offline / Online source switch; Offline remains the default on fresh installations.",
+        "Integrated the supplied Machhar backend for online search and stream resolution without replacing Mujic\u2019s audio engine or main UI.",
+        "Added first-use beta consent, a persistent online-mode warning, request timeouts, and clearer failure states.",
+        "Remote stream URLs and catalogue results remain session-only and are not saved as local audio or local-library tracks."
+      ]
+    },
     {
       "version": "12.0.18",
       "date": "2026-10-16",
@@ -124,7 +317,7 @@
       "date": "2026-10-12",
       "title": "Gemini Auth API compatibility",
       "changes": [
-        "Switched Gemini key testing and AI song identification to Google’s Interactions REST API, the documented flow for current Gemini Auth API keys.",
+        "Switched Gemini key testing and AI song identification to Google\u2019s Interactions REST API, the documented flow for current Gemini Auth API keys.",
         "Corrected current Flash model fallback order and improved response parsing for Interactions API steps.",
         "Added explicit diagnostics for legacy Standard keys, invalid keys, project permissions, quotas, model availability, and network errors.",
         "Updated Gemini key setup help with the current Auth-key migration requirement."
@@ -150,7 +343,7 @@
         "Added a compact Gemini API key help guide with setup steps and common error troubleshooting.",
         "Added Favorite Artists beside Playlists on wide Home layouts and retained a compact stacked layout on phones.",
         "Added horizontal swipes between Home, Library, Search and Settings without hijacking vertical scrolls, tracks, rails, controls or settings subpages.",
-        "Simplified the footer to “Made with ♥ by Machhar”.",
+        "Simplified the footer to \u201cMade with \u2665 by Machhar\u201d.",
         "Hid the waveform canvas and effect-only styling when Audio Waveform is Off; regular playback progress remains visible without glow."
       ]
     },

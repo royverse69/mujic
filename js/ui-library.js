@@ -198,19 +198,26 @@
                 if (cur && cur.id !== 'view-context-detail') UI._prevView = cur.id.replace('view-', '');
                 UI.switchView('context-detail'); UI.lazyLoadArtwork();
                 UI.refreshPlaylistActions(State.currentPlaylistId);
+                if(window.OnlineWorkspace) OnlineWorkspace.updateWorkspaceUI();
             },
             buildTrackRow: (t, contextName, contextData = null) => {
-                const isF = State.favorites.includes(t.id);
+                const isF = t?.source === 'machhar-online' ? Boolean(window.OnlineWorkspace?.isFavorite?.(t.id)) : State.favorites.includes(t.id);
                 const def = Utils.generateDefaultArt(t.title);
                 const artHtml = State.showArtworkLists ? `<img src="${def}" data-art-id="${t.artworkId||''}" data-seed="${Utils.escapeHTML(t.title)}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';">` : `<div class="track-art-small art-placeholder" style="background-image:url('${def}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">music_note</span></div>`;
-                const playlistControls = contextName === 'playlist' && contextData ? `
+                const safeId = Utils.escapeHTML(t.id);
+                const rowArt = (t.source === 'machhar-online' && t.artworkUrl)
+                    ? `<img src="${Utils.escapeHTML(t.artworkUrl)}" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
+                    : artHtml;
+                const playlistControls = t.source === 'machhar-online'
+                    ? `<button class="icon-btn" data-action="track-options" data-id="${safeId}" aria-label="More options for ${Utils.escapeHTML(t.title)}"><span class="material-symbols-rounded" style="pointer-events:none;">more_horiz</span></button>`
+                    : (contextName === 'playlist' && contextData ? `
                     <button class="icon-btn" data-action="move-playlist-track" data-key1="${Utils.escapeHTML(contextData.playlistId)}" data-index="${contextData.playlistIndex}" data-direction="up" ${contextData.playlistIndex===0?'disabled':''} aria-label="Move track up"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_up</span></button>
                     <button class="icon-btn" data-action="move-playlist-track" data-key1="${Utils.escapeHTML(contextData.playlistId)}" data-index="${contextData.playlistIndex}" data-direction="down" ${contextData.playlistIndex===contextData.playlistLength-1?'disabled':''} aria-label="Move track down"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_down</span></button>
                     <button class="icon-btn" data-action="remove-from-playlist" data-key1="${Utils.escapeHTML(contextData.playlistId)}" data-index="${contextData.playlistIndex}" aria-label="Remove track from playlist"><span class="material-symbols-rounded" style="pointer-events:none;">remove_circle_outline</span></button>
-                ` : `${isF ? '<span class="material-symbols-rounded" style="font-size:16px; margin-right:8px; color:var(--accent-color)">favorite</span>' : ''}<button class="icon-btn" data-action="track-options" data-id="${t.id}"><span class="material-symbols-rounded" style="pointer-events:none;">more_horiz</span></button>`;
+                ` : `${isF ? '<span class="material-symbols-rounded" style="font-size:16px; margin-right:8px; color:var(--accent-color)">favorite</span>' : ''}<button class="icon-btn" data-action="track-options" data-id="${safeId}"><span class="material-symbols-rounded" style="pointer-events:none;">more_horiz</span></button>`);
                 const homeLongPress = contextName === 'home' ? ' home-track-longpress-target' : '';
-                return `<div class="track-row${homeLongPress}" data-action="play-track" data-id="${t.id}" data-context="${contextName}" data-longpress-track="${contextName === 'home' ? '1' : '0'}">
-                    ${artHtml}
+                return `<div class="track-row${homeLongPress}" data-action="play-track" data-id="${safeId}" data-context="${contextName}" data-longpress-track="${contextName === 'home' ? '1' : '0'}">
+                    ${rowArt}
                     <div class="track-meta"><div class="item-title">${Utils.escapeHTML(t.title)}</div><div class="item-subtitle">${Utils.escapeHTML(t.artist)}</div></div>
                     ${playlistControls}
                 </div>`;
@@ -240,21 +247,32 @@
                 }
             },
             openTrackOptions: async (id) => {
-                State.actionTargetId = id; const track = State.library.find(t => t.id === id); if (!track) return;
-                
-                document.getElementById('ctx-title').innerText = track.title; document.getElementById('ctx-artist').innerText = track.artist;
-                
+                State.actionTargetId = id;
+                const track = Player.getTrackById(id); if (!track) return;
+                const isOnlineTrack = track.source === 'machhar-online';
+                document.getElementById('ctx-title').innerText = track.title;
+                document.getElementById('ctx-artist').innerText = track.artist || 'Unknown Artist';
                 const def = Utils.generateDefaultArt(track.title);
                 const artEl = document.getElementById('ctx-art');
-                artEl.src = def;
-                ArtworkCache.getUrl(track.artworkId).then(url => { if(url !== Utils.defaultArt) artEl.src = url; });
-                
-                const isF = State.favorites.includes(id);
+                artEl.src = (isOnlineTrack && track.artworkUrl) ? track.artworkUrl : def;
+                if (!isOnlineTrack && track.artworkId) ArtworkCache.getUrl(track.artworkId).then(url => { if (url !== Utils.defaultArt && artEl.isConnected) artEl.src = url; });
+                const isF = isOnlineTrack ? Boolean(window.OnlineWorkspace?.isFavorite?.(id)) : State.favorites.includes(id);
                 document.getElementById('ctx-fav-icon').innerText = isF ? 'favorite' : 'favorite_border';
                 document.getElementById('ctx-fav-icon').style.color = isF ? 'var(--accent-color)' : 'inherit';
                 document.getElementById('ctx-fav-text').innerText = isF ? 'Remove Favorite' : 'Favorite';
-                
-                document.getElementById('playlist-options-list').innerHTML = State.playlists.map(p => 
+                const download = document.getElementById('ctx-download');
+                if (download) { download.hidden = !isOnlineTrack; download.dataset.id = isOnlineTrack ? id : ''; }
+                // Online tracks can be organized in the Online workspace's own playlists.
+                ['ctx-fav', 'ctx-remove'].forEach(elementId => {
+                    const el = document.getElementById(elementId); if (el) el.hidden = isOnlineTrack;
+                });
+                const playlistAction=document.getElementById('ctx-playlist');
+                const playlistActionText=document.getElementById('ctx-playlist-text');
+                const playlistActionIcon=document.getElementById('ctx-playlist-icon');
+                if(playlistAction) playlistAction.hidden=false;
+                if(playlistActionText) playlistActionText.textContent=isOnlineTrack?'Add to Streaming Playlist':'Add to Playlist';
+                if(playlistActionIcon) playlistActionIcon.textContent=isOnlineTrack?'cloud_queue':'playlist_add';
+                document.getElementById('playlist-options-list').innerHTML = State.playlists.map(p =>
                     `<div class="sheet-option" data-action="add-to-playlist" data-key1="${p.id}"><span class="material-symbols-rounded">queue_music</span> ${Utils.escapeHTML(p.name)}</div>`
                 ).join('');
                 UI.showSheet('track-options-sheet');
