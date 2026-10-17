@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.41">
+    <meta name="application-version" content="12.0.42">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -712,7 +712,6 @@
         <div class="mini-controls">
             <button class="icon-btn mini-action" data-action="toggle-play" aria-label="Play/Pause"><span class="material-symbols-rounded" id="mini-play-btn" style="font-variation-settings: 'FILL' 1;">play_arrow</span></button>
             <button class="icon-btn mini-action" data-action="next-track" aria-label="Next" title="Next track" type="button"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_next</span></button>
-            <button class="icon-btn mini-action mini-more-btn" data-action="mini-track-options" aria-label="Song options" title="Song options" type="button"><span class="material-symbols-rounded">more_horiz</span></button>
         </div>
         <div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-progress"></div></div>
     </div>
@@ -808,6 +807,11 @@
         <div class="sheet-option" id="more-immersive-lyrics-btn" data-action="toggle-immersive-lyrics">
             <span class="material-symbols-rounded" id="more-immersive-lyrics-icon">fullscreen</span><span id="more-immersive-lyrics-text">Immersive Lyrics</span>
         </div>
+        <div class="sheet-divider" aria-hidden="true"></div>
+        <div class="sheet-option" data-action="current-song-playlist"><span class="material-symbols-rounded">playlist_add</span><span>Add to Playlist</span></div>
+        <div class="sheet-option" data-action="current-song-info"><span class="material-symbols-rounded">info</span><span>Song Info</span></div>
+        <div class="sheet-option" data-action="current-song-download"><span class="material-symbols-rounded">download</span><span>Download · Highest Quality</span></div>
+        <div class="sheet-option" data-action="current-song-share"><span class="material-symbols-rounded">share</span><span>Share Song</span></div>
     </div>
 
     <div class="bottom-sheet glass-surface" id="volume-sheet">

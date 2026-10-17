@@ -74,6 +74,7 @@
             UI.switchView('online-home');
             await Player.playContext([track], 0);
             UI.showMiniPlayer();
+            UI.openFullPlayer();
             try { history.replaceState(null, document.title, location.pathname + location.hash); } catch (_) {}
             UI.showToast(`Opened ${track.title} from Mujic`, 'music_note');
             return true;

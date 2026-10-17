@@ -36,8 +36,6 @@
                 const miniNext = mini?.querySelector('[data-action="next-track"]');
                 miniPlay?.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); Player.togglePlay(); }, true);
                 miniNext?.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); Player.next(); }, true);
-                const miniMore = mini?.querySelector('[data-action="mini-track-options"]');
-                miniMore?.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); const track=Player.getCurrentTrack(); if(track) UI.openTrackOptions(track.id); else UI.showToast('Nothing is playing yet.','info'); }, true);
                 mini?.querySelector('.mini-progress-bar')?.addEventListener('click', e => e.stopPropagation());
                 mini?.querySelector('.mini-progress-bar')?.addEventListener('pointerdown', e => e.stopPropagation());
                 // One long-press controller for playlist cards and Home songs.
@@ -337,10 +335,36 @@
                                 await OnlineMusic.setMode('online');
                                 return;
                             }
-                            case 'mini-track-options':
-                                e.preventDefault(); e.stopPropagation(); { const track=Player.getCurrentTrack(); if(track) await UI.openTrackOptions(track.id); else UI.showToast('Nothing is playing yet.','info'); } return;
                             case 'track-options':
                                 e.preventDefault(); e.stopPropagation(); await UI.openTrackOptions(btn.dataset.id); return;
+                            case 'current-song-info': {
+                                e.preventDefault(); e.stopPropagation(); const track=Player.getCurrentTrack();
+                                if(!track){UI.showToast('Nothing is playing yet.','info');return;}
+                                State.actionTargetId=track.id; UI.closeSheets(); await TrackActions.showInfo(track.id); return;
+                            }
+                            case 'current-song-share': {
+                                e.preventDefault(); e.stopPropagation(); const track=Player.getCurrentTrack();
+                                if(!track){UI.showToast('Nothing is playing yet.','info');return;}
+                                State.actionTargetId=track.id; UI.closeSheets(); await TrackActions.share(track.id); return;
+                            }
+                            case 'current-song-download': {
+                                e.preventDefault(); e.stopPropagation(); const track=Player.getCurrentTrack();
+                                if(!track){UI.showToast('Nothing is playing yet.','info');return;}
+                                if(!OnlineMusic.isOnlineTrack(track)){UI.showToast('Downloads are available for streaming tracks.','info');return;}
+                                UI.closeSheets(); await OnlineDownloader.download(track); return;
+                            }
+                            case 'current-song-playlist': {
+                                e.preventDefault(); e.stopPropagation(); const track=Player.getCurrentTrack();
+                                if(!track){UI.showToast('Nothing is playing yet.','info');return;}
+                                State.actionTargetId=track.id; UI.closeSheets();
+                                if(OnlineMusic.isOnlineTrack(track)){
+                                    if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
+                                    setTimeout(()=>OnlineWorkspace.openPlaylistPicker(track.id),120);
+                                } else {
+                                    setTimeout(()=>UI.openTrackOptions(track.id),120);
+                                }
+                                return;
+                            }
                             case 'online-download-track':
                                 e.preventDefault(); e.stopPropagation();
                                 UI.closeSheets();

@@ -467,3 +467,22 @@ body.online-mode #view-online-home{padding-bottom:12px!important;overflow:visibl
   .online-card-rail:hover,.online-artist-rail:hover { scrollbar-color:rgba(255,255,255,.28) transparent; }
 }
 @media (prefers-reduced-motion:reduce) { .online-card-rail,.online-artist-rail { scroll-behavior:auto!important; } }
+
+/* v12.0.42 — stable independent wordmark and compact end-of-home spacing. */
+body.online-mode #view-online-home .online-brand-footer,
+body.online-mode #view-online-home .online-brand-footer[hidden]{
+  display:block!important;visibility:visible!important;content-visibility:visible!important;contain:none!important;opacity:1!important;
+  position:relative!important;z-index:2!important;min-height:clamp(76px,9vw,124px)!important;
+  margin:28px 0 calc(14px + env(safe-area-inset-bottom,0px))!important;padding:0 0 12px!important;
+  overflow:visible!important;border-bottom:1px solid var(--border-subtle)!important;isolation:isolate;
+}
+body.online-mode #view-online-home .online-brand-wordmark{
+  display:block!important;visibility:visible!important;opacity:1!important;content-visibility:visible!important;
+  width:max-content!important;max-width:100%!important;font-size:clamp(72px,13vw,168px)!important;
+  font-weight:900!important;letter-spacing:-.09em!important;line-height:.86!important;
+  color:rgba(255,255,255,.25)!important;-webkit-text-fill-color:rgba(255,255,255,.25)!important;
+  white-space:nowrap!important;user-select:none!important;pointer-events:none!important;
+}
+/* Let mobile browsers provide their native spring/bounce at the end of the main scroll. */
+#main-content{overscroll-behavior-y:auto!important;-webkit-overflow-scrolling:touch}
+@media(max-width:767px){body.online-mode #view-online-home .online-brand-footer{min-height:72px!important;margin-top:26px!important;margin-bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;padding-bottom:10px!important}body.online-mode #view-online-home .online-brand-wordmark{font-size:clamp(64px,18vw,112px)!important}}
