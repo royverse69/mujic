@@ -1,9 +1,5 @@
 /* Copyright mujic@royverse69 */
-/* Mujic UI layer (core: history state, init, view switching, sheets, toasts, volume/sleep UI). Other UI modules extend this object via Object.assign(UI, ...). */
         const UI = {
-            // History URL mutation is not consistently supported for file:// pages (Windows users
-            // often open index.html directly). Keep browser-history helpers guarded so navigation
-            // can never abort the rest of startup on those origins.
             supportsUrlHistory: () => location.protocol === 'http:' || location.protocol === 'https:',
             pushHistoryState: (state, hash) => {
                 if (!UI.supportsUrlHistory()) return false;
@@ -17,8 +13,6 @@
             },
             init: () => {
                 if (Utils.isIOS()) document.body.classList.add('ios');
-                // Initialize each subsystem independently. A failure in history, gestures, or a
-                // nonessential panel must not prevent the global navigation handlers from binding.
                 const initSteps = [
                     ['settings grouping', UI.setupSettingsGroups],
                     ['navigation history', UI.setupHistory],
@@ -58,7 +52,6 @@
                 UI.switchView(UI._prevView || 'library', true);
             },
             switchView: (vid, fromHistory = false) => {
-                // Online History and Queue are Library tabs, not extra navigation destinations.
                 if (State.playbackSourceMode === 'online' && (vid === 'online-history' || vid === 'online-queue')) {
                     if (window.OnlineWorkspace) OnlineWorkspace.setLibraryTab(vid === 'online-history' ? 'history' : 'queue');
                     vid = 'online-playlists';

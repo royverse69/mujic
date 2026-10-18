@@ -39,11 +39,11 @@ const required = [
   ['independent online playlist key', 'mujic-online-playlists-v1', workspace],
   ['per-workspace queue snapshots', 'mujic-workspace-queues-v1', workspace],
   ['optional linked workspace setting', 'mujic-workspaces-linked-v1', workspace],
-  ['metadata cache avoids hidden artwork preloads', 'Persist lightweight metadata only', cache],
-  ['manual tracks retain selected context', 'Manual selection is intentional', events],
+  ['metadata cache stores sanitized lightweight metadata', 'sanitize', cache],
+  ['manual tracks play the selected shelf context', 'OnlineWorkspace.playTrackFromShelf(btn.dataset.id,btn.dataset.context)', events],
   ['online selection starts at tapped track', 'list.findIndex(track => track.id === id)', events],
   ['online autoplay priming', 'OnlineRecommendations.primeQueue', player],
-  ['metadata cache excludes signed URLs', 'Lightweight online cache', cache],
+  ['metadata cache stores no signed stream URLs', "source: 'machhar-online'", cache],
   ['online modules included in app-shell cache', 'js/online-workspace.js', sw],
   ['track rows do not carry repeated online badges', 'More options for ${Utils.escapeHTML(t.title)}', read('js/ui-library.js')]
 ];
@@ -59,8 +59,6 @@ if (!fs.existsSync(path.join(root, 'docs/api-integration.md'))) throw new Error(
 if (!sw.includes('./css/online-workspace.css')) throw new Error('The online workspace stylesheet must be cached by the service worker.');
 if (!fs.existsSync(path.join(root, 'icons/icon-192.png')) || !fs.existsSync(path.join(root, 'icons/icon-512.png'))) throw new Error('The manifest and service-worker PWA icon files must exist.');
 
-// Integration smoke-test: a server that caps pages at three results should still fill the first
-// view from later pages, and online results must not overwrite the Offline search context.
 (async () => {
   const localSearchResults = [{ id: 'local-song-1', title: 'Local only' }];
   const target = { innerHTML: '', dataset: {} };

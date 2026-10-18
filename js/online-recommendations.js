@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Online autoplay/recommendation engine. Never auto-queues likely duplicate recordings or variants. */
 (() => {
     const playedIds = new Set();
     const playedFingerprints = [];
@@ -33,14 +32,8 @@
         const a=fingerprint(candidate),b=fingerprint(reference);
         if((a.id&&a.id===b.id)||(a.onlineId&&a.onlineId===b.onlineId)||(a.isrc&&a.isrc===b.isrc))return true;
         if(!a.title||!b.title)return false;
-        // A release subtitle such as '(From …)' or a remix suffix is not a new core song title.
-        // Same-title recordings are duplicates only when the artist identity also matches (or one
-        // side lacks an artist); different artists can legitimately release songs with the same title.
         const sharedArtist=a.artists?.some(name=>b.artists?.includes(name));
         if(a.title===b.title){
-            // If one catalogue title explicitly marks a remix/variant, or the only title difference
-            // is release metadata (for example '(From …)'), treat it as the same recording even
-            // when one catalogue record credits a composer/featured singer instead of the lead.
             if(a.variant||b.variant||a.original!==b.original)return true;
             if(sharedArtist || (a.artist && b.artist && a.artist===b.artist))return true;
             if(!a.artist || !b.artist)return true;
@@ -71,14 +64,11 @@
     };
     const seedHistory = tracks => {
         playedIds.clear(); playedFingerprints.length=0;
-        // History is newest-first; seed old-to-new so the newest items stay at the front.
         [...(Array.isArray(tracks)?tracks:[])].slice(0,MAX_HISTORY).reverse().forEach(remember);
     };
     const isBlocked = (candidate,currentTrack,excludeIds=new Set()) => {
         const id=String(candidate?.id||''); if(!id||excludeIds.has(id)||playedIds.has(id))return true;
         if(currentTrack&&isSameRecording(candidate,currentTrack))return true;
-        // A result can have a different catalogue ID and still be the same recording/remix.
-        // Reject equivalents already present anywhere in the current queue before auto-adding it.
         for(const queuedId of excludeIds){
             const queued=Player.getTrackById(queuedId)||OnlineMusic.getTrack(queuedId);
             if(queued&&isSameRecording(candidate,queued))return true;
@@ -122,11 +112,9 @@
             }
             return accepted;
         };
-        // Documented /api/songs/{id}/suggestions is the primary source for connected tracks.
         let raw=[];try{raw=candidatesFrom(await OnlineMusic.fetchRelated(currentTrack));}catch(_){}
         let suggested=acceptUnique(raw.map(item=>OnlineMusic.normalizeTrack({...item,provider:item.provider||currentTrack.provider})).filter(Boolean));
         if(suggested.length>=Math.min(3,minCount))return suggested;
-        // Only use same-primary-artist fallback when the official similar-track route is sparse.
         const primary=String(currentTrack.artist||'').split(/,|&/)[0].trim();
         if(primary){
             try{
@@ -135,7 +123,6 @@
                 suggested=acceptUnique([...suggested,...sameArtist]);
             }catch(_){}
         }
-        // Never pad the automatic queue with arbitrary language hits or trending songs.
         return suggested.slice(0,Math.max(minCount,12));
     };
     const addToQueue = tracks => {

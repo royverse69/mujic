@@ -1,11 +1,20 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v12.0.43-wall-personal-home-custom-fix';
-const MEDIA_CHUNK_CACHE = 'mujic-media-chunks-v3';
-const MEDIA_IMAGE_CACHE = 'mujic-media-images-v3';
+const CACHE_NAME = 'mujic-pwa-v12.0.44-mode-settings-pwa-cache';
+const API_CACHE = 'mujic-api-v1';
+const ART_CACHE = 'mujic-art-v1';
+const CONFIG_CACHE = 'mujic-config-v1';
+const API_ORIGIN = 'https://gaana-suno-varna-machhar-aajayega.onrender.com';
+const API_FRESH_MS = 30 * 60 * 1000;
+const API_SONG_FRESH_MS = 10 * 60 * 1000;
+const API_STALE_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_API_ENTRIES = 400;
+const MAX_ART_ENTRIES = 600;
+const MEDIA_CHUNK_CACHE = 'mujic-media-chunks-v4';
+const MEDIA_IMAGE_CACHE = 'mujic-media-images-v4';
 const BACKEND_MEDIA_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/media';
 const MAX_MEDIA_CHUNK_BYTES = 262144;
-const MAX_MEDIA_IMAGE_ENTRIES = 50;
-const MAX_MEDIA_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_MEDIA_IMAGE_ENTRIES = 400;
+const MAX_MEDIA_IMAGE_BYTES = 80 * 1024 * 1024;
 const APP_SHELL = [
   './', './index.html', './VERSION', './manifest.webmanifest', './changlog.json', './css/app.css', './css/online-workspace.css',
   './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
@@ -15,7 +24,7 @@ const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await Promise.all(APP_SHELL.map(async path => { try { await cache.add(path); } catch(e) { /* one missing shell item should not break install */ } }));
+    await Promise.all(APP_SHELL.map(async path => { try { await cache.add(path); } catch(e) { } }));
     await self.skipWaiting();
   })());
 });
@@ -23,7 +32,8 @@ self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k =>
     (k.startsWith('mujic-pwa-') && k !== CACHE_NAME) ||
     /^mujic-media-chunks-v\d+$/.test(k) && k !== MEDIA_CHUNK_CACHE ||
-    /^mujic-media-images-v\d+$/.test(k) && k !== MEDIA_IMAGE_CACHE
+    /^mujic-media-images-v\d+$/.test(k) && k !== MEDIA_IMAGE_CACHE ||
+    /^mujic-(api|art)-v\d+$/.test(k) && k !== API_CACHE && k !== ART_CACHE
   ).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 const allowedMediaUrl = value => {
@@ -101,6 +111,88 @@ const serveCachedMediaRange = async (cache, key, requestRange) => {
     'Accept-Ranges':'bytes', 'Cache-Control':'no-store'
   }});
 };
+let imagePuts = 0;
+const pruneImages = async imageCache => {
+  const keys = await imageCache.keys();
+  if (keys.length < 30) return;
+  const records = [];
+  let totalBytes = 0;
+  for (const record of keys) {
+    const item = await imageCache.match(record);
+    const bytes = Number(item?.headers.get('X-Mujic-Size-Bytes')) || 0;
+    totalBytes += bytes;
+    records.push({record, bytes, at:Number(item?.headers.get('X-Mujic-Cached-At')) || 0});
+  }
+  records.sort((a, b) => b.at - a.at);
+  const remove = new Set(records.slice(MAX_MEDIA_IMAGE_ENTRIES).map(item => item.record.url));
+  for (const item of [...records].reverse()) {
+    if (totalBytes <= MAX_MEDIA_IMAGE_BYTES) break;
+    if (!remove.has(item.record.url)) { remove.add(item.record.url); totalBytes -= item.bytes; }
+  }
+  await Promise.all(records.filter(item => remove.has(item.record.url)).map(item => imageCache.delete(item.record)));
+};
+let cachingFlag = null;
+const cachingEnabled = async () => {
+  if (cachingFlag !== null) return cachingFlag;
+  try {
+    const cache = await caches.open(CONFIG_CACHE);
+    const stored = await cache.match('caching');
+    cachingFlag = stored ? (await stored.text()) !== '0' : true;
+  } catch (_) { cachingFlag = true; }
+  return cachingFlag;
+};
+const trimEntries = async (cache, max) => {
+  const keys = await cache.keys();
+  if (keys.length > max) await Promise.all(keys.slice(0, keys.length - max).map(key => cache.delete(key)));
+};
+const storeApi = async (cache, url, response) => {
+  if (!response || response.status !== 200 || !/json/i.test(response.headers.get('Content-Type') || '')) return;
+  const body = await response.clone().arrayBuffer();
+  if (!body.byteLength || body.byteLength > 1536 * 1024) return;
+  const headers = new Headers(response.headers);
+  headers.set('X-Mujic-Cached-At', String(Date.now()));
+  await cache.put(url, new Response(body, {status:200, headers}));
+  await trimEntries(cache, MAX_API_ENTRIES);
+};
+const handleApi = async (request, event) => {
+  if (!(await cachingEnabled())) return fetch(request);
+  const cache = await caches.open(API_CACHE);
+  const cached = await cache.match(request.url);
+  const age = cached ? Date.now() - Number(cached.headers.get('X-Mujic-Cached-At') || 0) : Infinity;
+  const isSong = /\/api\/songs(\/|$)/.test(new URL(request.url).pathname);
+  const fresh = isSong ? API_SONG_FRESH_MS : API_FRESH_MS;
+  if (cached && age < fresh) return cached;
+  const refresh = async () => {
+    const response = await fetch(request.url, {credentials:'omit', mode:'cors'});
+    await storeApi(cache, request.url, response);
+    return response;
+  };
+  if (cached && age < API_STALE_MS && !isSong) {
+    event.waitUntil(refresh().catch(() => {}));
+    return cached;
+  }
+  try {
+    const response = await fetch(request);
+    await storeApi(cache, request.url, response).catch(() => {});
+    return response;
+  } catch (error) {
+    if (cached && age < API_STALE_MS) return cached;
+    throw error;
+  }
+};
+const handleArt = async request => {
+  if (!(await cachingEnabled())) return fetch(request);
+  const cache = await caches.open(ART_CACHE);
+  const hit = await cache.match(request.url);
+  if (hit) return hit;
+  try {
+    const response = await fetch(request.url, {mode:'cors', credentials:'omit'});
+    if (response.ok && response.status === 200 && (response.headers.get('Content-Type') || '').toLowerCase().startsWith('image/')) {
+      cache.put(request.url, response.clone()).then(() => trimEntries(cache, MAX_ART_ENTRIES)).catch(() => {});
+    }
+    return response;
+  } catch (_) { return fetch(request); }
+};
 const handleMediaRoute = async request => {
   const url = new URL(request.url);
   const source = mediaSourceFromRoute(url);
@@ -134,13 +226,8 @@ const handleMediaRoute = async request => {
       headers.set('X-Mujic-Size-Bytes',String(body.byteLength));
       if (body.byteLength <= 1536*1024) {
         await imageCache.put(key,new Response(body,{status:200,headers}));
-        const keys=await imageCache.keys();
-        const records=[];let totalBytes=0;
-        for(const record of keys){const item=await imageCache.match(record);const bytes=Number(item?.headers.get('X-Mujic-Size-Bytes'))||0;totalBytes+=bytes;records.push({record,at:Number(item?.headers.get('X-Mujic-Cached-At'))||0,bytes});}
-        records.sort((a,b)=>b.at-a.at);
-        const remove=new Set(records.slice(MAX_MEDIA_IMAGE_ENTRIES).map(item=>item.record.url));
-        for(const item of records){if(totalBytes<=MAX_MEDIA_IMAGE_BYTES)break;if(!remove.has(item.record.url)){remove.add(item.record.url);totalBytes-=item.bytes;}}
-        await Promise.all(records.filter(item=>remove.has(item.record.url)).map(item=>imageCache.delete(item.record)));
+        imagePuts += 1;
+        if (imagePuts % 20 === 0) await pruneImages(imageCache);
       }
     } catch (_) {}
   }
@@ -156,9 +243,21 @@ self.addEventListener('fetch', event => {
     event.respondWith(handleMediaRoute(req).catch(() => new Response('Media proxy unavailable', {status:502,headers:{'Content-Type':'text/plain; charset=utf-8'}})));
     return;
   }
+  if (url.origin === API_ORIGIN && url.pathname.startsWith('/api/')) {
+    event.respondWith(handleApi(req, event).catch(() => Response.error()));
+    return;
+  }
+  const catalogueImage = req.destination === 'image' && (
+    (url.origin === API_ORIGIN && url.pathname === '/media') ||
+    url.hostname === 'saavncdn.com' || url.hostname.endsWith('.saavncdn.com') ||
+    url.hostname === 'jiosaavn.com' || url.hostname.endsWith('.jiosaavn.com'));
+  if (catalogueImage) {
+    event.respondWith(handleArt(req).catch(() => Response.error()));
+    return;
+  }
   const isFontCss = !same && url.hostname === 'fonts.googleapis.com';
   const isFontFile = !same && url.hostname === 'fonts.gstatic.com';
-  if (!same && !isFontCss && !isFontFile) return; // lyrics/provider APIs never block the offline shell
+  if (!same && !isFontCss && !isFontFile) return;
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(req);
@@ -169,7 +268,6 @@ self.addEventListener('fetch', event => {
         return res;
       } catch (e) { return cached || cache.match('./index.html') || Response.error(); }
     }
-    // Local app modules and assets use cache-first to keep startup consistent and offline-safe.
     if (same && cached) return cached;
     try {
       const res = await fetch(req);
@@ -184,6 +282,10 @@ self.addEventListener('fetch', event => {
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'CLEAR_ONLINE_MEDIA_CACHE') {
-    event.waitUntil(Promise.all([caches.delete(MEDIA_CHUNK_CACHE), caches.delete(MEDIA_IMAGE_CACHE)]));
+    event.waitUntil(Promise.all([caches.delete(MEDIA_CHUNK_CACHE), caches.delete(MEDIA_IMAGE_CACHE), caches.delete(API_CACHE), caches.delete(ART_CACHE)]));
+  }
+  if (event.data?.type === 'SET_CACHING') {
+    cachingFlag = Boolean(event.data.enabled);
+    event.waitUntil(caches.open(CONFIG_CACHE).then(cache => cache.put('caching', new Response(cachingFlag ? '1' : '0'))));
   }
 });

@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic app bootstrap, lifecycle and PWA registration. */
         const App = {
             init: async () => {
                 try {
@@ -36,7 +35,6 @@
                         const track = Player.getCurrentTrack();
                         if (track) {
                             UI.showMiniPlayer(); UI.renderQueue();
-                            // Keep startup responsive: restore metadata now, leave lyrics retrieval until lyrics mode opens.
                             UI.updatePlayerMeta(track).catch(()=>{});
                             const blob = await StorageAdapter.getAudioBlob(track.id);
                             if (blob) {
@@ -51,8 +49,6 @@
                             }
                         }
                     } else if (State.playbackSourceMode === 'offline') {
-                        // Remember the last local track/queue even when automatic resume is disabled.
-                        // Playback stays paused; pressing Play restores the saved position explicitly.
                         const rememberedOffline=Player.getCurrentTrack();
                         if(rememberedOffline&&State.currentTrackId&&State.queue.length){
                             State.isPlaying=false;UI.showMiniPlayer();UI.updatePlayerMeta(rememberedOffline).catch(()=>{});UI.renderQueue();
@@ -74,7 +70,6 @@
         window.addEventListener('resize', () => AudioAdapter.resizeVisualizer());
         window.addEventListener('DOMContentLoaded', async () => { await App.init(); setTimeout(() => UI.checkForUpdates(false), 1800); });
 
-        // PWA registration is same-origin only; the app itself remains fully functional as a normal web app.
         if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js').catch(err => console.warn('PWA service worker registration failed', err));

@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic UI module: search. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             handleSearch: Utils.debounce((e) => {
                 const q = String(e.target.value || '').trim(); const c = document.getElementById('search-results');

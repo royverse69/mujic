@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic UI module: settings: groups, appearance, EQ, stats, import/export, visualizer, install, update checks. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             checkForUpdates: async (manual = false) => {
                 if (!['http:', 'https:'].includes(location.protocol)) {
@@ -46,18 +45,18 @@
                     {id:'appearance', title:'UI & Customization', description:'Themes, accent colours, surfaces, corners and motion', icon:'palette', headings:['Appearance']},
                     {id:'player', title:'Player & Audio', description:'Waveform, playback, equalizer, audio effects and keyboard shortcuts', icon:'graphic_eq', headings:['Player','Playback','Playback Effects','Keyboard Shortcuts']},
                     {id:'lyrics', title:'Lyrics', description:'Lyrics providers, position and typography', icon:'lyrics', headings:['Lyrics Providers','Lyrics Display']},
-                    {id:'library', title:'Library & Listening', description:'Sort, listening stats, exports and stored files', icon:'library_music', headings:['Library','Your Listening','Data Export','Storage']},
+                    {id:'library', title:'Library & Listening', description:'Sort, listening stats, exports and stored files', online:'Streaming library, listening stats, backups and offline cache', icon:'library_music', headings:['Library','Streaming Library','Your Listening','Streaming Listening','Data Export','Storage','Streaming Cache']},
                     {id:'app', title:'App & About', description:'Installation, project links, release notes and app information', icon:'apps', headings:['App','Extras','About Mujic','Change & Update Log']}
                 ];
                 const pages = document.createElement('div'); pages.id = 'settings-pages';
                 for (const def of defs) {
                     const card = document.createElement('button'); card.type='button'; card.className='settings-category-card';
                     card.dataset.action='open-settings-group'; card.dataset.group=def.id;
-                    card.innerHTML = `<span class="settings-category-icon material-symbols-rounded">${def.icon}</span><span class="settings-category-copy"><strong>${def.title}</strong><small>${def.description}</small></span><span class="material-symbols-rounded settings-category-chevron">chevron_right</span>`;
+                    card.innerHTML = `<span class="settings-category-icon material-symbols-rounded">${def.icon}</span><span class="settings-category-copy"><strong>${def.title}</strong>${def.online ? `<small data-mode="offline">${def.description}</small><small data-mode="online">${def.online}</small>` : `<small>${def.description}</small>`}</span><span class="material-symbols-rounded settings-category-chevron">chevron_right</span>`;
                     overview.appendChild(card);
                     const page = document.createElement('div'); page.className='settings-subpage hidden'; page.dataset.settingsGroup=def.id; page.id=`settings-group-${def.id}`;
                     const head=document.createElement('div'); head.className='settings-subpage-header';
-                    head.innerHTML=`<button type="button" class="icon-btn settings-back-btn" data-action="settings-group-back" aria-label="Back to settings"><span class="material-symbols-rounded">arrow_back</span></button><div><h2>${def.title}</h2><p>${def.description}</p></div>`;
+                    head.innerHTML=`<button type="button" class="icon-btn settings-back-btn" data-action="settings-group-back" aria-label="Back to settings"><span class="material-symbols-rounded">arrow_back</span></button><div><h2>${def.title}</h2>${def.online ? `<p data-mode="offline">${def.description}</p><p data-mode="online">${def.online}</p>` : `<p>${def.description}</p>`}</div>`;
                     page.appendChild(head);
                     for (const section of sections) {
                         const h=section.querySelector('.section-title');
@@ -65,9 +64,6 @@
                     }
                     pages.appendChild(page);
                 }
-                // The sections have already been moved into their category pages,
-                // so sections[0] is no longer a child of root. Never use it as an
-                // insertBefore reference after reparenting; insert next to the title.
                 const insertionPoint = title && title.parentNode === root ? title.nextSibling : root.firstChild;
                 if (insertionPoint && insertionPoint.parentNode === root) root.insertBefore(overview, insertionPoint);
                 else root.appendChild(overview);
@@ -86,7 +82,7 @@
                 if(!selected && !fromHistory && history.state?.mujic && history.state?.settingsGroup) UI.replaceHistoryState({mujic:true, view:'settings', player:false, sheet:null, settingsGroup:null}, '#settings');
                 const main=document.getElementById('main-content'); if(main) main.scrollTop=0;
             },
-            openSettingsGroup: (group) => { UI.setSettingsGroup(group, false); if (group === 'app') UI.loadChangeLog(); },
+            openSettingsGroup: (group) => { UI.setSettingsGroup(group, false); if (group === 'app') UI.loadChangeLog(); if (group === 'library') window.OnlineWorkspace?.renderSettings?.(); },
             backSettingsGroup: () => {
                 if (UI.supportsUrlHistory() && history.state?.mujic && history.state?.settingsGroup) { try { history.back(); } catch (error) { UI.setSettingsGroup(null, true); } }
                 else UI.setSettingsGroup(null, true);
@@ -96,8 +92,6 @@
                 if (!root || (root.dataset.loaded === '1' && !force)) return;
                 root.innerHTML = '<div class="changelog-empty">Loading release notes…</div>';
                 try {
-                    // file:// origins cannot fetch sibling JSON files in Chrome/Edge. Use the
-                    // already bundled fallback below instead of raising CORS/ERR_FAILED on startup.
                     if (location.protocol === 'file:') throw new Error('Use bundled release notes for local-file mode');
                     const changelogUrl = force ? `./changlog.json?refresh=${Date.now()}` : './changlog.json';
                     const response = await fetch(changelogUrl, { cache: force ? 'no-store' : 'default' });
@@ -111,7 +105,6 @@
                     }).join('') : '<div class="changelog-empty">No release notes are available yet.</div>';
                     root.dataset.loaded = '1';
                 } catch (error) {
-                    // Keep the update page useful when launched from file:// or while offline.
                     const fallbackEntries = [
                         { version: '12.0.28', date: '2026-10-17', title: 'Artist profiles, suggestions and playlist deduplication', changes: [
                             'Rebuilt Home artist discovery around exact artist names, clickable portrait cards and artist-specific artwork fallback from the documented API response.',
@@ -205,7 +198,6 @@
                 const root = document.documentElement, b = document.body;
                 if (c && c !== 'white') {
                     root.style.setProperty('--accent-color', c); b.style.setProperty('--accent-color', c); b.classList.remove('accent-default');
-                    // Readable text on the accent: neon lyric stickers and filled buttons pick black or white automatically.
                     const m = /^#?([0-9a-f]{6})$/i.exec(String(c).trim());
                     if (m) { const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, bl = n & 255; root.style.setProperty('--accent-ink', (r * 299 + g * 587 + bl * 114) / 1000 >= 150 ? '#000' : '#fff'); }
                     else root.style.removeProperty('--accent-ink');
@@ -266,6 +258,11 @@
                 try {
                     if (file.size > 10 * 1024 * 1024) throw new Error('Choose a JSON export smaller than 10 MB.');
                     const data = JSON.parse(await file.text());
+                    if (data && data.app === 'Mujic' && data.type === 'mujic-streaming-library') {
+                        const accepted = await Dialog.show({ type:'confirm', title:'Import streaming library', message:'Merge liked songs, playlists and history from this file into your streaming library?', confirmText:'Import' });
+                        if (accepted) OnlineWorkspace.importStreamingLibrary(data);
+                        return;
+                    }
                     if (!data || data.app !== 'Mujic' || (!data.settings && !data.playStats && !Array.isArray(data.playHistory))) {
                         throw new Error('This file is not a supported Mujic settings or listening-data export.');
                     }

@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Lyrics providers: embedded or music-catalogue text first, then verified fallbacks. */
         const BACKEND_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
 
         const LyricsFetcher = {
@@ -62,8 +61,6 @@
             getLyrics: async (track) => {
                 if (!track) return { text: 'Lyrics unavailable', isSynced: false, unavailable: true };
 
-                // Embedded lyrics always win, even over an older cached network result.
-                // This guarantees file-embedded lyrics remain the authoritative offline source.
                 if (track.lyrics && String(track.lyrics).trim()) {
                     const embedded = LyricsFetcher.makeData(track.lyrics, LyricsFetcher.isLRC(track.lyrics));
                     if (embedded.isSynced) embedded.parsed = LyricsFetcher.parseLRC(embedded.text);
@@ -73,8 +70,6 @@
                 }
 
                 let musicSourceLyrics = null;
-                // Always attempt exact result/song-detail lyrics before reading a cache populated by a
-                // secondary provider. The catalogue source has priority for every online track.
                 if (track.source === 'machhar-online' && navigator.onLine && window.OnlineLyrics?.fetchFromMusicSource) {
                     try { musicSourceLyrics = await OnlineLyrics.fetchFromMusicSource(track); } catch (_) { musicSourceLyrics = null; }
                     if (musicSourceLyrics?.text) {
@@ -89,7 +84,6 @@
                 if (LyricsFetcher.cache.has(track.id)) {
                     const cached = LyricsFetcher.cache.get(track.id);
                     if (!(cached?.unavailable && navigator.onLine)) return cached;
-                    // A prior negative lookup is not permanent: try the complete fallback chain again online.
                     LyricsFetcher.cache.delete(track.id);
                 }
                 if (track.source !== 'machhar-online') {
@@ -105,8 +99,6 @@
                 const cleanArtist = String(lookupTrack.artist || '').split(',')[0].trim();
 
                 if (navigator.onLine) {
-                    // First fallback: exact lyrics metadata match from LRCLIB only after the music source was checked.
-                    // 1. Exact LRCLIB lookup.
                     if (!lyricsData) try {
                         const durParams = lookupTrack.duration ? `&duration=${Math.round(lookupTrack.duration)}` : '';
                         const query = `track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}&album_name=${encodeURIComponent(lookupTrack.album || '')}${durParams}`;
@@ -120,7 +112,6 @@
                         }
                     } catch (e) { Utils.warn(e); }
 
-                    // 2. LRCLIB search only accepts a result with matching title + duration (and artist when available).
                     if (!lyricsData) {
                         try {
                             const res = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`, 4000);
@@ -133,7 +124,6 @@
                         } catch (e) { Utils.warn(e); }
                     }
 
-                    // 3. Legacy non-catalogue fallback for local-track lookup.
                     if (!lyricsData && track.source !== 'machhar-online' && cleanTitle && State.lyricsRenderEnabled !== false) {
                         try {
                             const res = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics?track=${encodeURIComponent(cleanTitle)}&artist=${encodeURIComponent(cleanArtist)}`, 5000);
@@ -149,9 +139,6 @@
                     }
                 }
 
-                // 4. Free Lyrics.ovh fallback, relayed through the Render backend so the browser
-                // does not need direct access to another upstream service. Use the actual title and
-                // lead artist from both Online catalogue results and local file metadata.
                 if(!lyricsData&&navigator.onLine&&cleanTitle&&cleanArtist){
                     const artists=[...new Set([cleanArtist,String(lookupTrack.artist||'').split(/,|&|\bfeat(?:uring)?\.?\b|\bft\.?\b/i)[0].trim()].filter(Boolean))];
                     for(const artistName of artists.slice(0,2)){
@@ -169,10 +156,8 @@
                     }
                 }
 
-                // 5. LyricsPlus is a timed final fallback. It is only reached from the lazy lyrics path,
-                // never from app startup or normal track changes. Public instances can be unavailable.
                 if (!lyricsData && navigator.onLine && State.lyricsPlusEnabled !== false && cleanTitle && cleanArtist) {
-                    try { lyricsData = await LyricsFetcher.fetchLyricsPlus(lookupTrack, cleanTitle, cleanArtist); } catch (e) { /* optional provider */ }
+                    try { lyricsData = await LyricsFetcher.fetchLyricsPlus(lookupTrack, cleanTitle, cleanArtist); } catch (e) { }
                 }
 
                 if (!lyricsData) {
@@ -185,9 +170,6 @@
                 return lyricsData;
             },
             fetchLyricsPlus: async (track, cleanTitle, cleanArtist) => {
-                // LyricsPlus exposes a backend API; keep this optional, fast-failing, and off startup.
-                // Responses from v2 group word timings by line key. Convert each line start to LRC time.
-                // LyricsPlus hosts are reached server-side through the same Render backend.
                 const hosts = [`${BACKEND_BASE.replace(/\/$/, '')}/lyricsplus`];
                 const params = new URLSearchParams({ title: cleanTitle, artist: cleanArtist, album: track.album || '', duration: String(Number(track.duration) || 0), source: 'apple,musixmatch,spotify,qq' });
                 const requestOne = async (host) => {
@@ -196,7 +178,6 @@
                     const payload = await res.json();
                     const entries = Array.isArray(payload?.lyrics) ? payload.lyrics : (Array.isArray(payload?.data?.lyrics) ? payload.data.lyrics : []);
                     if (!entries.length) throw new Error('No lyrics returned');
-                    // When metadata is present, reject clearly mismatched results. APIs vary in metadata shape.
                     const meta = payload.metadata || payload.meta || {};
                     const responseTitle = meta.title || meta.trackName || meta.songTitle;
                     const responseArtist = meta.artist || meta.artistName || meta.songArtist;
@@ -212,7 +193,7 @@
                         if (!text) return;
                         const startRaw = Number(entry.time ?? entry.start ?? entry.startTime ?? 0);
                         if (!Number.isFinite(startRaw)) return;
-                        const seconds = startRaw / 1000; // LyricsPlus v2 timing values are milliseconds.
+                        const seconds = startRaw / 1000;
                         const key = entry.element?.key || entry.lineKey || entry.key || `line-${index}`;
                         const group = grouped.get(key) || { time: seconds, parts: [], text: '' };
                         group.time = Math.min(group.time, seconds);
@@ -221,13 +202,11 @@
                     });
                     let lines = [...grouped.values()].sort((a,b)=>a.time-b.time).map(g => {
                         let text = g.parts.join(' ').replace(/\s+/g,' ').trim();
-                        // Word-timed providers sometimes repeat partial text; collapse adjacent duplicates safely.
                         text = text.replace(/\s+([,.;!?])/g,'$1');
                         const cs = Math.max(0, Math.floor(g.time * 100));
                         const mm = Math.floor(cs / 6000), ss = Math.floor((cs % 6000) / 100), cc = cs % 100;
                         return text ? `[${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}.${String(cc).padStart(2,'0')}]${text}` : '';
                     }).filter(Boolean);
-                    // Fallback providers may respond in the v1 flat-LRC format.
                     if (!lines.length && typeof payload.lyrics === 'string') {
                         const raw = payload.lyrics;
                         if (LyricsFetcher.isLRC(raw)) return { text: raw, isSynced: true, source: 'LyricsPlus' };

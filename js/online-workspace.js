@@ -1,17 +1,14 @@
 /* Copyright mujic@royverse69 */
-/* Dedicated online workspace: separate search history, listening history, queues and playlists.
- * It shares the visual language of Mujic but never mixes cloud IDs into the offline library.
- */
 (() => {
-    const KEYS = { history:'mujic-online-history-v1', searches:'mujic-online-searches-v1', playlists:'mujic-online-playlists-v1', favorites:'mujic-online-favorites-v1', linked:'mujic-workspaces-linked-v1', queues:'mujic-workspace-queues-v1', shelves:'mujic-online-shelves-v9', taste:'mujic-online-taste-v1', trackPlays:'mujic-online-track-plays-v1', suggest:'mujic-online-suggest-v1', publicPlaylists:'mujic-online-public-playlists-v1', artistCache:'mujic-online-artist-cache-v6', artistCatalogue:'mujic-online-artist-catalogue-v4', artistStats:'mujic-online-artist-stats-v1' };
+    const KEYS = { history:'mujic-online-history-v1', searches:'mujic-online-searches-v1', playlists:'mujic-online-playlists-v1', favorites:'mujic-online-favorites-v1', linked:'mujic-workspaces-linked-v1', queues:'mujic-workspace-queues-v1', shelves:'mujic-online-shelves-v9', caching:'mujic-online-caching-v1', taste:'mujic-online-taste-v1', trackPlays:'mujic-online-track-plays-v1', suggest:'mujic-online-suggest-v1', publicPlaylists:'mujic-online-public-playlists-v1', artistCache:'mujic-online-artist-cache-v6', artistCatalogue:'mujic-online-artist-catalogue-v4', artistStats:'mujic-online-artist-stats-v1' };
     let onlineHistory = [], searchHistory = [], playlists = [], onlineFavorites = [], searchQuery = '', searchPage = 0, searchType = 'all';
     let searchResults = [], entityResults = [], allSearchResults = null, activePlaylistId = null, pendingTrackId = null, requestSequence = 0;
-    let libraryTab = 'playlists', remoteRequestSequence = 0, artistAlbumsPage = 0, artistAlbumsHasMore = false;
+    let libraryTab = 'playlists', remoteRequestSequence = 0;
     let linked = false, queueSnapshots = {offline:null, online:null};
     let taste = {parts:{}}, trackPlays = {}, suggestState = {sig:'',items:[],savedAt:0,loading:''}, personalTimer = null, greetingTimer = null;
-    let artistCatalogue = [], artistCataloguePromise = null, artistSortMode = 'recommended', artistStats = {}, homeArtistWallOffset = 0; 
+    let artistCatalogue = [], artistCataloguePromise = null, artistSortMode = 'recommended', artistStats = {};
     const shelfContexts = new Map();
-    let homeShelves = {}, homeLoadPromise = null, homeLastLoaded = 0, publicPlaylistQuery = 'Hindi romantic', publicPlaylistPage = 0, publicPlaylistResults = [], activeRemoteEntity = null, remotePage = 0;
+    let homeShelves = {}, homeLoadPromise = null, homeLastLoaded = 0, publicPlaylistQuery = 'Hindi romantic', publicPlaylistPage = 0, publicPlaylistResults = [], activeRemoteEntity = null;
     const artistTrackCache = new Map(), artistAlbumCache = new Map(), artistLoadPromises = new Map();
     const safeRead = (key, fallback) => { try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v ?? fallback; } catch (_) { return fallback; } };
     const persist = () => {
@@ -25,8 +22,6 @@
     const restoreTrack = value => {
         if (!value || typeof value !== 'object' || !value.id) return null;
         const savedId=String(value.id),provider=value.provider||(savedId.startsWith('machhar:machhar:')?'machhar':'saavn');
-        // Older Online likes/playlists sometimes saved the namespaced ID but omitted onlineTrackId.
-        // Recover that ID before hydrating so existing liked songs remain visible after upgrades.
         let onlineTrackId=String(value.onlineTrackId||value.songId||value.song_id||'').trim();
         if(!onlineTrackId&&!/^(?:artists|albums|playlists):/i.test(savedId))onlineTrackId=savedId.replace(/^machhar:(?:saavn|machhar):/,'').replace(/^machhar:/,'');
         if(!onlineTrackId)return null;
@@ -63,7 +58,6 @@
         }
         return out;
     };
-    const saveHistory = () => persist();
     const rememberSearch = q => {
         const value = String(q||'').trim(); if (!value) return;
         searchHistory = [value, ...searchHistory.filter(x => String(x).toLowerCase() !== value.toLowerCase())].slice(0,30); persist(); renderSearchHistory();
@@ -77,7 +71,6 @@
         if (!list.length) return `<div class="online-empty-inline">${esc(emptyText)}</div>`;
         return `<div class="track-list">${list.map(t => UI.buildTrackRow(t, context)).join('')}</div>`;
     };
-    // Keep Online search results private to this workspace; State.searchResults belongs to Offline search.
     const setSearchContext = tracks => { searchResults = tracks.slice(); };
     const renderConnectivityState = () => {
         const disconnected = !navigator.onLine;
@@ -323,6 +316,11 @@
             list=rankArtistItems(played,'popular').slice(0,14);
         }
         if(wrap)wrap.hidden=!list.length;
+        const signature=`${definition.key}|${list.slice(0,40).map(item=>item.id||item.sourceId||'').join(',')}`;
+        if(definition.kind!=='wall'){
+            if(node.dataset.signature===signature&&node.childElementCount)return;
+            node.dataset.signature=signature;
+        }
         if(definition.key==='quick')node.innerHTML=renderQuickPicks(list,'home:quick');
         else if(definition.kind==='wall')renderArtistMosaic(list,definition.node);
         else if(definition.layout==='list')node.innerHTML=renderCompactRows(list,`home:${definition.key}`,true,8);
@@ -432,7 +430,6 @@
                 for(const result of results)accept(findArtistMatch(result.items,result.query),result.query);
                 artistCatalogue=selected.slice();onProgress?.(rankArtistItems(artistCatalogue).slice(0,targetCount));
             }
-            // Only the full-directory view may broaden discovery. Home stays light and responsive.
             if(selected.length<targetCount&&targetCount>=24&&navigator.onLine&&State.playbackSourceMode==='online'){
                 for(const query of ['international pop artists','popular Indian artists']){
                     if(selected.length>=targetCount)break;
@@ -448,7 +445,6 @@
                     artistCatalogue=selected.slice();onProgress?.(rankArtistItems(artistCatalogue).slice(0,targetCount));
                 }
             }
-            // Recover a few featured portraits from profile metadata only; leave remaining portraits lazy/fallback.
             const missing=targetCount>=24?selected.filter(item=>!item.image).slice(0,Math.min(4,selected.length)):[];
             for(let offset=0;offset<missing.length;offset+=2){
                 await Promise.all(missing.slice(offset,offset+2).map(async item=>{
@@ -555,6 +551,7 @@
         if(el.textContent!==text)el.textContent=text;
         el.classList.remove('hidden');
     };
+    const dayKey = (date=new Date()) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
     const trimCounts = (map, keep) => {
         const keys=Object.keys(map);
         if(keys.length<=keep)return;
@@ -573,6 +570,13 @@
         trimCounts(bucket.langs,8);trimCounts(bucket.artists,24);
         trackPlays[track.id]=(trackPlays[track.id]||0)+1;
         trimCounts(trackPlays,300);
+        const today=dayKey();
+        taste.days=taste.days||{};
+        const day=taste.days[today]=taste.days[today]||{plays:0,seconds:0};
+        day.plays+=1;day.seconds+=Number(track.duration)||0;
+        Object.keys(taste.days).sort().slice(0,-60).forEach(key=>delete taste.days[key]);
+        taste.total=taste.total||{plays:0,seconds:0};
+        taste.total.plays+=1;taste.total.seconds+=Number(track.duration)||0;
         persistTaste();
     };
     const fingerprint = track => `${titleKey(track?.title)}|${artistKey(track?.artist)}`;
@@ -708,7 +712,6 @@
         suggestState.loading='';
         return suggestState.items;
     };
-    const collectSuggestedTracks = async () => refreshSuggestions(true);
     const schedulePersonal = () => {
         clearTimeout(personalTimer);
         personalTimer=setTimeout(()=>{
@@ -815,7 +818,6 @@
             else node.innerHTML='<div class="online-empty-inline">Playlists are temporarily unavailable.</div>';
         }
     };
-    const renderPlaylistCards = list => renderUserPlaylistCards(list);
     const renderPlaylists = () => {
         const c=document.getElementById('online-playlists-content');if(!c)return;
         if(!activePlaylistId){
@@ -856,6 +858,10 @@
         if(libraryTab==='liked')renderLiked();
         if(libraryTab==='history')renderHistory();
         if(libraryTab==='queue')renderQueue();
+    };
+    const openLikedFromHome = () => {
+        setLibraryTab('liked');
+        UI.switchView('online-playlists');
     };
     const openLibraryTab = tab => {setLibraryTab(tab);if(State.playbackSourceMode==='online'&&document.getElementById('view-online-playlists')?.classList.contains('active'))return;UI.switchView('online-playlists');};
     const isFavorite = id => {const track=trackById(id);return onlineFavorites.some(item=>item.id===id||(track&&sameSong(item,track)));};
@@ -923,7 +929,6 @@
                 data.hasMoreTracks=cachedTracks.length>data.tracks.length||!cached.complete||Boolean(cached.hasMore);
                 data.cachedTracksAvailable=cachedTracks.length;
                 if(isCurrent())renderRemoteDetail();
-                // If the stored cache is partial, show what is ready now and defer network loading until requested.
                 return;
             }
             const first=await OnlineMusic.fetchArtistSongs(sourceId,0,data.title);
@@ -939,7 +944,6 @@
                 data.cachedTracksAvailable=data.tracks.length;
                 rememberArtistTracks(sourceId,firstRows,data.total,!data.hasMoreTracks,{page:0,pageSize:data.songPageSize,hasMore:data.hasMoreTracks});
             }else{
-                // Profile previews can display immediately, but empty endpoint responses stay retryable.
                 data.tracks=dedupeCatalogueTracks(fallbackTracks||[]).slice(0,ARTIST_INITIAL_TRACKS);
                 data.total=Math.max(Number(data.total)||0,Number(data.totalSongs)||0,data.tracks.length);
                 data.songPage=-1;data.songPageSize=10;data.songPageSizeEstimated=true;
@@ -957,21 +961,6 @@
             if(isCurrent()){UI.showToast('Artist tracks could not load yet. Tap Load more to retry.','info');renderRemoteDetail();}
         }
     };
-    const loadArtistAlbums = async (id, data, token) => {
-        const isCurrent=()=>activeRemoteEntity?.requestId===token&&State.playbackSourceMode==='online';
-        try{
-            const first=await OnlineMusic.fetchArtistAlbums(id,0);
-            if(!isCurrent())return;
-            const cached=artistAlbumCache.get(String(id));
-            let items=first.items||[];
-            if(cached&&Date.now()-cached.savedAt<12*60*60*1000&&cached.items?.length>=items.length)items=cached.items.slice(0,12);
-            data.albums=items.slice(0,12);data.totalAlbums=Math.max(Number(first.total)||0,Number(data.totalAlbums)||0,data.albums.length);
-            data.albumPageSize=Math.max(Number(first.pageSize)||0,first.items?.length||data.albums.length||1);data.albumPage=0;
-            artistAlbumsPage=0;artistAlbumsHasMore=data.totalAlbums>data.albums.length;
-            artistAlbumCache.set(String(id),{savedAt:Date.now(),items:data.albums.slice()});
-            if(isCurrent())renderRemoteDetail();
-        }catch(_){/* Use topAlbums from the already-loaded profile as a fallback. */}
-    };
     const openRemoteEntity = async (kind,id) => {
         if(!['playlists','albums','artists'].includes(kind)||!id)return;
         const previousEntity=activeRemoteEntity;
@@ -979,7 +968,7 @@
         const parent=currentView==='view-online-detail'?previousEntity:null;
         const returnView=parent?'online-detail':(currentView==='view-online-search'?'online-search':currentView==='view-online-playlists'?'online-playlists':currentView==='view-online-artists'?'online-artists':'online-home');
         const requestId=++remoteRequestSequence;
-        activeRemoteEntity={kind,id:String(id),data:null,requestId,returnView,parent};remotePage=0;artistAlbumsPage=0;artistAlbumsHasMore=false;
+        activeRemoteEntity={kind,id:String(id),data:null,requestId,returnView,parent};
         UI.switchView('online-detail');
         const node=document.getElementById('online-remote-detail');if(node)node.innerHTML='<div class="online-skeleton-list"><span></span><span></span><span></span></div>';
         try{
@@ -993,11 +982,9 @@
                 const catalogueId=String(data.sourceId||id);
                 data={...data,sourceId:catalogueId,tracks:fallbackTracks.slice(0,ARTIST_INITIAL_TRACKS),total:Math.max(Number(data.totalSongs)||0,fallbackTracks.length),totalAlbums:Math.max(Number(data.totalAlbums)||0,data.albums?.length||0),loadingTracks:true,hasMoreTracks:false,failedSongPages:[],songPage:-1,songPageSize:10,albumPage:-1,albumPageSize:Math.max(1,data.albums?.length||6)};
                 activeRemoteEntity.data=data;renderRemoteDetail();
-                // Always use the dedicated paginated artist-songs endpoint; topSongs is only a short preview.
                 const tracksTask=loadInitialArtistSongs(catalogueId,data,requestId,fallbackTracks);
                 artistLoadPromises.set(catalogueId,tracksTask);
                 tracksTask.finally(()=>{if(artistLoadPromises.get(catalogueId)===tracksTask)artistLoadPromises.delete(catalogueId);}).catch(()=>{});
-                // Profile topAlbums are enough for the initial view; extra albums load only on explicit request.
             }else{
                 activeRemoteEntity.data=data;renderRemoteDetail();
             }
@@ -1102,7 +1089,7 @@
             const response=await OnlineMusic.fetchArtistAlbums(id,page);const incoming=response.items||[];
             const seen=new Set((current.albums||[]).map(item=>item.id));for(const album of incoming)if(album?.id&&!seen.has(album.id)){seen.add(album.id);current.albums.push(album);}
             current.albumPage=page;current.totalAlbums=Math.max(Number(current.totalAlbums)||0,Number(response.total)||0,current.albums.length);
-            current.albums=current.albums.slice(0,24);artistAlbumsPage=page;artistAlbumCache.set(String(id),{savedAt:Date.now(),items:current.albums.slice()});
+            current.albums=current.albums.slice(0,24);artistAlbumCache.set(String(id),{savedAt:Date.now(),items:current.albums.slice()});
             renderRemoteDetail();
         }catch(_){UI.showToast('Albums could not be loaded.','info');}
     };
@@ -1196,7 +1183,7 @@
     };
     const onModeChange = (mode, previous) => {
         restoreQueueSnapshot(mode);updateWorkspaceUI();
-        if(mode==='online'){UI.switchView('online-home');renderHome();}
+        if(mode==='online'){UI.switchView('online-home');renderHome();navigator.storage?.persist?.().catch(()=>{});renderSettings();}
         else{
             activePlaylistId=null;activeRemoteEntity=null;
             const active=document.querySelector('.view.active')?.id||'';
@@ -1257,14 +1244,11 @@
         else if(onlineHistory.some(track=>track.id===id)) tracks=onlineHistory.map(trackById).filter(Boolean);
         else tracks=searchResults.length?searchResults:onlineHistory.map(trackById).filter(Boolean);
         const selectedIndex=tracks.findIndex(t=>t.id===id);
-        // Start on the tapped result, then continue forward through the catalogue/list in its
-        // natural order. Earlier rows wrap to the end instead of jumping ahead of the next hit.
         if(selectedIndex>0) tracks=[tracks[selectedIndex],...tracks.slice(selectedIndex+1),...tracks.slice(0,selectedIndex)];
         return tracks;
     };
     const playSearchResult = id => {
         const selected=trackById(id);if(!selected||!OnlineMusic.isOnlineTrack(selected)){UI.showToast('This search result is no longer available. Search again.','info');return false;}
-        // Search results are candidates for the user's choice, not a queue. Let the recommendation engine fill Up Next from the selected song's API suggestions.
         Player.playContext([selected],0);saveQueueSnapshot('online');return true;
     };
     const playPlaylist = id => {
@@ -1362,6 +1346,7 @@
         taste=safeRead(KEYS.taste,{parts:{}});if(!taste||typeof taste!=='object'||Array.isArray(taste))taste={parts:{}};
         trackPlays=safeRead(KEYS.trackPlays,{});if(!trackPlays||typeof trackPlays!=='object'||Array.isArray(trackPlays))trackPlays={};
         clearInterval(greetingTimer);greetingTimer=setInterval(updateGreeting,60000);
+        if(navigator.serviceWorker?.ready)navigator.serviceWorker.ready.then(registration=>registration.active?.postMessage({type:'SET_CACHING',enabled:cachingEnabled()})).catch(()=>{});
         document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')updateGreeting();});
         if(!document.body.dataset.onlineCardKeys){
             document.body.dataset.onlineCardKeys='1';
@@ -1375,7 +1360,6 @@
         if(window.OnlineRecommendations)OnlineRecommendations.seedHistory(onlineHistory.map(trackById).filter(Boolean));
         searchHistory=safeRead(KEYS.searches,[]).filter(x=>typeof x==='string').slice(0,30);
         playlists=safeRead(KEYS.playlists,[]).map(p=>({...p,tracks:dedupePlaylistTracks(hydrate(p.tracks))})).filter(p=>p.id&&p.name);
-        // Repair playlists already saved by older builds, including duplicates under different catalogue IDs.
         persist();
         queueSnapshots=safeRead(KEYS.queues,{offline:null,online:null});if(!queueSnapshots||typeof queueSnapshots!=='object')queueSnapshots={offline:null,online:null};
         linked=localStorage.getItem(KEYS.linked)==='yes';restoreHomeShelves();restoreSuggest();updateGreeting();
@@ -1397,6 +1381,96 @@
         const current=activeRemoteEntity;
         if(current?.parent){activeRemoteEntity=current.parent;UI.switchView('online-detail');renderRemoteDetail();}
         else{activeRemoteEntity=null;UI.switchView(current?.returnView||'online-home');}
+    };
+    const formatMinutes = seconds => `${Math.round((Number(seconds)||0)/60)} min`;
+    const formatBytes = bytes => bytes>=1073741824?`${(bytes/1073741824).toFixed(1)} GB`:bytes>=1048576?`${(bytes/1048576).toFixed(1)} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`;
+    const recentDayKeys = count => Array.from({length:count},(_,index)=>{const date=new Date();date.setDate(date.getDate()-index);return dayKey(date);});
+    const sumDays = keys => keys.reduce((total,key)=>{const day=taste.days?.[key];if(day){total.plays+=day.plays||0;total.seconds+=day.seconds||0;}return total;},{plays:0,seconds:0});
+    const getListeningStats = () => ({today:sumDays(recentDayKeys(1)),week:sumDays(recentDayKeys(7)),month:sumDays(recentDayKeys(30)),all:{plays:taste.total?.plays||0,seconds:taste.total?.seconds||0}});
+    const topRows = (title, rows) => `<div class="settings-top-list-title">${esc(title)}</div>${rows.length?rows.map((row,index)=>`<div class="settings-top-row"><span class="settings-top-rank">${index+1}</span><span class="settings-top-song">${esc(row.name)}</span><span class="settings-top-count">${row.count} plays</span></div>`).join(''):'<div class="settings-top-row"><span class="settings-top-rank">—</span><span class="settings-top-song">Play some music to build your listening history.</span><span class="settings-top-count"></span></div>'}`;
+    const renderSettingsStats = () => {
+        const grid=document.getElementById('online-settings-stats-grid');if(!grid)return;
+        const stats=getListeningStats();
+        const card=(label,value)=>`<div class="settings-stat-card"><span class="stat-kicker">${label}</span><strong>${value.plays}</strong><span>${formatMinutes(value.seconds)}</span></div>`;
+        grid.innerHTML=card('Today',stats.today)+card('This week',stats.week)+card('This month',stats.month)+card('All time',stats.all);
+        const songs=Object.entries(trackPlays).sort((a,b)=>b[1]-a[1]).map(([id,count])=>({track:trackById(id),count})).filter(row=>row.track).slice(0,5).map(row=>({name:`${row.track.title} · ${row.track.artist||''}`,count:row.count}));
+        const artists=Object.entries(artistStats).filter(([key,value])=>!key.startsWith('id:')&&value?.name&&value.plays>0).sort((a,b)=>b[1].plays-a[1].plays).slice(0,5).map(([,value])=>({name:value.name,count:value.plays}));
+        const songNode=document.getElementById('online-settings-stats-top');if(songNode)songNode.innerHTML=topRows('Most played songs',songs);
+        const artistNode=document.getElementById('online-settings-stats-artists');if(artistNode)artistNode.innerHTML=topRows('Top artists',artists);
+        const summary=document.getElementById('online-library-summary');
+        if(summary)summary.textContent=`${onlineFavorites.length} liked · ${playlists.length} playlists · ${onlineHistory.length} recently played`;
+    };
+    const CACHE_NAMES = ['mujic-api-v1','mujic-art-v1','mujic-media-images-v4','mujic-media-chunks-v4'];
+    const cachingEnabled = () => localStorage.getItem(KEYS.caching)!=='0';
+    const postToWorker = message => {
+        try{navigator.serviceWorker?.controller?.postMessage(message);}catch(_){}
+    };
+    const getCacheInfo = async () => {
+        if(!('caches' in window))return null;
+        let entries=0,usage=0,quota=0;
+        for(const name of CACHE_NAMES){
+            if(!(await caches.has(name)))continue;
+            entries+=(await (await caches.open(name)).keys()).length;
+        }
+        try{const estimate=await navigator.storage.estimate();usage=estimate.usage||0;quota=estimate.quota||0;}catch(_){}
+        return {entries,usage,quota};
+    };
+    const renderSettingsCache = async () => {
+        const toggle=document.getElementById('online-cache-toggle');if(toggle)toggle.checked=cachingEnabled();
+        const label=document.getElementById('online-cache-usage');if(!label)return;
+        const info=await getCacheInfo();
+        label.textContent=info?`${info.entries.toLocaleString()} items cached${info.quota?` · ${formatBytes(info.usage)} of ${formatBytes(info.quota)} used`:''}`:'Offline caching is not available in this browser.';
+    };
+    const setCaching = enabled => {
+        localStorage.setItem(KEYS.caching,enabled?'1':'0');
+        postToWorker({type:'SET_CACHING',enabled});
+        UI.showToast(enabled?'Streaming data will be cached for faster, offline-friendly use.':'Streaming data caching turned off.','info');
+    };
+    const clearAllCaches = async () => {
+        OnlineMusic.clearCache();
+        if('caches' in window)await Promise.all(CACHE_NAMES.map(name=>caches.delete(name).catch(()=>false)));
+        postToWorker({type:'CLEAR_ONLINE_MEDIA_CACHE'});
+        await renderSettingsCache();
+    };
+    const resetTaste = async () => {
+        const confirmed=await Dialog.show({type:'confirm',title:'Reset listening profile',message:'Quick Picks and Suggested for You will start fresh. Liked songs, playlists and history are kept.',confirmText:'Reset'});
+        if(!confirmed)return;
+        taste={parts:{}};trackPlays={};suggestState={sig:'',items:[],savedAt:0,loading:''};
+        artistStats={};
+        persistTaste();persist();
+        try{localStorage.removeItem(KEYS.suggest);}catch(_){}
+        renderSettingsStats();renderHomePersonal();refreshSuggestions(true);
+        UI.showToast('Listening profile reset.','check_circle');
+    };
+    const exportStreamingLibrary = () => {
+        const payload={app:'Mujic',type:'mujic-streaming-library',version:1,exportedAt:new Date().toISOString(),favorites:onlineFavorites.map(serializeTrack),history:onlineHistory.map(serializeTrack),playlists:playlists.map(playlist=>({...playlist,tracks:(playlist.tracks||[]).map(serializeTrack)})),trackPlays,taste};
+        const url=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));
+        const link=document.createElement('a');
+        link.href=url;link.download=`mujic-streaming-library-${dayKey()}.json`;
+        document.body.appendChild(link);link.click();link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),2000);
+        UI.showToast('Streaming library exported.','check_circle');
+    };
+    const importStreamingLibrary = data => {
+        const known=new Set(onlineFavorites.map(track=>track.id));
+        hydrate((data.favorites||[]).slice(0,2000)).forEach(track=>{if(!known.has(track.id)){onlineFavorites.push(track);known.add(track.id);}});
+        const seen=new Set(onlineHistory.map(track=>track.id));
+        hydrate((data.history||[]).slice(0,200)).forEach(track=>{if(!seen.has(track.id)){onlineHistory.push(track);seen.add(track.id);}});
+        const names=new Set(playlists.map(playlist=>playlist.id));
+        (Array.isArray(data.playlists)?data.playlists.slice(0,200):[]).forEach(entry=>{
+            const name=String(entry?.name||'').trim().slice(0,80);
+            if(!name||names.has(entry.id))return;
+            playlists.push({id:String(entry.id||`online-pl-${Utils.id()}`),name,createdAt:Number(entry.createdAt)||Date.now(),tracks:hydrate((entry.tracks||[]).slice(0,1000))});
+        });
+        if(data.trackPlays&&typeof data.trackPlays==='object')Object.entries(data.trackPlays).slice(0,400).forEach(([id,count])=>{if(Number.isFinite(Number(count)))trackPlays[id]=Math.max(trackPlays[id]||0,Number(count));});
+        persist();persistTaste();
+        renderPlaylists();renderLiked();renderHistory();renderHomePersonal();renderSettingsStats();
+        UI.showToast('Streaming library imported.','check_circle');
+    };
+    const renderSettings = () => {
+        if(State.playbackSourceMode!=='online')return;
+        renderSettingsStats();
+        renderSettingsCache();
     };
     const scrollerOf = () => {
         const main=document.getElementById('main-content');
@@ -1437,5 +1511,5 @@
     const backToPlaylists = () => { activePlaylistId=null; renderPlaylists(); };
     const getOnlineHistory = () => onlineHistory.map(trackById).filter(Boolean);
     const getSearchResults = () => searchResults.slice();
-    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,saveQueueSnapshot,setSearchType,openRemoteEntity,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},getSearchType:()=>searchType,playTrackFromShelf:(id,context)=>{const list=shelfContexts.get(context)||[];const ix=list.findIndex(t=>t.id===id);if(ix>=0){const ordered=[...list.slice(ix),...list.slice(0,ix)];setSearchContext(list);Player.playContext(ordered,0);}else{const t=trackById(id);if(t)Player.playContext([t],0);}},clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal};
+    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,saveQueueSnapshot,setSearchType,openRemoteEntity,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},playTrackFromShelf:(id,context)=>{const list=shelfContexts.get(context)||[];const ix=list.findIndex(t=>t.id===id);if(ix>=0){const ordered=[...list.slice(ix),...list.slice(0,ix)];setSearchContext(list);Player.playContext(ordered,0);}else{const t=trackById(id);if(t)Player.playContext([t],0);}},clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,openLikedFromHome,renderSettings,renderSettingsStats,renderSettingsCache,setCaching,clearAllCaches,resetTaste,exportStreamingLibrary,importStreamingLibrary,getListeningStats,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal};
 })();

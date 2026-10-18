@@ -1,23 +1,38 @@
 {
   "latest": {
-    "version": "12.0.43",
+    "version": "12.0.44",
     "date": "2026-10-18",
-    "title": "Artist Wall, Personal Home and Customization Fixes",
+    "title": "Mode-aware Settings, Seamless Switching and PWA Caching",
     "changes": [
-      "Artists now scroll as a wall of portraits (large, 2x2 cluster, large) on Home and the Artists page, with previous/next buttons, touch swipe, mouse drag and arrow-key support.",
-      "Quick Picks and Suggested for You are now personal: they re-rank from your plays, likes, recent history, favourite artists and time of day, and refresh a moment after each new song instead of staying static.",
-      "The Home greeting now follows the time of day (morning, afternoon, evening, night) and keeps updating.",
-      "Fixed UI customization: layout density now applies to the streaming Home, accent colour is used across streaming tabs and chips, text size covers the new sections, and Restore Default Appearance resets everything.",
-      "Auto performance mode no longer switches on for typical phones (only very low-spec devices or data saver), so transitions and glass effects respect your settings.",
-      "Added Home navigation: jump chips, a back-to-top button, tapping the active tab scrolls to the top, and sticky headers on artist and detail pages.",
-      "Favorite is available from the three-dot menu for streaming songs, and liked songs show a heart in lists.",
-      "Replaced the stacked watermark overrides with one theme-aware rule so the Mujic wordmark is visible in dark and light themes."
+      "Home 'Liked Songs' card now opens your liked songs (it called a handler that did not exist).",
+      "The jump chips under the Home header scroll with the page instead of sticking.",
+      "Settings now follow the active mode: Offline shows library sorting, offline listening stats and library storage; Streaming shows streaming library, listening stats and cache controls; shared settings appear in both.",
+      "Added streaming listening stats (today, week, month, all time, top songs and artists), streaming library export/import, a reset for the listening profile, and cache usage controls.",
+      "Switching between Offline and Streaming now cross-fades the whole app using the View Transitions API (with a fade fallback); pages fade in smoothly and unchanged shelves are no longer repainted when you change tabs.",
+      "The service worker now caches catalogue API responses (stale-while-revalidate with an offline fallback), catalogue artwork, and a larger artwork cache with cheaper pruning; caching can be switched off or cleared in Settings, and persistent storage is requested in streaming mode.",
+      "Added the Mujic watermark to the Offline Home.",
+      "Removed unused code and CSS (about 21 KB of dead styles) and all code comments except the copyright notice."
     ]
   },
   "app": "Mujic",
-  "version": "12.0.43",
+  "version": "12.0.44",
   "updatedAt": "2026-10-18",
   "entries": [
+    {
+      "version": "12.0.44",
+      "date": "2026-10-18",
+      "title": "Mode-aware Settings, Seamless Switching and PWA Caching",
+      "changes": [
+        "Home 'Liked Songs' card now opens your liked songs (it called a handler that did not exist).",
+        "The jump chips under the Home header scroll with the page instead of sticking.",
+        "Settings now follow the active mode: Offline shows library sorting, offline listening stats and library storage; Streaming shows streaming library, listening stats and cache controls; shared settings appear in both.",
+        "Added streaming listening stats (today, week, month, all time, top songs and artists), streaming library export/import, a reset for the listening profile, and cache usage controls.",
+        "Switching between Offline and Streaming now cross-fades the whole app using the View Transitions API (with a fade fallback); pages fade in smoothly and unchanged shelves are no longer repainted when you change tabs.",
+        "The service worker now caches catalogue API responses (stale-while-revalidate with an offline fallback), catalogue artwork, and a larger artwork cache with cheaper pruning; caching can be switched off or cleared in Settings, and persistent storage is requested in streaming mode.",
+        "Added the Mujic watermark to the Offline Home.",
+        "Removed unused code and CSS (about 21 KB of dead styles) and all code comments except the copyright notice."
+      ]
+    },
     {
       "version": "12.0.43",
       "date": "2026-10-18",

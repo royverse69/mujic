@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic UI module: listening history sheet. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             renderHistoryContent: (sheet, restoreScroll = 0) => {
                 const events = State.playHistory.length ? State.playHistory : State.history.map(id => { const t=State.library.find(x=>x.id===id); return t ? {trackId:id,title:t.title,artist:t.artist,album:t.album,playedAt:null}:null; }).filter(Boolean);

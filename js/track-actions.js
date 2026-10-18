@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic track actions: focused module for track metadata, maximum-quality downloads and share links. */
 (() => {
     const SHARE_BASE = 'https://royverse69.github.io/mujic/';
     const currentTrack = id => Player.getTrackById(id || State.actionTargetId) || OnlineMusic.getTrack(id || State.actionTargetId) || Player.getCurrentTrack();
@@ -46,7 +45,6 @@
             }
         } catch (error) {
             if (error?.name === 'AbortError') return false;
-            // Clipboard below is a useful fallback when native sharing is present but unavailable.
         }
         try {
             if (navigator.clipboard?.writeText && window.isSecureContext) await navigator.clipboard.writeText(url);

@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic core: utility helpers, shared State object and the artwork cache. */
 
         const Utils = {
             formatTime: (sec) => {
@@ -35,9 +34,6 @@
         };
 
         Utils.defaultArt = Utils.generateDefaultArt('Mujic');
-        // Inline image fallback attributes run in the window scope, not the
-        // lexical environment of classic deferred scripts. Expose this single
-        // safe utility namespace explicitly so onerror callbacks work reliably.
         window.Utils = Utils;
 
         const State = {
@@ -52,7 +48,6 @@
             lyricsPosition: 'center', lyricsVerticalOffset: 0, lyricsTimingOffset: 0, lyricsFontSize: 'normal', lyricsLineSpacing: 'normal', lyricsWidth: 'standard', lyricsEmphasis: 'soft',
             playerBackground: 'artwork', playerArtworkMode: 'full', visualizerMode:'off', resumePlayback: false,
             librarySort: 'dateAdded', librarySortDir: 'desc', showArtworkLists: true,
-            // Optional playback effects default off to protect battery and low-end CPUs.
             crossfade: false, skipSilence: false, instantSkipSilence: false, loudnessControl: false,
             loudnessLevel: 'balanced', autoSkipOnError: true, preventDuplicateQueue: false,
             preservePitch: true, varispeed: false, progressiveSeek: false, pauseWhenMuted: false,

@@ -27,8 +27,6 @@ if (filtered.length !== 2 || filtered[0].id !== original.id || filtered.some(t =
 }
 
 (async () => {
-// Recommendation assembly removes repeats that arrive under different catalogue IDs, including
-// explicit remix labels, and avoids a recording already present in the upcoming queue.
 const queueTracks = new Map();
 const queued = { id:'machhar:saavn:q1', onlineTrackId:'q1', title:'Queue Song', artist:'Queue Artist', provider:'saavn', source:'machhar-online' };
 queueTracks.set(queued.id, queued);

@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic storage layer: IndexedDB access, settings persistence, and listening statistics (runs entirely in the browser). */
         const StorageAdapter = {
             db: null,
             init: () => {
@@ -98,7 +97,6 @@
                 const [audio, art] = await Promise.all([sumStore('audioBlobs'), sumStore('artworks')]); return audio + art;
             },
             
-            // Every persisted preference lives in this one list. Add a key here and loadSettings() validates it.
             SAVED_KEYS: ['favorites','favoriteArtists','history','queue','currentTrackId','playbackSourceMode','volume','muted','repeat','shuffle','eq','eqPreset','eqBands',
                 'theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','interfaceStyle','cornerRadius','motion',
                 'lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis',
@@ -108,15 +106,13 @@
             saveSettings: () => {
                 const s = {};
                 StorageAdapter.SAVED_KEYS.forEach(key => { s[key] = State[key]; });
-                // Remote catalogue entries are intentionally session-only. Never restore an online
-                // track as if it were a locally stored file after reload.
                 const isRemoteId = (id) => typeof id === 'string' && id.startsWith('machhar:');
                 s.currentTrackId = isRemoteId(s.currentTrackId) ? null : s.currentTrackId;
                 s.queue = (Array.isArray(s.queue) ? s.queue : []).filter(id => !isRemoteId(id));
                 s.history = (Array.isArray(s.history) ? s.history : []).filter(id => !isRemoteId(id));
                 s.favorites = (Array.isArray(s.favorites) ? s.favorites : []).filter(id => !isRemoteId(id));
                 if (!['offline','online'].includes(s.playbackSourceMode)) s.playbackSourceMode = 'offline';
-                s.rate = State.playbackRate; // legacy storage name kept for existing users
+                s.rate = State.playbackRate;
                 return StorageAdapter._put('settings', s, 'app_state');
             },
             loadSettings: async () => {

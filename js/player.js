@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic player engine: Web Audio graph, transport, Media Session and queue. */
         const AudioAdapter = {
             audio: new Audio(), ctx: null, source: null, analyser:null, eqFilters:[], compressor:null, masterGain:null,
             currentObjectUrl:null, visualizerRAF:0, visualizerLastFrameAt:0, visualizerFreqData:null, silenceStart:0, lastSilenceCheck:0, wakeLock:null, lastMediaSeekAt:0, progressiveSeekCount:0,
@@ -55,9 +54,6 @@
                     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
                     Stats.flush();
                     if (State.resumePlayback && State.currentTrackId) { State.lastPositionSave = Date.now(); StorageAdapter.saveSettings(); }
-                    // Persist the correct workspace snapshot even when global Resume Playback is off.
-                    // During a mode switch the mode flag may already have changed, so derive the
-                    // snapshot target from the current track to avoid overwriting the other queue.
                     if(window.OnlineWorkspace&&State.currentTrackId){
                         const current=Player.getCurrentTrack();
                         OnlineWorkspace.saveQueueSnapshot(current?.source==='machhar-online'?'online':'offline');
@@ -170,8 +166,6 @@
                 } catch(e) { AudioAdapter.silenceStart = 0; }
             },
             setWakeLock: async (enabled = State.keepScreenAwake) => {
-                // Only hold a screen wake lock while the user has explicitly enabled it
-                // and the full player is expanded. Audio playback itself does not require it.
                 const shouldHold = !!(enabled && State.keepScreenAwake && State.isFullPlayerOpen);
                 if (!shouldHold) { try { await AudioAdapter.wakeLock?.release(); } catch (e) { Utils.warn(e); } AudioAdapter.wakeLock = null; return; }
                 if (!('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
@@ -205,8 +199,6 @@
             playRemote: async (url, trackName='streaming track', requestId=State.playbackRequestId, fadeIn=false) => {
                 if (requestId !== State.playbackRequestId || !url) return false;
                 if (AudioAdapter.currentObjectUrl) { URL.revokeObjectURL(AudioAdapter.currentObjectUrl); AudioAdapter.currentObjectUrl = null; }
-                // Match the Machhar player's CORS-enabled audio setup. A remote URL is never
-                // downloaded into IndexedDB; it is streamed through the same native audio element.
                 AudioAdapter.audio.pause();
                 AudioAdapter.audio.crossOrigin = 'anonymous';
                 AudioAdapter.audio.preload = 'metadata';
@@ -330,7 +322,6 @@
                 const w = Math.max(1, rect.width || c.clientWidth || 1), h = Math.max(1, rect.height || c.clientHeight || 1);
                 ctx.setTransform(c.width / w, 0, 0, c.height / h, 0, 0);
                 ctx.clearRect(0, 0, w, h);
-                // The dot is drawn on this canvas while the effect is on, so the wave and the dot can never drift apart.
                 if (c.parentElement && !isMini) c.parentElement.classList.toggle('wave-live', effectEnabled);
                 if (!effectEnabled || !State.duration) return;
 
@@ -344,33 +335,27 @@
                     st.accentAt = now;
                 }
 
-                // 1) Smooth progress: advance by the clock every frame, then ease toward the real audio time.
-                //    timeupdate only fires ~4 times a second, which is what made the old bar step.
                 const dur = Number(State.duration) || 1;
                 const live = Number(AudioAdapter.audio.currentTime);
                 const target = Math.max(0, Math.min(1, (Number.isFinite(live) ? live : Number(State.currentTime) || 0) / dur));
                 const playing = !!State.isPlaying;
-                if (st.p < 0 || !playing || Math.abs(target - st.p) > 0.02) st.p = target;      // paused or seeked: snap
+                if (st.p < 0 || !playing || Math.abs(target - st.p) > 0.02) st.p = target;
                 else {
-                    st.p += dt * (AudioAdapter.audio.playbackRate || 1) / dur;                   // glide
-                    st.p += (target - st.p) * (1 - Math.exp(-dt * 8));                           // gently correct drift
+                    st.p += dt * (AudioAdapter.audio.playbackRate || 1) / dur;
+                    st.p += (target - st.p) * (1 - Math.exp(-dt * 8));
                 }
 
-                // 2) The dot sits at x1. The wave is forced to land exactly on (x1, mid), so both ends are always connected.
                 const R = isMini ? 0 : 6.5;
                 const x1 = Math.max(R, Math.min(w - R, st.p * w));
                 const mid = h / 2;
                 const style = ['default', 'wavy', 'slim', 'squiggly'].includes(State.waveformStyle) ? State.waveformStyle : 'wavy';
                 ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = 1;
 
-                if (x1 < w) {                                                                    // unplayed track
+                if (x1 < w) {
                     ctx.strokeStyle = 'rgba(255,255,255,.24)'; ctx.lineWidth = 2;
                     ctx.beginPath(); ctx.moveTo(x1, mid); ctx.lineTo(w, mid); ctx.stroke();
                 }
 
-                // Share one inexpensive spectrum sample across all waveform styles.
-                // The Default preset uses it to shape a crisp, compact bar waveform;
-                // playback, seeking and audio processing remain unchanged.
                 let freq = null;
                 if (playing && AudioAdapter.analyser) {
                     const an = AudioAdapter.analyser;
@@ -404,11 +389,11 @@
                     const cfg = style === 'squiggly' ? { len: 30, amp: .21, lw: 1.9, spd: 4.2, h2: .32 }
                               : style === 'slim'     ? { len: 64, amp: .10, lw: 1.35, spd: 2.6, h2: 0 }
                               :                        { len: 46, amp: .17, lw: 1.8, spd: 3.2, h2: 0 };
-                    st.phase += playing ? dt * cfg.spd : 0;                                     // phase accumulates, so it never jumps
-                    st.lift += ((playing ? 1 : .6) - st.lift) * (1 - Math.exp(-dt * 5));       // eases down on pause instead of snapping
+                    st.phase += playing ? dt * cfg.spd : 0;
+                    st.lift += ((playing ? 1 : .6) - st.lift) * (1 - Math.exp(-dt * 5));
                     const A = Math.min(h * .24, h * cfg.amp * st.lift * (1 + st.env * .25)) / (1 + cfg.h2);
-                    const k = Math.PI * 2 / cfg.len;                                            // fixed wavelength in px: no stretching as the song moves
-                    const tIn = Math.min(10, x1 * .35), tOut = Math.min(26, x1 * .65);          // taper lengths at the start and at the dot
+                    const k = Math.PI * 2 / cfg.len;
+                    const tIn = Math.min(10, x1 * .35), tOut = Math.min(26, x1 * .65);
                     const ss = (a, b) => { if (a <= 0) return 0; if (b <= 0) return 1; const t = Math.min(1, a / b); return t * t * (3 - 2 * t); };
                     const step = (State.lowEndModeActive || State.lowEndMode) ? 3 : 1.5;
                     ctx.lineWidth = cfg.lw; ctx.beginPath();
@@ -422,7 +407,7 @@
                     ctx.stroke();
                 }
 
-                if (!isMini) {                                                                   // the dot
+                if (!isMini) {
                     ctx.fillStyle = st.accent;
                     ctx.beginPath(); ctx.arc(x1, mid, R, 0, Math.PI * 2); ctx.fill();
                 }
@@ -432,7 +417,6 @@
                 const frame=(timestamp=0)=>{
                     AudioAdapter.visualizerRAF=0;
                     if(!AudioAdapter.visualizerShouldRun()){ AudioAdapter.stopVisualizerLoop(); return; }
-                    // Draw at up to 30 FPS: smooth enough for a small seek-bar waveform without wasting CPU on low-end phones.
                     const frameInterval = (State.lowEndModeActive || State.lowEndMode) ? 50 : 33;
                     if (!AudioAdapter.visualizerLastFrameAt || timestamp - AudioAdapter.visualizerLastFrameAt >= frameInterval) {
                         AudioAdapter.visualizerLastFrameAt=timestamp;
@@ -556,8 +540,6 @@
                     UI.showToast('Switch to streaming playback to play catalogue tracks.', 'info');
                     return;
                 }
-                // Pause the previous source while resolving an online stream, so a slow
-                // backend response cannot leave old audio playing under new track metadata.
                 if (isOnline) AudioAdapter.pause();
                 let blob = null;
                 if (!isOnline) {
@@ -580,7 +562,6 @@
 
                 const fadeIn = !!State.transitionFadePending;
                 State.transitionFadePending = false;
-                // Artwork color extraction and media metadata are background tasks: never delay audio start on them.
                 UI.updatePlayerMeta(track).catch(err => console.warn('Player metadata update failed', err));
                 UI.showMiniPlayer(); UI.updateHighlights(false); UI.renderQueue();
                 try {
@@ -595,13 +576,10 @@
                         played = await AudioAdapter.playBlob(blob, track.fileName, requestId, fadeIn);
                     }
                     if (played && requestId === State.playbackRequestId) {
-                        // Keep online and local listening histories isolated. Online recommendations
-                        // begin after first successful playback; they never block start-up audio.
                         if (isOnline) {
                             if (shouldRememberOnlineTrack && window.OnlineRecommendations) OnlineRecommendations.remember(track);
                             if (window.OnlineWorkspace) OnlineWorkspace.recordPlay(track);
                             const warmUpcoming=()=> (State.playbackOrder||[]).slice(State.queueIndex+1,State.queueIndex+3).map(id=>Player.getTrackById(id)).filter(item=>item?.source==='machhar-online');
-                            // Begin warming an existing next track immediately during current playback.
                             if(window.OnlineMusic)OnlineMusic.prefetchStreams(warmUpcoming()).catch(()=>{});
                             if (window.OnlineRecommendations) {
                                 Promise.resolve(OnlineRecommendations.primeQueue(track)).finally(() => {
@@ -642,9 +620,6 @@
                 const currentTrack = Player.getCurrentTrack();
                 const originalQueueIndex = State.queueIndex;
                 let skippedEquivalentTracks = 0;
-                // Search pages may intentionally show the original, remix and slowed versions so
-                // each can be manually selected. On natural track end, however, do not auto-play a
-                // song equivalent to something already heard in this session or recent history.
                 if (options.ended && State.repeat === 0 && State.playbackSourceMode === 'online' && window.OnlineRecommendations?.wasPlayedOrEquivalent) {
                     const maxSkips = State.playbackOrder.length;
                     while (State.queueIndex + 1 < State.playbackOrder.length && skippedEquivalentTracks < maxSkips) {
@@ -794,7 +769,6 @@
                 if (State.queueIndex === from) State.queueIndex = to;
                 else if (State.queueIndex > from && State.queueIndex <= to) State.queueIndex--;
                 else if (State.queueIndex < from && State.queueIndex >= to) State.queueIndex++;
-                // While shuffled, State.queue keeps the original order so turning shuffle off restores it.
                 if (!State.shuffle) State.queue = [...State.playbackOrder];
                 StorageAdapter.saveSettings(); UI.renderQueue(); if(window.OnlineWorkspace && State.playbackSourceMode==='online') OnlineWorkspace.saveQueueSnapshot('online');
             },

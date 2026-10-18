@@ -1,10 +1,6 @@
 /* Copyright mujic@royverse69 */
-/* Online catalogue and playback provider. The supplied API specification defines the primary endpoints.
- * Legacy stream endpoints remain a compatibility fallback. Signed stream URLs are memory-only.
- */
 const OnlineMusic = (() => {
     const LEGACY_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
-    // Catalogue endpoints are routed through the Render backend proxy; never call the upstream host from the browser.
     const API_BASE = `${LEGACY_BASE.replace(/\/$/, '')}/api`;
     const ONLINE_PREFIX = 'machhar:';
     const streamCache = new Map();
@@ -42,8 +38,6 @@ const OnlineMusic = (() => {
         return host === 'saavncdn.com' || host.endsWith('.saavncdn.com') ||
             host === 'jiosaavn.com' || host.endsWith('.jiosaavn.com');
     };
-    // Route known music-provider audio/artwork CDNs through Render too. Unknown external
-    // media hosts are left intact for compatibility rather than sent to an untrusted proxy.
     const proxyMediaUrl = value => {
         const normalized = safeHttpUrl(value);
         if (!normalized) return '';
@@ -51,8 +45,6 @@ const OnlineMusic = (() => {
             const url = new URL(normalized);
             if (url.origin === BACKEND_ORIGIN && url.pathname === '/media') return normalized;
             if (!isCatalogueMediaHost(url.hostname)) return normalized;
-            // Once controlled by the PWA service worker, use a same-origin media route so a
-            // small byte-range chunk can be warmed and reused by the native audio element.
             if (typeof location !== 'undefined' && location.protocol !== 'file:' && location.origin !== BACKEND_ORIGIN && navigator.serviceWorker?.controller) {
                 const local = new URL('__mujic_media__', location.href);
                 local.searchParams.set('src', normalized);
@@ -69,7 +61,6 @@ const OnlineMusic = (() => {
     };
     const pickImage = value => {
         const images = Array.isArray(value) ? value : (value ? [value] : []);
-        // Rank metadata first and proxy only the one highest-quality artwork URL we will display.
         const candidates = images.map(item => ({
             source: typeof item === 'string' ? item : (item?.url || item?.link || item?.src || item?.imageUrl || item?.image_url || item?.thumbnail),
             quality: qualityNumber(item?.quality || item?.size || item?.width || item?.height)
@@ -79,7 +70,6 @@ const OnlineMusic = (() => {
     };
     const getImage = raw => {
         if (!raw || typeof raw !== 'object') return '';
-        // Consider all documented artwork fields together, then keep just the highest-quality URL.
         const candidates = [];
         for (const value of [raw.image, raw.images, raw.artwork, raw.imageUrl, raw.image_url, raw.thumbnail,
             raw.more_info?.image, raw.more_info?.image_url, raw.more_info?.imageUrl, raw.more_info?.thumbnail]) {
@@ -161,7 +151,6 @@ const OnlineMusic = (() => {
                 const id = raw.id || raw.songId || raw.song_id || raw.more_info?.song_id;
                 if (id === undefined || id === null || !String(id).trim()) continue;
                 const key = String(id); if (seen.has(key)) continue;
-                // The global endpoint mixes tracks with artists/albums/playlists. A name/title by itself is not a song schema.
                 const songShape = Array.isArray(raw.downloadUrl) || Array.isArray(raw.download_url) || raw.duration !== undefined || raw.album !== undefined && (raw.artists !== undefined || raw.primaryArtists !== undefined || raw.singers !== undefined) || raw.primaryArtists !== undefined || raw.singers !== undefined || raw.more_info?.song_id !== undefined;
                 if (!songShape) continue;
                 seen.add(key); out.push(raw);
@@ -255,17 +244,16 @@ const OnlineMusic = (() => {
         try {
             const payload = await requestSaavn(`songs/${id}`, null, 18000);
             candidate = Array.isArray(payload?.data) ? payload.data[0] : payload?.data;
-        } catch (_) { /* fall through to the documented multi-ID lookup */ }
+        } catch (_) { }
         if (!candidate) {
             const fallback=await fetchSongsByIdsOrLink(track.onlineTrackId);
             candidate=fallback[0]?.raw || null;
         }
         if (!candidate) throw new Error('Song details were not returned by the catalogue.');
-        // Preserve the richest raw metadata on this session track without persisting signed links.
         track.raw = { ...(track.raw || {}), ...candidate };
         track.artworkUrl = track.artworkUrl || getImage(candidate);
         track.lyricsId = track.lyricsId || candidate.lyricsId || null;
-        if (window.OnlineCache) OnlineCache.rememberTrack(track); // sanitized metadata only; no signed URLs
+        if (window.OnlineCache) OnlineCache.rememberTrack(track);
         return candidate;
     };
     const fetchRelated = async track => {
@@ -408,7 +396,6 @@ const OnlineMusic = (() => {
         const reference=String(id||'').replace(/^artists:/,'').trim();if(!reference)throw new Error('Artist ID or link is missing.');
         const isLink=/^https?:\/\//i.test(reference),key=`artist|${reference}`;const cached=entityDetailsCache.get(key);if(cached&&cached.expiresAt>Date.now())return cached.value;
         const query='page=0&songCount=0&albumCount=6&sortBy=popularity&sortOrder=desc';
-        // The documented profile endpoint is GET /artists?id=... (or ?link=...), not /artists/{id}.
         const lookup=isLink?`link=${encodeURIComponent(reference)}`:`id=${encodeURIComponent(reference)}`;
         const payload=await requestSaavn(`artists?${lookup}&${query}`,null,18000);
         let raw=unwrapData(payload);if(Array.isArray(raw))raw=raw[0];if(raw?.artist&&typeof raw.artist==='object')raw=raw.artist;
@@ -461,9 +448,6 @@ const OnlineMusic = (() => {
             if(endpointPage.tracks.length)return {...endpointPage,tracks:endpointPage.tracks};
         }catch(error){endpointError=error;}
 
-        // Some international/foreign artist IDs resolve correctly to profile metadata but the
-        // dedicated artist-songs route returns an empty collection. Recover through song search,
-        // then retain only rows whose artist ID or normalized artist name matches this profile.
         if(String(artistName||'').trim()){
             try{
                 const candidates=await search(String(artistName).trim(),{page:pageIndex,limit:40,background:true});
@@ -480,8 +464,6 @@ const OnlineMusic = (() => {
             }catch(fallbackError){if(endpointError)throw endpointError;}
         }
         if(endpointError)throw endpointError;
-        // Return the empty result to the workspace, which keeps page 0 retryable rather than
-        // caching an empty catalogue as a successful complete artist page.
         return endpointPage||{total:0,start:0,page:pageIndex,pageSize:10,tracks:[]};
     };
     const fetchArtistAlbums = async (id, page = 0) => {
@@ -510,7 +492,7 @@ const OnlineMusic = (() => {
         for(const track of tracks||[]){
             const title=normalize(track.title),artist=normalize(track.artist),album=normalize(track.album),all=`${title} ${artist} ${album}`;
             const allTokens=tokens.every(token=>all.split(/\s+/).includes(token)||all.includes(token));
-            if(!allTokens)continue; // e.g. “Happy Birthday” must not retain every unrelated “Happy” song.
+            if(!allTokens)continue;
             const phrase=title.includes(queryText)?120:all.includes(queryText)?100:0;
             const titleHits=tokens.filter(token=>title.split(/\s+/).includes(token)).length;
             const score=phrase+titleHits*8+(tokens.every(token=>title.split(/\s+/).includes(token))?25:0)+(track.artworkUrl?1:0);
@@ -543,7 +525,6 @@ const OnlineMusic = (() => {
                 payload = await requestSaavn(`search/songs?query=${encodeURIComponent(q)}&page=${page}&limit=${limit}`, controller.signal, 16000);
                 rawSongs = extractRawSongs(payload);
                 if (!rawSongs.length && page === 0) {
-                    // Global catalogue search can include songs when the dedicated search returns an empty collection.
                     const global = await requestSaavn(`search?query=${encodeURIComponent(q)}`, controller.signal, 13000);
                     const globalRows = extractRawSongs(global);
                     if (globalRows.length) { rawSongs = globalRows; payload = global; }
@@ -551,8 +532,6 @@ const OnlineMusic = (() => {
                 const info = unwrapData(payload) || payload?.data || {};
                 const explicitTotal = Number(info.total ?? info.totalCount ?? info.data?.total ?? payload?.total) || 0;
                 const explicitStartValue = info.start ?? info.offset;
-                // Some compatible API hosts cap a page at 3–10 items. When start is omitted,
-                // infer the returned page stride from the actual response size, not our requested limit.
                 const startIndex = explicitStartValue !== undefined && Number.isFinite(Number(explicitStartValue))
                     ? Math.max(0, Number(explicitStartValue))
                     : page * (rawSongs.length || limit);
@@ -562,7 +541,6 @@ const OnlineMusic = (() => {
                 resultMeta = {query:q, page, limit, total:Math.max(total, observedEnd), start:startIndex, hasMore, provider:'saavn'};
             } catch (primaryError) {
                 if (controller.signal.aborted) throw primaryError;
-                // Compatibility fallback; separate metadata avoids corrupting active user-search pagination.
                 chosenProvider = 'machhar';
                 payload = await requestLegacy(`search?q=${encodeURIComponent(q)}`, controller.signal, 15000);
                 rawSongs = extractRawSongs(payload);
@@ -590,8 +568,6 @@ const OnlineMusic = (() => {
     const getStreamChoices = async (track, options = {}) => {
         let choices = parseStreamChoices(track?.raw || {});
         if (!choices.length) choices = parseStreamChoices(await fetchSongDetails(track));
-        // Keep all metadata candidates only for the AAC-only download flow. Playback chooses one
-        // highest-quality source, so alternative quality URLs are never opened or preloaded.
         const valid=choices.filter(item=>safeHttpUrl(item.url));
         valid.sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
         return options.all ? valid : (valid.length?[valid[0]]:[]);
@@ -608,8 +584,6 @@ const OnlineMusic = (() => {
         const timer = setTimeout(() => controller.abort(), 20000);
         try {
             let choices = await getStreamChoices(track);
-            // Playback prefers the highest quality source available. The downloader independently
-            // verifies AAC/M4A and never relabels MP3 as AAC.
             choices = choices.filter(item => safeHttpUrl(item.url)).sort((a,b) => qualityNumber(b.quality)-qualityNumber(a.quality));
             let chosen = choices[0];
             if (!chosen && track.provider === 'machhar') {
@@ -651,9 +625,6 @@ const OnlineMusic = (() => {
     const prefetchedChunks = new Map();
     let activeChunkPrefetch = null;
     const prefetchStreams = async tracks => {
-        // Warm only the first upcoming track and only its first 256 KiB. The service worker stores
-        // the range for reuse when it controls the PWA; plain/local HTTP mode falls back to the
-        // backend's normal cacheable 206 response. Never prefetch whole files.
         const next = (Array.isArray(tracks) ? tracks : []).find(track => isOnlineTrack(track) && track?.id && track?.id !== Player.getCurrentTrack()?.id);
         if (!next || !navigator.onLine) return false;
         const swControlled = location.protocol !== 'file:' && Boolean(navigator.serviceWorker?.controller);
@@ -668,21 +639,15 @@ const OnlineMusic = (() => {
             if (controller.signal.aborted || State.playbackSourceMode !== 'online') return false;
             let url = new URL(mediaUrl, location.href), fetchCache='default', credentials='omit';
             if (swControlled) {
-                // If a previous resolve was cached before service-worker control, rewrap its safe
-                // Render /media URL into the controlled same-origin route for chunk warming.
                 if (url.origin === BACKEND_ORIGIN && url.pathname === '/media') {
                     const source = safeHttpUrl(url.searchParams.get('url') || '');
                     if (!source || !isCatalogueMediaHost(new URL(source).hostname)) return false;
                     const local = new URL('__mujic_media__', location.href); local.searchParams.set('src', source); url = local;
                 }
                 if (url.origin !== location.origin || !url.pathname.endsWith('/__mujic_media__')) return false;
-                // Save the exact same same-origin media URL for playback, so the next track hits the
-                // cached range instead of accidentally bypassing it with a previously cached Render URL.
                 streamCache.set(next.id, {url:url.href, expiresAt:Date.now()+4*60*1000});
                 url.searchParams.set('_mujic_prefetch', '1'); fetchCache='no-store'; credentials='same-origin';
             } else if (url.origin !== BACKEND_ORIGIN || url.pathname !== '/media') {
-                // Without a controlling service worker only a CORS-enabled, cacheable Render media
-                // URL is eligible; raw upstream URLs and unknown hosts are never prefetched.
                 return false;
             }
             const response = await fetch(url.href, { method:'GET', headers:{Range:'bytes=0-262143',Accept:'audio/*'}, cache:fetchCache, credentials, signal:controller.signal });
@@ -742,6 +707,20 @@ const OnlineMusic = (() => {
         AudioAdapter.audio.removeAttribute('src'); AudioAdapter.audio.load(); delete AudioAdapter.audio.dataset.mujicTrackId;
         UI.updatePlayPause();
     };
+    const transitionMode = async work => {
+        const reduced = document.body.classList.contains('reduced-motion') || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        if (typeof document.startViewTransition === 'function' && !reduced) {
+            try {
+                const transition = document.startViewTransition(() => { work(); });
+                await transition.updateCallbackDone;
+                return;
+            } catch (_) { return; }
+        }
+        document.body.classList.add('workspace-switching');
+        if (modeAnimationTimer) clearTimeout(modeAnimationTimer);
+        modeAnimationTimer = setTimeout(() => document.body.classList.remove('workspace-switching'), 340);
+        work();
+    };
     const setMode = async mode => {
         const next = mode === 'online' ? 'online' : 'offline';
         if (next === State.playbackSourceMode) {
@@ -764,20 +743,17 @@ const OnlineMusic = (() => {
         const previous = State.playbackSourceMode;
         if (window.OnlineWorkspace) OnlineWorkspace.beforeModeChange(next, previous);
         if (next === 'online') stopLocalPlaybackForModeSwitch();
-        // Animate the workspace transition without changing either workspace's layout.
-        if (document.body?.classList) {
-            document.body.classList.add('workspace-switching');
-            if (modeAnimationTimer) clearTimeout(modeAnimationTimer);
-            modeAnimationTimer = setTimeout(() => document.body?.classList?.remove('workspace-switching'), 340);
-        }
-        State.playbackSourceMode = next; StorageAdapter.saveSettings(); updateModeUI();
-        if (next === 'offline') {
-            latestSearchRequest++; if (activeController) activeController.abort();
-            if (activeStreamController) activeStreamController.abort();
-            stopRemotePlayback();
-        }
-        if (window.OnlineWorkspace) OnlineWorkspace.onModeChange(next, previous);
-        else if (window.UI) UI.switchView(next === 'online' ? 'online-home' : 'home');
+        const applyMode = () => {
+            State.playbackSourceMode = next; StorageAdapter.saveSettings(); updateModeUI();
+            if (next === 'offline') {
+                latestSearchRequest++; if (activeController) activeController.abort();
+                if (activeStreamController) activeStreamController.abort();
+                stopRemotePlayback();
+            }
+            if (window.OnlineWorkspace) OnlineWorkspace.onModeChange(next, previous);
+            else if (window.UI) UI.switchView(next === 'online' ? 'online-home' : 'home');
+        };
+        await transitionMode(applyMode);
         return true;
     };
     window.addEventListener('offline', () => {

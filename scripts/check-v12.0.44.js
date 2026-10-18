@@ -1,0 +1,16 @@
+const fs = require('node:fs');
+const read = file => fs.readFileSync(file, 'utf8');
+const html = read('index.html'), ws = read('js/online-workspace.js'), css = read('css/online-workspace.css'), provider = read('js/online-provider.js'), sw = read('sw.js'), events = read('js/ui-events.js');
+const check = (condition, message) => { if (!condition) throw new Error(message); };
+check(ws.includes('const openLikedFromHome') && /openLikedFromHome,/.test(ws), 'Home Liked Songs handler must exist and be exported.');
+check(!/\.online-jump\{[^}]*position:sticky/.test(css), 'Jump chips must not be sticky.');
+for (const mode of ['online', 'offline']) check(html.includes(`data-mode="${mode}"`), `Settings need ${mode}-only sections.`);
+check(css.includes('body.online-mode [data-mode="offline"]') && css.includes('body:not(.online-mode) [data-mode="online"]'), 'Mode visibility rules are required.');
+for (const id of ['online-settings-stats-grid', 'online-cache-usage', 'online-cache-toggle', 'online-library-summary']) check(html.includes(`id="${id}"`), `Missing streaming settings element ${id}.`);
+for (const action of ['online-export-library', 'online-reset-taste', 'online-toggle-caching']) check(events.includes(`case '${action}'`), `Missing handler for ${action}.`);
+check(provider.includes('startViewTransition') && provider.includes('transitionMode'), 'Mode switch must use a view transition.');
+check(sw.includes('handleApi') && sw.includes('handleArt') && sw.includes("'SET_CACHING'"), 'Service worker must cache API data and artwork.');
+check(/id="view-home"[\s\S]*?online-brand-wordmark[\s\S]*?id="view-library"/.test(html), 'Offline Home needs the watermark.');
+const stripped = [read('js/ui.js'), read('js/core.js'), ws, sw].join('\n');
+check(!/^\s*\/\/.*$/m.test(stripped), 'Source must not contain line comments.');
+console.log('v12.0.44 checks passed');

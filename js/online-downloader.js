@@ -1,7 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* AAC/M4A-only online downloader. Uses the same native-M4A tagging approach as Mujic Dloader.
- * No MP3 transcode path: if the provider cannot supply a valid AAC/MP4 source, fail clearly.
- */
 (() => {
     const cleanFilePart = value => String(value || '').replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Unknown';
     const concat = parts => {

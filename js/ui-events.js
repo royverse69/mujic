@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic UI module: global event delegation and gestures. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             setupGlobalDelegation: () => {
                 const closePlayerBtn = document.getElementById('close-player-btn');
@@ -16,8 +15,6 @@
                         if (!item) return;
                         const now = Date.now();
                         if (item.dataset.lastNavActivation && now - Number(item.dataset.lastNavActivation) < 350) {
-                            // A touch pointerup is followed by a synthetic click on many phones.
-                            // Swallow that duplicate instead of letting it reach body delegation.
                             e.preventDefault(); e.stopPropagation(); return;
                         }
                         item.dataset.lastNavActivation = String(now);
@@ -39,10 +36,6 @@
                 miniNext?.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); Player.next(); }, true);
                 mini?.querySelector('.mini-progress-bar')?.addEventListener('click', e => e.stopPropagation());
                 mini?.querySelector('.mini-progress-bar')?.addEventListener('pointerdown', e => e.stopPropagation());
-                // One long-press controller for playlist cards and Home songs.
-                // The press is cancelled by movement, scrolling, wheel, pointer cancel or a
-                // second finger, so scrolling can never open a menu. After a long press the
-                // trailing click is swallowed so the menu and the item never both fire.
                 const LP_MOVE_PX = 8;
                 const press = { timer:null, row:null, x:0, y:0, id:null };
                 let lastPointerType = 'mouse';
@@ -72,14 +65,12 @@
                     if (Math.abs(e.clientX - press.x) > LP_MOVE_PX || Math.abs(e.clientY - press.y) > LP_MOVE_PX) cancelPress();
                 }, {passive:true});
                 ['pointerup','pointercancel','dragstart','wheel','touchmove','blur'].forEach(type => (type === 'blur' ? window : document).addEventListener(type, cancelPress, {passive:true, capture:true}));
-                // scroll does not bubble; capture it from any scroller (main content, rails, sheets)
                 window.addEventListener('scroll', cancelPress, {passive:true, capture:true});
                 document.addEventListener('contextmenu', (e) => {
                     const plRow = e.target.closest('.playlist-longpress-target[data-key1]');
                     const songRow = plRow ? null : e.target.closest('.home-track-longpress-target[data-id]');
                     if (!plRow && !songRow) return;
                     e.preventDefault();
-                    // Touch long-press is handled by the timer above; right-click opens the menu on desktop.
                     if (lastPointerType === 'mouse' && !e.target.closest('button')) {
                         const row = plRow || songRow; row.dataset.longPressTriggered = '1';
                         if (plRow) UI.openPlaylistActions(row.dataset.key1); else UI.openTrackOptions(row.dataset.id);
@@ -92,10 +83,6 @@
                     const btn = e.target.closest('[data-action]'); if (!btn) return;
                     const action = btn.dataset.action;
 
-                    // Central action dispatcher: the previous build omitted core actions here
-                    // (song rows, Settings categories, history, playlist actions and transport).
-                    // The UI looked normal, but most taps had no handler. Keep this dispatch
-                    // explicit, and isolate failures so one action cannot break future taps.
                     try {
                         switch (action) {
                             case 'switch-view':
@@ -221,7 +208,15 @@
                             case 'toggle-workspaces-link':
                                 e.preventDefault(); e.stopPropagation(); OnlineWorkspace.setLinked(!!btn.checked); return;
                             case 'clear-online-cache':
-                                e.preventDefault(); e.stopPropagation(); OnlineMusic.clearCache(); UI.showToast('Streaming catalogue cache cleared.','delete'); return;
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.clearAllCaches(); UI.showToast('Streaming cache cleared.','delete'); return;
+                            case 'online-toggle-caching':
+                                OnlineWorkspace.setCaching(Boolean(btn.checked)); return;
+                            case 'online-reset-taste':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.resetTaste(); return;
+                            case 'online-export-library':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.exportStreamingLibrary(); return;
+                            case 'online-open-library':
+                                e.preventDefault(); e.stopPropagation(); UI.switchView('online-playlists'); return;
                             case 'share-offline-playlist-online':
                                 e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.shareOfflinePlaylistToOnline(State.currentPlaylistId); return;
                             case 'online-create-and-add': {
@@ -273,17 +268,12 @@
                                     if (State.playbackSourceMode !== 'online') { UI.showToast('Switch to streaming playback to play catalogue tracks.', 'info'); return; }
                                     if (contextName === 'online-search') { OnlineWorkspace.playSearchResult(id); return; }
                                     const matches = OnlineWorkspace.getPlaybackContext(contextName, id);
-                                    // Manual selection is intentional: keep all visible search hits and
-                                    // user-curated playlist entries, including alternate versions.
-                                    // Duplicate/remix suppression is reserved for automatic recommendations.
                                     const sourceList = matches.length > 0 ? matches : [selectedTrack];
                                     const seenIds = new Set();
                                     const list = sourceList.filter(track => {
                                         if (!track?.id || seenIds.has(track.id)) return false;
                                         seenIds.add(track.id); return true;
                                     });
-                                    // Start from the exact row the user tapped, then keep the rest of
-                                    // the current online search/playlist as the upcoming queue.
                                     const startIndex = Math.max(0, list.findIndex(track => track.id === id));
                                     Player.playContext(list, startIndex);
                                     return;
@@ -292,7 +282,6 @@
                                 let list = contextList;
                                 if (contextName === 'search') {
                                     const matches = Array.isArray(State.searchResults) ? State.searchResults.filter(track => contextList.some(item => item.id === track.id)) : [];
-                                    // A single search hit should not create a one-track dead-end queue.
                                     list = matches.length > 1 ? matches : contextList;
                                 } else if ((contextName === 'playlist' || contextName === 'context') && Array.isArray(State.currentContextView) && State.currentContextView.some(track => track.id === id)) {
                                     list = State.currentContextView;
@@ -446,7 +435,6 @@
                         const cached = track ? await LyricsFetcher.getCachedOnly(track) : null;
                         if (cached?.text) {
                             State.currentLyrics = cached;
-                            // Replace an earlier unavailable result before re-rendering the cached lyrics.
                             LyricsFetcher.cache.set(id, cached);
                             if (cached.isSynced && !cached.parsed) cached.parsed = LyricsFetcher.parseLRC(cached.text);
                             UI.loadCurrentLyrics();
@@ -532,11 +520,7 @@
             },
             setupGestures: () => {
                 window.addEventListener('resize', () => { AudioAdapter.resizeVisualizer(); if (AudioAdapter.visualizerShouldRun()) AudioAdapter.renderScrubberVisualizerFrame(); });
-                // Native-style horizontal navigation between the four primary tabs. Vertical scrolling,
-                // nested rails, lyrics, inputs, controls and the expanded player keep their own gestures.
                 const mainContent = document.getElementById('main-content');
-                // Mouse wheel and click-safe pointer dragging for both the offline-compatible
-                // horizontal rails and dynamically-rendered Online card/artist rails.
                 const wheelRailSelector='.horizontal-rail,.online-card-rail';
                 const dragRailSelector='.online-card-rail';
                 const attachRailWheel = rail => {

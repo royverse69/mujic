@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic UI module: lyrics display and modes. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             syncLyrics: (time) => {
                 if(!State.currentLyrics || !State.currentLyrics.isSynced) return;
@@ -32,7 +31,6 @@
                 lyricsContent.className = `player-lyrics-container lyrics-style-${State.lyricsStyle || 'apple'}`;
                 lyricsContent.innerHTML = `<div style="text-align:center; font-size: 16px; font-weight: 400; color: var(--text-secondary); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">Loading lyrics...</div>`;
                 State.currentLyrics = null; State.activeLyricIndex = -1;
-                // Bound the full provider chain so a slow/offline provider cannot leave the lyrics UI stuck loading.
                 State.lyricsTimeout = setTimeout(() => {
                     if (State.isLyricsMode && State.currentTrackId === t.id && !State.currentLyrics) {
                         UI.toggleLyricsMode();
@@ -59,7 +57,6 @@
                                 <a class="btn" href="https://www.google.com/search?q=${detailsQ}" target="_blank" rel="noopener noreferrer">Song details</a>
                             </div>
                         </div>`;
-                        // Close an unavailable lyrics panel after five seconds so it never stays as an empty view.
                         clearTimeout(State.lyricsTimeout);
                         State.lyricsTimeout = setTimeout(() => {
                             if (State.isLyricsMode && State.currentTrackId === t.id && State.currentLyrics?.unavailable) {

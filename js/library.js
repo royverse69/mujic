@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic library layer: import, metadata, playlists and persistence-facing library operations. */
         const Library = {
             importFiles: async (e, targetPlaylistId = null) => {
                 const files = e.target.files; if (files.length === 0) return;
@@ -35,8 +34,6 @@
                             else { title = cleanName; }
                         }
 
-                        // Only attempt metadata completion when the artist is genuinely missing.
-                        // Never attach a fuzzy result based only on the first search hit. Require exact normalized title + duration match.
                         if (title && !artist && navigator.onLine) {
                             try {
                                 const backend = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
@@ -78,8 +75,6 @@
                 State.playlistImportTargetId = null;
                 UI.showToast(targetPlaylist ? `Imported ${addedCount} tracks to ${targetPlaylist.name}` : `Imported ${addedCount} tracks`, "check_circle"); e.target.value = ''; 
             },
-            // Cheap content fingerprint: size + SHA-256 of the first, middle and last 64 KB.
-            // Reads ~192 KB per file instead of hashing whole (possibly 100 MB+) FLAC files.
             fingerprint: async (blob) => {
                 try {
                     if (!blob || !(globalThis.crypto && crypto.subtle)) return null;
@@ -91,7 +86,6 @@
                     return size + ':' + Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
                 } catch (err) { Utils.warn(err); return null; }
             },
-            // Only files with the same byte size can be duplicates, so hashing of stored legacy tracks is lazy.
             findDuplicate: async (file, fingerprint) => {
                 const sameSize = State.library.filter(t => t.fileSize === file.size);
                 if (!sameSize.length) return null;
@@ -104,14 +98,14 @@
                         } catch (err) { Utils.warn(err); }
                     }
                     if (t.contentHash) { if (t.contentHash === fingerprint) return t; }
-                    else if (t.fileName === file.name) return t; // cannot verify: keep the old name+size rule
+                    else if (t.fileName === file.name) return t;
                 }
                 return null;
             },
             parseMetadata: (file) => {
                 return new Promise(async (resolve) => {
                     if (!window.musicMetadata && !window.jsmediatags && window.MujicVendors?.ensure) {
-                        try { await window.MujicVendors.ensure(); } catch(e) { /* offline: fall back to filename-derived metadata */ }
+                        try { await window.MujicVendors.ensure(); } catch(e) { }
                     }
                     if (window.musicMetadata) {
                         try {
@@ -181,7 +175,6 @@
                 State.playlists.forEach(p => { p.tracks = p.tracks.filter(tid => tid !== id); });
                 await StorageAdapter.deleteTrack(id);
                 LyricsFetcher.cache.delete(id);
-                // Drop the cover only when no remaining track shares it.
                 if (removed?.artworkId && !State.library.some(t => t.artworkId === removed.artworkId)) {
                     await StorageAdapter.deleteArtwork(removed.artworkId);
                     const url = State.artworkUrls.get(removed.artworkId);

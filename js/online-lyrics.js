@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Read embedded or catalogue-provided lyrics first. Secondary sources are handled by LyricsFetcher. */
 (() => {
     const LEGACY_BACKEND = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
     const decode = value => {
@@ -42,20 +41,17 @@
     };
     const fetchFromMusicSource = async track => {
         if (!track || track.source !== 'machhar-online' || !navigator.onLine) return null;
-        // First use lyric fields already included with the exact search/catalogue result.
         const embedded = hasText(track.raw || track);
         if (embedded && metadataMatches(embedded, track)) return { text: embedded.text, isSynced: embedded.synced, source: 'Music catalogue' };
 
-        // The supported song-detail response can expose lyric text on some deployments; inspect it first.
         if (track.provider !== 'machhar' && window.OnlineMusic?.fetchSongDetails) {
             try {
                 const details = await OnlineMusic.fetchSongDetails(track);
                 const result = hasText(details);
                 if (result && metadataMatches(result, track)) return { text: result.text, isSynced: result.synced, source: 'Music catalogue' };
-            } catch (_) { /* proceed to documented general lyrics providers */ }
+            } catch (_) { }
         }
 
-        // Legacy endpoint is only used for tracks originating from the Machhar provider.
         if (track.provider === 'machhar') {
             const title = String(track.title || '').split('(')[0].trim();
             const artist = String(track.artist || '').split(',')[0].trim();
@@ -64,7 +60,7 @@
                 const payload = await fetchJson(`${LEGACY_BACKEND}lyrics?track=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`);
                 const result = hasText(payload);
                 if (result && metadataMatches(result, track)) return { text: result.text, isSynced: result.synced, source: 'Machhar music source' };
-            } catch (_) { /* LRCLIB fallback is handled by lyrics.js */ }
+            } catch (_) { }
         }
         return null;
     };

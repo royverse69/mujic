@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Optional metadata parser loader: no network requests until the user imports a file. */
 (function () {
   'use strict';
   const urls = [
@@ -25,7 +24,7 @@
       if (!loading) loading = (async () => {
         for (const url of urls) {
           if (window.musicMetadata || window.jsmediatags) break;
-          try { await loadScript(url); } catch (e) { /* try next parser */ }
+          try { await loadScript(url); } catch (e) { }
         }
         return !!(window.musicMetadata || window.jsmediatags);
       })();

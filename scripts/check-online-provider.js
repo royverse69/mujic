@@ -33,7 +33,6 @@ const mkContext = fetchImpl => {
     if (!proxiedMedia.startsWith('https://gaana-suno-varna-machhar-aajayega.onrender.com/media?url=') || !decodeURIComponent(proxiedMedia.split('url=')[1]).includes('aac.saavncdn.com/test-track.m4a')) throw new Error('Known catalogue media hosts must be proxied through Render.');
 
 
-    // A short capped page with a larger documented total must still expose pagination.
     const pageCalls = [];
     const paged = mkContext(async url => {
         pageCalls.push(String(url));
@@ -50,7 +49,6 @@ const mkContext = fetchImpl => {
     const pageOne = await paged.music.search('paged sample', { page: 1, limit: 40 });
     if (pageOne.length !== 3 || pageOne[0].onlineTrackId !== 'paged-3') throw new Error('The provider should request and normalize the next page.');
 
-    // Multi-token searches must not leak unrelated partial-title hits into the result set.
     const birthday = mkContext(async () => ({ok:true,text:async()=>JSON.stringify({success:true,data:{total:4,start:0,results:[
         {id:'hb-exact',name:'Happy Birthday To You',duration:160,artists:{primary:[{name:'Traditional'}]}},
         {id:'happy-only',name:'Happy Ending',duration:190,artists:{primary:[{name:'Artist'}]}},
@@ -61,7 +59,6 @@ const mkContext = fetchImpl => {
     if (birthdayResults.length !== 2 || birthdayResults.some(track => /Happy Ending|Birthday Song/.test(track.title))) throw new Error('Multi-token search must not include unrelated partial-word matches.');
     if (!pageCalls.some(url => new URL(url).searchParams.get('page') === '1')) throw new Error('Load More pagination must request page=1.');
 
-    // Documented details/lookup routes accept IDs or share links, and artist pages expose dedicated pages.
     const catalogueCalls=[];
     const catalogue=mkContext(async url=>{
         catalogueCalls.push(String(url));
@@ -77,8 +74,6 @@ const mkContext = fetchImpl => {
     if(linkedSongs.length!==1||!catalogueCalls.some(url=>new URL(url).searchParams.has('link')))throw new Error('Song lookup must support the documented link parameter.');
     const artistPage=await catalogue.music.fetchArtistSongs('artist-1',1);
     if(artistPage.tracks.length!==1||artistPage.total!==6||artistPage.pageSize!==1||!catalogueCalls.some(url=>new URL(url).pathname.endsWith('/artists/artist-1/songs')&&new URL(url).searchParams.get('page')==='1'))throw new Error('Artist song pagination must infer its page size from returned rows, not an unrelated limit field.');
-    // International artists may have a valid profile/similar-artist result but an empty dedicated song endpoint.
-    // Search by artist name, then keep only exact artist ID/name matches instead of showing an empty collection.
     const foreignArtist=mkContext(async url=>{
         const u=new URL(String(url));
         if(u.pathname.endsWith('/artists/foreign-artist/songs'))return {ok:true,text:async()=>JSON.stringify({success:true,data:{total:0,songs:[]}})};

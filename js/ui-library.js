@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic UI module: library rendering: home, albums, artists, playlists, context views, track rows, playlist actions. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             renderHome: async () => {
                 if (State.library.length === 0) { 
@@ -268,7 +267,6 @@
                 if (download) { download.hidden = !isOnlineTrack; download.dataset.id = isOnlineTrack ? id : ''; }
                 const infoAction = document.getElementById('ctx-info'); if (infoAction) infoAction.hidden = false;
                 const shareAction = document.getElementById('ctx-share'); if (shareAction) shareAction.hidden = !isOnlineTrack;
-                // Online tracks can be organized in the Online workspace's own playlists.
                 const removeOption = document.getElementById('ctx-remove'); if (removeOption) removeOption.hidden = isOnlineTrack;
                 const favoriteOption = document.getElementById('ctx-fav'); if (favoriteOption) favoriteOption.hidden = false;
                 const playlistAction=document.getElementById('ctx-playlist');
@@ -296,8 +294,6 @@
                 const search = document.getElementById('playlist-track-picker-search');
                 if (search) search.value = '';
                 UI.renderPlaylistTrackPicker();
-                // Close the previous sheet visually without starting an asynchronous history.back();
-                // this avoids racing a pending popstate against the new picker sheet.
                 UI.closeSheets(true);
                 UI.showSheet('playlist-track-picker-sheet');
             },
@@ -309,7 +305,6 @@
                 if (!list || !playlist) return;
                 const available = State.library.filter(track => !playlist.tracks.includes(track.id));
                 const matches = available.filter(track => !search || [track.title, track.artist, track.album, track.fileName].some(value => String(value || '').toLocaleLowerCase().includes(search)));
-                // Keep the initial picker lightweight on large libraries; searching narrows the list.
                 const limit = search ? 300 : 120;
                 const shown = matches.slice(0, limit);
                 if (status) status.textContent = matches.length > limit ? `Showing ${limit} of ${matches.length} songs. Search to narrow the list.` : `${matches.length} song${matches.length === 1 ? '' : 's'} available`;

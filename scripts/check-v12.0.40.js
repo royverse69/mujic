@@ -31,7 +31,6 @@ check(/mujic-media-chunks-v3/.test(sw) && /mujic-media-images-v3/.test(sw) && /m
 check(/online-playing-row/.test(read('js/ui-player.js')) && /NOW PLAYING/.test(css), 'Current song must be highlighted in the queue.');
 check(/body\.online-mode #view-online-home \.online-brand-wordmark\{[^}]*-webkit-text-fill-color:rgba\(255,255,255,\.30\)!important/s.test(css), 'Mujic wordmark must have a visible high-contrast fill on the black Online Home background.');
 check(/body\.online-mode #main-content\{max-width:min\(100%,1480px\)!important/.test(css), 'Desktop Online workspace should better use horizontal space.');
-// Exercise the worker's byte-range storage behavior with mocked fetch/Cache APIs.
 class MockCache {
   constructor(){ this.map = new Map(); }
   key(req){ return typeof req === 'string' ? req : req.url; }
@@ -62,7 +61,6 @@ const sandbox = {
   },
   console, setTimeout, clearTimeout
 };
-// Evaluate the worker in a persistent mocked service-worker environment so the route function is callable for tests.
 const workerSandbox = { ...sandbox };
 vm.createContext(workerSandbox);
 vm.runInContext(sw, workerSandbox, {filename:'sw.js'});

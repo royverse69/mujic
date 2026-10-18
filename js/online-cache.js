@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Lightweight online cache: metadata persists locally; signed audio URLs and full audio do not. */
 (() => {
     const KEY = 'mujic-online-metadata-v1';
     const artworkWarmed = new Set();
@@ -20,7 +19,7 @@
             const entries=Object.entries(items);
             while(entries.length>200){const [oldest]=entries;delete items[oldest];entries.shift();}
             localStorage.setItem(KEY,JSON.stringify(items));
-        } catch (_) { /* storage may be full/private; in-memory cache still works */ }
+        } catch (_) { }
     };
     const rememberTrack = track => { if(track?.id && track?.onlineTrackId) writeTracks([track]); };
     const getTrack = id => { const v = read()[String(id)]; return v ? {...v, raw:{}} : null; };
@@ -30,8 +29,6 @@
         artworkWarmed.add(url);
         const img = new Image(); img.decoding = 'async'; img.loading = 'eager'; img.src = url;
     };
-    // Persist lightweight metadata only. Artwork is rendered with native lazy-loading, avoiding a second
-    // hidden Image request for every visible track card. Never preload every artwork variant.
     const warmTracks = tracks => { const list=(Array.isArray(tracks)?tracks.slice(0,24):[]); writeTracks(list); };
     const clear = () => { try { localStorage.removeItem(KEY); } catch (_) {} artworkWarmed.clear(); };
     window.OnlineCache = { rememberTrack, getTrack, warmArtwork, warmTracks, clear, sanitize };

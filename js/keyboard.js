@@ -1,5 +1,4 @@
 /* Copyright mujic@royverse69 */
-/* Mujic desktop layer: customizable keyboard shortcuts and drag-and-drop import. */
 const Keyboard = {
     ACTIONS: [
         { id:'playPause',  label:'Play / pause',        def:'Space',      repeat:false, run:() => Player.togglePlay() },
@@ -24,7 +23,6 @@ const Keyboard = {
     ],
     capturing: null,
     binding: (id) => { const b = State.keyBindings || {}; const a = Keyboard.ACTIONS.find(x => x.id === id); return Object.prototype.hasOwnProperty.call(b, id) ? b[id] : (a ? a.def : ''); },
-    // Normalise a KeyboardEvent to e.g. "Space", "ArrowLeft", "Shift+ArrowRight", "Ctrl+k".
     combo: (e) => {
         if (['Shift','Control','Alt','Meta','CapsLock','Dead','Unidentified'].includes(e.key)) return null;
         let key = e.key === ' ' ? 'Space' : e.key;
@@ -32,7 +30,7 @@ const Keyboard = {
         if (key.length === 1) key = key.toLowerCase();
         const mods = [];
         if (e.ctrlKey) mods.push('Ctrl'); if (e.altKey) mods.push('Alt');
-        if (e.shiftKey && (key.length > 1 || isLetter)) mods.push('Shift'); // "?" already encodes Shift
+        if (e.shiftKey && (key.length > 1 || isLetter)) mods.push('Shift');
         if (e.metaKey) mods.push('Meta');
         return mods.concat(key).join('+');
     },
@@ -49,14 +47,14 @@ const Keyboard = {
     dialogOpen: () => !!document.getElementById('dialog-overlay')?.classList.contains('active'),
     suppressKeyup: null,
     onKeyDown: (e) => {
-        if (Keyboard.capturing) return; // capture handler owns the key
+        if (Keyboard.capturing) return;
         if (!State.keyboardShortcutsEnabled || e.defaultPrevented || e.isComposing) return;
         if (Keyboard.isTyping(e.target) || Keyboard.dialogOpen()) return;
         const c = Keyboard.combo(e); if (!c) return;
         const action = Keyboard.ACTIONS.find(a => Keyboard.binding(a.id) === c); if (!action) return;
         if (e.repeat && !action.repeat) { e.preventDefault(); return; }
         e.preventDefault();
-        Keyboard.suppressKeyup = e.code; // stops a focused button also "clicking" on Space keyup
+        Keyboard.suppressKeyup = e.code;
         try { action.run(); } catch (err) { Utils.warn(err); }
     },
     onKeyUp: (e) => { if (Keyboard.suppressKeyup && e.code === Keyboard.suppressKeyup) { e.preventDefault(); Keyboard.suppressKeyup = null; } },
@@ -87,9 +85,8 @@ const Keyboard = {
             const id = Keyboard.capturing;
             if (e.key === 'Backspace' || e.key === 'Delete') State.keyBindings = Object.assign({}, State.keyBindings, { [id]: '' });
             else {
-                const c = Keyboard.combo(e); if (!c) return; // lone modifier: keep waiting
+                const c = Keyboard.combo(e); if (!c) return;
                 const next = Object.assign({}, State.keyBindings);
-                // Swap rather than silently double-assign a key.
                 const other = Keyboard.ACTIONS.find(a => a.id !== id && Keyboard.binding(a.id) === c);
                 if (other) next[other.id] = Keyboard.binding(id);
                 next[id] = c; State.keyBindings = next;
@@ -124,7 +121,6 @@ const Keyboard = {
         });
         document.getElementById('kb-enabled')?.addEventListener('change', (e) => { State.keyboardShortcutsEnabled = !!e.target.checked; Keyboard.save(); });
         Keyboard.render(); Keyboard.initDrop();
-        // settings finish loading after init; refresh once the app has booted
         setTimeout(Keyboard.render, 1500);
     }
 };

@@ -5,14 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.43">
+    <meta name="application-version" content="12.0.44">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Mujic">
     <script>
-        // Browsers reject web manifests on file:// URLs. Only register the manifest on a web origin.
         if (location.protocol === 'http:' || location.protocol === 'https:') {
             const mujicManifest = document.createElement('link');
             mujicManifest.rel = 'manifest';
@@ -99,6 +98,7 @@
                     </div>
                 </div>
                 <section class="online-panel online-linked-panel" id="home-linked-online" hidden></section>
+                <footer class="online-brand-footer" aria-label="Mujic"><div class="online-brand-wordmark" aria-hidden="true">Mujic</div></footer>
             </section>
 
             <section id="view-library" class="view">
@@ -575,7 +575,7 @@
 
                 <div class="settings-section">
                     <h2 class="section-title">Library</h2>
-                    <div class="settings-row">
+                    <div class="settings-row" data-mode="offline">
                         <div class="settings-text"><div class="settings-label">Sort Library By</div><div class="settings-desc">Order of songs tab</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
@@ -588,7 +588,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="settings-row">
+                    <div class="settings-row" data-mode="offline">
                         <div class="settings-text"><div class="settings-label">Sort Direction</div><div class="settings-desc">Ascending or descending</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
@@ -599,7 +599,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="settings-row">
+                    <div class="settings-row" data-mode="offline">
                         <div class="settings-text"><div class="settings-label">Show Artwork List Icons</div><div class="settings-desc">Display thumbnails in lists</div></div>
                         <div class="settings-control-group">
                             <input type="checkbox" id="show-artwork-lists" class="settings-control" data-setting="showArtworkLists">
@@ -609,10 +609,32 @@
                         <div class="settings-text"><div class="settings-label">Share playlists between libraries</div><div class="settings-desc" id="link-workspaces-status">Liked songs, listening history and playlists stay separate. Enable only to copy playlists between libraries.</div></div>
                         <label class="settings-switch"><input type="checkbox" id="link-workspaces-toggle" data-action="toggle-workspaces-link"><span></span></label>
                     </div>
-                    <div class="settings-row workspace-cache-row keep-desc"><div class="settings-text"><div class="settings-label">Clear streaming cache</div><div class="settings-desc">Remove cached catalogue details and stream links. Your downloaded and local audio stays untouched.</div></div><button class="btn workspace-cache-button" data-action="clear-online-cache">Clear cache</button></div>
                 </div>
                 
-                <div class="settings-section">
+                <div class="settings-section" data-mode="online">
+                    <h2 class="section-title">Streaming Library</h2>
+                    <div class="settings-row keep-desc">
+                        <div class="settings-text"><div class="settings-label">Your streaming library</div><div class="settings-desc" id="online-library-summary">0 liked · 0 playlists · 0 recently played</div></div>
+                        <div class="settings-control-group"><button class="btn" data-action="online-open-library" type="button">Open</button></div>
+                    </div>
+                    <div class="settings-row keep-desc">
+                        <div class="settings-text"><div class="settings-label">Clear listening history</div><div class="settings-desc">Remove the recently played list. Liked songs and playlists stay.</div></div>
+                        <div class="settings-control-group"><button class="btn" data-action="online-clear-history" type="button">Clear</button></div>
+                    </div>
+                    <div class="settings-row keep-desc">
+                        <div class="settings-text"><div class="settings-label">Reset listening profile</div><div class="settings-desc">Start Quick Picks and Suggested for You from scratch.</div></div>
+                        <div class="settings-control-group"><button class="btn" data-action="online-reset-taste" type="button">Reset</button></div>
+                    </div>
+                </div>
+
+                <div class="settings-section" data-mode="online">
+                    <h2 class="section-title">Streaming Listening</h2>
+                    <div class="settings-stats-grid" id="online-settings-stats-grid"></div>
+                    <div class="settings-top-list" id="online-settings-stats-top"></div>
+                    <div class="settings-top-list" id="online-settings-stats-artists"></div>
+                </div>
+
+                <div class="settings-section" data-mode="offline">
                     <h2 class="section-title">Your Listening</h2>
                     <div class="settings-stats-grid" id="settings-stats-grid">
                         <div class="settings-stat-card"><span class="stat-kicker">Today</span><strong>0</strong><span>0 min</span></div>
@@ -632,12 +654,16 @@
                         <div class="settings-text"><div class="settings-label">Export Settings</div><div class="settings-desc">Save your Mujic preferences as a JSON file.</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="export-settings" type="button">Export JSON</button></div>
                     </div>
-                    <div class="settings-row keep-desc">
+                    <div class="settings-row keep-desc" data-mode="online">
+                        <div class="settings-text"><div class="settings-label">Export Streaming Library</div><div class="settings-desc">Save liked songs, playlists, history and listening profile as JSON.</div></div>
+                        <div class="settings-control-group"><button class="btn" data-action="online-export-library" type="button">Export JSON</button></div>
+                    </div>
+                    <div class="settings-row keep-desc" data-mode="offline">
                         <div class="settings-text"><div class="settings-label">Export Listening Stats</div><div class="settings-desc">Save your listening history and play statistics as JSON.</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="export-stats" type="button">Export JSON</button></div>
                     </div>
                     <div class="settings-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Import Data</div><div class="settings-desc">Restore a Mujic settings or listening-stats JSON export.</div></div>
+                        <div class="settings-text"><div class="settings-label">Import Data</div><div class="settings-desc">Restore a Mujic settings, listening-stats or streaming-library JSON export.</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="import-data" type="button">Import JSON</button></div>
                     </div>
                     <input type="file" id="data-import-input" accept=".json,application/json" hidden>
@@ -655,7 +681,22 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-mode="online">
+                    <h2 class="section-title">Streaming Cache</h2>
+                    <div class="settings-row keep-desc">
+                        <div class="settings-text"><div class="settings-label">Cache for offline use</div><div class="settings-desc">Keep artwork, catalogue pages and stream links on this device so Home, artists and playlists open instantly and still work with a weak connection.</div></div>
+                        <label class="settings-switch"><input type="checkbox" id="online-cache-toggle" data-action="online-toggle-caching"><span></span></label>
+                    </div>
+                    <div class="settings-row keep-desc">
+                        <div class="settings-text"><div class="settings-label">Cache usage</div><div class="settings-desc" id="online-cache-usage">Calculating...</div></div>
+                    </div>
+                    <div class="settings-row danger-row keep-desc">
+                        <div class="settings-text"><div class="settings-label">Clear streaming cache</div><div class="settings-desc">Remove cached catalogue details, artwork and stream links. Downloads and local audio stay untouched.</div></div>
+                        <div class="settings-control-group"><button class="btn btn-danger" data-action="clear-online-cache" type="button">Clear cache</button></div>
+                    </div>
+                </div>
+
+                <div class="settings-section" data-mode="offline">
                     <h2 class="section-title">Storage</h2>
                     <div class="settings-row keep-desc">
                         <div class="settings-text">
