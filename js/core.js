@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic core: utility helpers, shared State object and the artwork cache. */
 
         const Utils = {

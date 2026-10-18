@@ -1,12 +1,14 @@
+/* Copyright mujic@royverse69 */
 /* Dedicated online workspace: separate search history, listening history, queues and playlists.
  * It shares the visual language of Mujic but never mixes cloud IDs into the offline library.
  */
 (() => {
-    const KEYS = { history:'mujic-online-history-v1', searches:'mujic-online-searches-v1', playlists:'mujic-online-playlists-v1', favorites:'mujic-online-favorites-v1', linked:'mujic-workspaces-linked-v1', queues:'mujic-workspace-queues-v1', shelves:'mujic-online-shelves-v8', publicPlaylists:'mujic-online-public-playlists-v1', artistCache:'mujic-online-artist-cache-v6', artistCatalogue:'mujic-online-artist-catalogue-v4', artistStats:'mujic-online-artist-stats-v1' };
+    const KEYS = { history:'mujic-online-history-v1', searches:'mujic-online-searches-v1', playlists:'mujic-online-playlists-v1', favorites:'mujic-online-favorites-v1', linked:'mujic-workspaces-linked-v1', queues:'mujic-workspace-queues-v1', shelves:'mujic-online-shelves-v9', taste:'mujic-online-taste-v1', trackPlays:'mujic-online-track-plays-v1', suggest:'mujic-online-suggest-v1', publicPlaylists:'mujic-online-public-playlists-v1', artistCache:'mujic-online-artist-cache-v6', artistCatalogue:'mujic-online-artist-catalogue-v4', artistStats:'mujic-online-artist-stats-v1' };
     let onlineHistory = [], searchHistory = [], playlists = [], onlineFavorites = [], searchQuery = '', searchPage = 0, searchType = 'all';
     let searchResults = [], entityResults = [], allSearchResults = null, activePlaylistId = null, pendingTrackId = null, requestSequence = 0;
     let libraryTab = 'playlists', remoteRequestSequence = 0, artistAlbumsPage = 0, artistAlbumsHasMore = false;
     let linked = false, queueSnapshots = {offline:null, online:null};
+    let taste = {parts:{}}, trackPlays = {}, suggestState = {sig:'',items:[],savedAt:0,loading:''}, personalTimer = null, greetingTimer = null;
     let artistCatalogue = [], artistCataloguePromise = null, artistSortMode = 'recommended', artistStats = {}, homeArtistWallOffset = 0; 
     const shelfContexts = new Map();
     let homeShelves = {}, homeLoadPromise = null, homeLastLoaded = 0, publicPlaylistQuery = 'Hindi romantic', publicPlaylistPage = 0, publicPlaylistResults = [], activeRemoteEntity = null, remotePage = 0;
@@ -242,15 +244,16 @@
     const loadMore = () => performSearch(searchQuery || document.getElementById('online-search-input')?.value || '', true);
     const HOME_TTL = 12 * 60 * 60 * 1000;
     const HOME_DEFS = [
-        {key:'romantic',kind:'playlists',query:'Hindi romantic playlists',node:'online-shelf-romantic'},
-        {key:'trending',kind:'songs',query:'trending Hindi songs',node:'online-shelf-trending'},
-        {key:'quick',kind:'songs',query:'',node:'online-shelf-quick'},
-        {key:'englishHits',kind:'songs',query:'English hits',node:'online-shelf-english-hits'},
-        {key:'suggested',kind:'songs',query:'Arijit Singh romantic songs',node:'online-shelf-suggested'},
-        {key:'hits',kind:'songs',query:'Hindi hits',node:'online-shelf-hits'},
-        {key:'punjabi',kind:'playlists',query:'Punjabi love songs',node:'online-shelf-punjabi'},
-        {key:'albums',kind:'albums',query:'Arijit Singh',node:'online-shelf-albums'},
-        {key:'forYouArtists',kind:'artists',query:'',node:'online-shelf-for-you-artists'}
+        {key:'quick',kind:'quick',node:'online-shelf-quick',derived:true,stage:1},
+        {key:'suggested',kind:'songs',query:'',node:'online-shelf-suggested',layout:'list',stage:1},
+        {key:'romantic',kind:'playlists',query:'Hindi romantic playlists',node:'online-shelf-romantic',stage:1},
+        {key:'trending',kind:'songs',query:'trending Hindi songs',node:'online-shelf-trending',stage:1},
+        {key:'artists',kind:'wall',node:'online-home-artists-mosaic',wrap:'online-shelf-artists-wrap',stage:2},
+        {key:'hits',kind:'songs',query:'Hindi hits',node:'online-shelf-hits',stage:2},
+        {key:'englishHits',kind:'songs',query:'English hits',node:'online-shelf-english-hits',stage:2},
+        {key:'forYouArtists',kind:'artists',query:'',node:'online-shelf-for-you-artists',stage:2},
+        {key:'punjabi',kind:'playlists',query:'Punjabi love songs',node:'online-shelf-punjabi',stage:3},
+        {key:'albums',kind:'albums',query:'Arijit Singh',node:'online-shelf-albums',stage:3}
     ];
     const safeEntity = item => ({id:String(item.id||''),sourceId:String(item.sourceId||''),type:String(item.type||''),title:String(item.title||''),artist:String(item.artist||''),image:String(item.image||''),description:String(item.description||''),year:String(item.year||''),language:String(item.language||''),songCount:Number(item.songCount||0),playCount:Number(item.playCount||0)});
     const cacheHomeShelves = () => { try { localStorage.setItem(KEYS.shelves,JSON.stringify({savedAt:Date.now(),shelves:Object.fromEntries(Object.entries(homeShelves).map(([key,val])=>[key,{kind:val.kind,items:(val.items||[]).map(item=>val.kind==='songs'?serializeTrack(item):safeEntity(item))}]))})); } catch (_) {} };
@@ -262,10 +265,25 @@
         }
         homeLastLoaded=Number(stored.savedAt)||0;return true;
     };
-    const renderTrackCards = (tracks, context, emptyText='') => {
-        const items=(tracks||[]).filter(Boolean).slice(0,40);if(!items.length)return emptyText?`<div class="online-empty-inline">${esc(emptyText)}</div>`:'';
+    const menuButton = t => `<button type="button" class="icon-btn online-card-menu" data-action="track-options" data-id="${esc(t.id)}" aria-label="More actions for ${esc(t.title)}" title="More actions"><span class="material-symbols-rounded">more_vert</span></button>`;
+    const compactRow = (t, context, menu) => `<div class="online-compact-row" role="button" tabindex="0" data-action="online-play-track" data-id="${esc(t.id)}" data-context="${esc(context)}"><img loading="lazy" decoding="async" src="${esc(t.artworkUrl||'')||'./icons/icon-192.png'}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-compact-meta"><span class="online-compact-artist">${esc(t.artist||'')}</span><span class="online-compact-title">${esc(t.title)}</span></span>${menu?menuButton(t):''}</div>`;
+    const renderCompactRows = (tracks, context, menu=true, limit=8) => {
+        const items=(tracks||[]).filter(Boolean);
         shelfContexts.set(context,items);
-        return `${items.map(t=>`<div class="online-media-card-shell"><button class="online-media-card" data-action="online-play-track" data-id="${esc(t.id)}" data-context="${esc(context)}"><span class="online-media-art"><img loading="lazy" decoding="async" src="${esc(t.artworkUrl||'')||'./icons/icon-192.png'}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-card-play material-symbols-rounded">play_arrow</span></span><span class="online-media-title">${esc(t.title)}</span><span class="online-media-subtitle">${esc(t.artist||'')}</span></button><div class="online-media-actions"><button type="button" class="online-media-action" data-action="online-open-track-playlist" data-id="${esc(t.id)}" aria-label="Add ${esc(t.title)} to a playlist" title="Add to playlist"><span class="material-symbols-rounded">playlist_add</span></button><button type="button" class="online-media-action" data-action="online-download-track" data-id="${esc(t.id)}" aria-label="Download ${esc(t.title)}" title="Download highest-quality AAC"><span class="material-symbols-rounded">download</span></button><button type="button" class="online-media-action online-media-more" data-action="track-options" data-id="${esc(t.id)}" aria-label="More actions for ${esc(t.title)}" title="More actions"><span class="material-symbols-rounded">more_horiz</span></button></div></div>`).join('')}`;
+        return items.slice(0,limit).map(t=>compactRow(t,context,menu)).join('');
+    };
+    const renderQuickPicks = (tracks, context) => {
+        const items=(tracks||[]).filter(Boolean).slice(0,16);
+        shelfContexts.set(context,items);
+        const columns=[];
+        for(let i=0;i<items.length;i+=4)columns.push(items.slice(i,i+4));
+        return columns.map(col=>`<div class="online-quick-col">${col.map(t=>compactRow(t,context,false)).join('')}</div>`).join('');
+    };
+    const renderTrackCards = (tracks, context, emptyText='') => {
+        const items=(tracks||[]).filter(Boolean).slice(0,24);
+        if(!items.length)return emptyText?`<div class="online-empty-inline">${esc(emptyText)}</div>`:'';
+        shelfContexts.set(context,items);
+        return items.map(t=>`<div class="online-media-card is-song" role="button" tabindex="0" data-action="online-play-track" data-id="${esc(t.id)}" data-context="${esc(context)}"><span class="online-media-art"><img loading="lazy" decoding="async" src="${esc(t.artworkUrl||'')||'./icons/icon-192.png'}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-card-play material-symbols-rounded">play_arrow</span></span><span class="online-media-info"><span class="online-media-text"><span class="online-media-artist">${esc(t.artist||'')}</span><span class="online-media-title">${esc(t.title)}</span></span>${menuButton(t)}</span></div>`).join('');
     };
     const renderEntityGrid = (items, kind, emptyText='') => {
         if(!items?.length)return emptyText?`<div class="online-empty-inline">${esc(emptyText)}</div>`:'';
@@ -293,12 +311,22 @@
         return likedCard+cards;
     };
     const renderShelfItem = (definition, items) => {
-        const wrap=document.getElementById(definition.key==='artists'?'online-shelf-artists-wrap':`${definition.node}-wrap`);const node=document.getElementById(definition.node);if(!node)return;
+        const wrap=document.getElementById(definition.wrap||`${definition.node}-wrap`);
+        const node=document.getElementById(definition.node);
+        if(!node)return;
         let list=(items||[]).filter(Boolean);
-        if(definition.key==='artists')list=rankArtistItems(list,'recommended').slice(0,12);
-        if(definition.key==='forYouArtists')list=rankArtistItems(list,'recommended').slice(0,12);
+        if(definition.key==='quick')list=quickPickTracks();
+        if(definition.key==='suggested')list=(suggestState.items&&suggestState.items.length?suggestState.items:list);
+        if(definition.key==='artists'){if(!list.length&&artistCatalogue.length)list=artistCatalogue.slice();list=rankArtistItems(list,'recommended');}
+        if(definition.key==='forYouArtists'){
+            const played=artistCatalogue.filter(item=>(artistStatFor(item)?.plays||0)>0);
+            list=rankArtistItems(played,'popular').slice(0,14);
+        }
         if(wrap)wrap.hidden=!list.length;
-        if(definition.kind==='songs')node.innerHTML=renderTrackCards(list,`home:${definition.key}`);
+        if(definition.key==='quick')node.innerHTML=renderQuickPicks(list,'home:quick');
+        else if(definition.kind==='wall')renderArtistMosaic(list,definition.node);
+        else if(definition.layout==='list')node.innerHTML=renderCompactRows(list,`home:${definition.key}`,true,8);
+        else if(definition.kind==='songs')node.innerHTML=renderTrackCards(list,`home:${definition.key}`);
         else node.innerHTML=renderEntityRail(list,definition.kind);
         UI.lazyLoadArtwork();
     };
@@ -433,20 +461,74 @@
         })().finally(()=>{artistCataloguePromise=null;});
         return artistCataloguePromise;
     };
-    const renderArtistMosaic = (items,nodeId='online-artists-feature-mosaic',offset=0) => {
+    const wallArtist = (item, cls) => {
+        const title=String(item?.title||'Artist'),id=String(item?.sourceId||item?.id||'').replace(/^(?:saavn|machhar):/,'').replace(/^artists:/,''),image=hasRealArtistImage(item)?item.image:'';
+        const initials=title.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'♪';
+        return `<button type="button" class="online-wall-artist ${cls}" data-action="online-open-entity" data-type="artists" data-id="${esc(id)}" aria-label="Open ${esc(title)}" title="${esc(title)}"><span class="online-wall-orb"><span class="online-artist-placeholder" aria-hidden="true">${esc(initials)}</span>${image?`<img loading="lazy" decoding="async" draggable="false" src="${esc(image)}" alt="${esc(title)}" onerror="this.onerror=null;this.remove();this.closest('.online-wall-orb').classList.add('has-no-art')">`:''}<span class="online-wall-name">${esc(title)}</span></span></button>`;
+    };
+    const wallUnits = list => {
+        const units=[];let i=0;
+        while(i<list.length){
+            units.push(`<div class="online-wall-unit is-big">${wallArtist(list[i++],'is-big')}</div>`);
+            if(i<list.length){const group=list.slice(i,i+4);i+=group.length;units.push(`<div class="online-wall-unit is-grid">${group.map(item=>wallArtist(item,'is-small')).join('')}</div>`);}
+            if(i<list.length)units.push(`<div class="online-wall-unit is-big">${wallArtist(list[i++],'is-big')}</div>`);
+        }
+        return units.join('');
+    };
+    const updateWallButtons = nodeId => {
         const node=document.getElementById(nodeId);if(!node)return;
-        // ListenFree-style artist wall: cropped edge portraits, one featured portrait, and a 2×2 cluster.
-        const source=uniqueArtistItems(items);
-        const start=source.length?((Number(offset)||0)%source.length):0;
-        const rotated=start?[...source.slice(start),...source.slice(0,start)]:source;
-        const list=rotated.slice(0,7);
-        const card=(item,index)=>{
-            const title=String(item?.title||'Artist'),id=String(item?.sourceId||item?.id||'').replace(/^(?:saavn|machhar):/,''),image=hasRealArtistImage(item)?item.image:'';
-            const initials=title.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'♪';
-            const placement=index===0?'artist-edge-left':index===1?'is-featured':index===6?'artist-edge-right':`mosaic-${index-1}`;
-            return `<button class="online-artist-mosaic-card ${placement}" data-action="online-open-entity" data-type="artists" data-id="${esc(id)}" aria-label="Open ${esc(title)}"><span class="online-artist-mosaic-orb"><span class="online-artist-placeholder" aria-hidden="true">${esc(initials)}</span>${image?`<img loading="lazy" decoding="async" src="${esc(image)}" alt="${esc(title)}" onerror="this.onerror=null;this.remove();this.closest('.online-artist-mosaic-orb').classList.add('has-no-art')">`:''}</span><span class="online-artist-mosaic-name">${esc(title)}</span></button>`;
-        };
-        node.innerHTML=list.length?list.map(card).join(''):'<div class="online-empty-inline">Artists will appear as the catalogue loads.</div>';
+        const atStart=node.scrollLeft<=4,atEnd=node.scrollLeft+node.clientWidth>=node.scrollWidth-4;
+        document.querySelectorAll(`[data-action="online-shift-artist-wall"][data-target="${nodeId}"]`).forEach(button=>{
+            const left=button.dataset.direction==='left';
+            button.disabled=left?atStart:atEnd;
+            button.setAttribute('aria-disabled',String(button.disabled));
+        });
+    };
+    const bindWall = node => {
+        if(node.dataset.wallBound==='1')return;
+        node.dataset.wallBound='1';
+        let frame=0;
+        node.addEventListener('scroll',()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;updateWallButtons(node.id);});},{passive:true});
+        let startX=0,startLeft=0,dragging=false,moved=false;
+        node.addEventListener('pointerdown',event=>{
+            if(event.pointerType!=='mouse'||event.button!==0)return;
+            dragging=true;moved=false;startX=event.clientX;startLeft=node.scrollLeft;
+        });
+        window.addEventListener('pointermove',event=>{
+            if(!dragging)return;
+            const delta=event.clientX-startX;
+            if(!moved&&Math.abs(delta)>6){moved=true;node.classList.add('is-dragging');}
+            if(moved)node.scrollLeft=startLeft-delta;
+        });
+        window.addEventListener('pointerup',()=>{
+            if(!dragging)return;
+            dragging=false;
+            if(moved)setTimeout(()=>{node.classList.remove('is-dragging');moved=false;},0);
+        });
+        node.addEventListener('click',event=>{if(moved){event.preventDefault();event.stopPropagation();}},true);
+        node.addEventListener('keydown',event=>{
+            if(event.key==='ArrowRight'||event.key==='ArrowLeft'){event.preventDefault();shiftHomeArtistWall(event.key==='ArrowRight'?'right':'left',node.id);}
+        });
+        window.addEventListener('resize',()=>updateWallButtons(node.id),{passive:true});
+    };
+    const renderArtistMosaic = (items,nodeId='online-artists-feature-mosaic') => {
+        const node=document.getElementById(nodeId);if(!node)return;
+        const unique=uniqueArtistItems(items);
+        const list=[...unique.filter(hasRealArtistImage),...unique.filter(item=>!hasRealArtistImage(item))].slice(0,40);
+        const signature=list.map(item=>String(item.sourceId||item.id)+(hasRealArtistImage(item)?'1':'0')).join('|');
+        if(node.dataset.signature===signature&&node.childElementCount){updateWallButtons(nodeId);return;}
+        const previous=node.scrollLeft;
+        node.dataset.signature=signature;
+        node.innerHTML=list.length?`<div class="online-wall-track">${wallUnits(list)}</div>`:'<div class="online-empty-inline">Artists will appear as the catalogue loads.</div>';
+        node.scrollLeft=previous;
+        bindWall(node);
+        updateWallButtons(nodeId);
+    };
+    const shiftHomeArtistWall = (direction, targetId='online-home-artists-mosaic') => {
+        const node=document.getElementById(targetId);if(!node)return;
+        const unit=node.querySelector('.online-wall-unit');
+        const step=Math.max(unit?unit.offsetWidth*1.5:0,node.clientWidth*.8,180);
+        node.scrollBy({left:(direction==='left'?-1:1)*step,behavior:document.body.classList.contains('reduced-motion')?'auto':'smooth'});
     };
     const renderArtistDirectory = () => {
         const node=document.getElementById('online-artists-directory');if(!node)return;
@@ -462,22 +544,187 @@
         renderArtistDirectory();
     };
     const sortArtists = mode => {artistSortMode=['recommended','recent','popular','alpha'].includes(mode)?mode:'recommended';renderArtistDirectory();};
-    const shiftHomeArtistWall = direction => {const source=homeShelves.artists?.items||artistCatalogue;if(!source.length)return;homeArtistWallOffset=(homeArtistWallOffset+(direction==='left'?-1:1)+source.length)%source.length;renderArtistMosaic(source,'online-home-artists-mosaic',homeArtistWallOffset);UI.lazyLoadArtwork();};
-    const collectSuggestedTracks = async () => {
-        const recent=onlineHistory.map(trackById).find(Boolean) || (OnlineMusic.isOnlineTrack(Player.getCurrentTrack())?Player.getCurrentTrack():null);
-        if(recent&&window.OnlineRecommendations?.getCandidates){
-            try{
-                const candidates=await OnlineRecommendations.getCandidates(recent,12);
-                const filtered=dedupeCatalogueTracks(candidates).filter(track=>!OnlineRecommendations.isSameRecording(track,recent));
-                if(filtered.length>=4)return filtered.slice(0,12);
-            }catch(_){}
+    const daypart = (date=new Date()) => {
+        const hour=date.getHours();
+        return hour>=5&&hour<12?'morning':hour>=12&&hour<17?'afternoon':hour>=17&&hour<21?'evening':'night';
+    };
+    const greetingText = () => ({morning:'Good morning',afternoon:'Good afternoon',evening:'Good evening',night:'Good night'})[daypart()];
+    const updateGreeting = () => {
+        const el=document.getElementById('online-greeting-text');if(!el)return;
+        const text=greetingText();
+        if(el.textContent!==text)el.textContent=text;
+        el.classList.remove('hidden');
+    };
+    const trimCounts = (map, keep) => {
+        const keys=Object.keys(map);
+        if(keys.length<=keep)return;
+        keys.sort((a,b)=>map[b]-map[a]).slice(keep).forEach(key=>delete map[key]);
+    };
+    const persistTaste = () => {
+        try{localStorage.setItem(KEYS.taste,JSON.stringify(taste));}catch(_){}
+        try{localStorage.setItem(KEYS.trackPlays,JSON.stringify(trackPlays));}catch(_){}
+    };
+    const recordTaste = track => {
+        const part=daypart(),language=String(track.language||'').toLowerCase().trim(),artist=artistKey(track.artist);
+        taste.parts=taste.parts||{};
+        const bucket=taste.parts[part]=taste.parts[part]||{langs:{},artists:{}};
+        if(language)bucket.langs[language]=(bucket.langs[language]||0)+1;
+        if(artist)bucket.artists[artist]=(bucket.artists[artist]||0)+1;
+        trimCounts(bucket.langs,8);trimCounts(bucket.artists,24);
+        trackPlays[track.id]=(trackPlays[track.id]||0)+1;
+        trimCounts(trackPlays,300);
+        persistTaste();
+    };
+    const fingerprint = track => `${titleKey(track?.title)}|${artistKey(track?.artist)}`;
+    const topArtistSeeds = limit => {
+        const bucket=taste.parts?.[daypart()]?.artists||{};
+        const rows=Object.entries(artistStats).filter(([key,value])=>!key.startsWith('id:')&&value?.name).map(([key,value])=>{
+            const days=value.lastPlayedAt?Math.max(0,(Date.now()-value.lastPlayedAt)/86400000):999;
+            const score=(value.plays||0)*3+(days<2?18:days<7?9:days<30?3:0)+(bucket[artistKey(value.name)]||0)*2;
+            return {name:value.name,key:artistKey(value.name),score};
+        }).filter(row=>row.key&&row.key!=='unknown artist'&&row.score>0);
+        return rows.sort((a,b)=>b.score-a.score).slice(0,limit);
+    };
+    const quickPickTracks = () => {
+        const part=daypart(),bucket=taste.parts?.[part]||{langs:{},artists:{}};
+        const history=onlineHistory.map(trackById).filter(Boolean);
+        const favorites=onlineFavorites.map(trackById).filter(Boolean);
+        const favoriteIds=new Set(favorites.map(track=>track.id));
+        const historyIndex=new Map(history.map((track,index)=>[track.id,index]));
+        const pool=new Map();
+        const add=track=>{if(track?.id&&!pool.has(track.id))pool.set(track.id,track);};
+        history.forEach(add);favorites.forEach(add);
+        const shownSuggested=new Set((suggestState.items||[]).slice(0,8).map(track=>track.id));
+        (suggestState.items||[]).slice(8).forEach(add);
+        (homeShelves.trending?.items||[]).slice(0,14).forEach(add);
+        (homeShelves.hits?.items||[]).slice(0,14).forEach(add);
+        shownSuggested.forEach(id=>{if(!historyIndex.has(id)&&!favoriteIds.has(id))pool.delete(id);});
+        const score=track=>{
+            let value=0;
+            value+=Math.min(trackPlays[track.id]||0,12)*3;
+            if(historyIndex.has(track.id))value+=Math.max(0,24-historyIndex.get(track.id))*.9;
+            if(favoriteIds.has(track.id))value+=7;
+            const stat=artistStatFor({title:String(track.artist||'').split(/,|&/)[0].trim()});
+            if(stat)value+=Math.min(stat.plays||0,25)*.8+((Date.now()-(stat.lastPlayedAt||0))<604800000?4:0);
+            value+=Math.min(bucket.artists[artistKey(track.artist)]||0,10)*1.2;
+            const language=String(track.language||'').toLowerCase();
+            if(language&&bucket.langs[language])value+=Math.min(bucket.langs[language],12)*.5;
+            if(!historyIndex.has(track.id)&&!favoriteIds.has(track.id))value-=2;
+            return value;
+        };
+        const ranked=[...pool.values()].map(track=>({track,value:score(track)})).sort((a,b)=>b.value-a.value);
+        const perArtist=new Map(),prints=new Set(),out=[];
+        for(const row of ranked){
+            const artist=artistKey(row.track.artist),print=fingerprint(row.track);
+            if(prints.has(print)||(perArtist.get(artist)||0)>=2)continue;
+            prints.add(print);perArtist.set(artist,(perArtist.get(artist)||0)+1);out.push(row.track);
+            if(out.length>=12)break;
         }
+        return out;
+    };
+    const SUGGEST_TTL = 3*60*60*1000;
+    const DAYPART_QUERIES = {morning:['Hindi morning songs','soft Hindi acoustic songs'],afternoon:['Hindi hits','Punjabi hits'],evening:['Hindi romantic songs','Arijit Singh romantic songs'],night:['Hindi lofi songs','late night Hindi songs']};
+    const suggestionSeeds = () => {
+        const seeds=[],seen=new Set();
+        for(const track of onlineHistory.map(trackById).filter(Boolean)){
+            const key=artistKey(track.artist);
+            if(!key||seen.has(key))continue;
+            seen.add(key);seeds.push({track,key});
+            if(seeds.length>=2)break;
+        }
+        for(const artist of topArtistSeeds(4)){
+            if(seen.has(artist.key))continue;
+            seen.add(artist.key);seeds.push({name:artist.name,key:artist.key});
+            if(seeds.length>=4)break;
+        }
+        return seeds;
+    };
+    const suggestionSignature = seeds => `${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
+    const buildSuggestions = async seeds => {
+        const played=new Set(),prints=new Set();
+        onlineHistory.slice(0,60).forEach(track=>{played.add(track.id);prints.add(fingerprint(track));});
+        onlineFavorites.forEach(track=>{played.add(track.id);prints.add(fingerprint(track));});
+        const queries=DAYPART_QUERIES[daypart()];
+        const lists=await Promise.all(seeds.map(async seed=>{
+            try{
+                if(seed.track&&window.OnlineRecommendations?.getCandidates)return await OnlineRecommendations.getCandidates(seed.track,12);
+                const found=await OnlineMusic.search(`${seed.name} songs`,{page:0,limit:30,background:true});
+                return found.filter(track=>{const key=artistKey(track.artist);return key&&(key.includes(seed.key)||seed.key.includes(key));});
+            }catch(_){return [];}
+        }));
+        const merge=sources=>{
+            const out=[],ids=new Set(),seenPrints=new Set(prints);
+            for(let i=0;out.length<16&&sources.some(list=>i<list.length);i++){
+                for(const list of sources){
+                    const track=list[i];
+                    if(!track?.id||ids.has(track.id)||played.has(track.id))continue;
+                    const print=fingerprint(track);
+                    if(seenPrints.has(print))continue;
+                    ids.add(track.id);seenPrints.add(print);out.push(track);
+                    if(out.length>=16)break;
+                }
+            }
+            return out;
+        };
+        let items=merge(lists);
+        if(items.length<8){
+            const extra=await Promise.all(queries.map(async query=>{try{return await OnlineMusic.search(query,{page:0,limit:20,background:true});}catch(_){return [];}}));
+            items=merge([items,...extra]);
+        }
+        return items;
+    };
+    const persistSuggest = () => {
+        try{localStorage.setItem(KEYS.suggest,JSON.stringify({sig:suggestState.sig,savedAt:suggestState.savedAt,items:suggestState.items.map(serializeTrack)}));}catch(_){}
+    };
+    const restoreSuggest = () => {
+        const stored=safeRead(KEYS.suggest,null);
+        if(!stored?.items?.length)return;
+        suggestState={sig:String(stored.sig||''),savedAt:Number(stored.savedAt)||0,items:hydrate(stored.items),loading:''};
+    };
+    const updateSuggestNote = seeds => {
+        const note=document.getElementById('online-suggest-note');if(!note)return;
+        const first=seeds?.[0];
+        note.textContent=first?.track?`Because you played ${first.track.title}`:first?.name?`Based on your ${first.name} listening`:`Picked for this ${daypart()}`;
+    };
+    const refreshSuggestions = async (force=false) => {
+        if(State.playbackSourceMode!=='online'||!navigator.onLine)return suggestState.items;
+        const seeds=suggestionSeeds(),sig=suggestionSignature(seeds);
+        updateSuggestNote(seeds);
+        const fresh=sig===suggestState.sig&&Date.now()-suggestState.savedAt<SUGGEST_TTL&&suggestState.items.length;
+        if(!force&&fresh)return suggestState.items;
+        if(suggestState.loading===sig)return suggestState.items;
+        suggestState.loading=sig;
         try{
-            const first=await OnlineMusic.search('Arijit Singh romantic songs',{page:0,limit:40,background:true});
-            const deduped=dedupeCatalogueTracks(first);
-            if(deduped.length>=4)return deduped.slice(0,12);
+            const items=await buildSuggestions(seeds);
+            if(items.length){
+                suggestState={sig,items,savedAt:Date.now(),loading:''};
+                homeShelves.suggested={kind:'songs',items};
+                persistSuggest();
+                const def=HOME_DEFS.find(item=>item.key==='suggested');
+                if(def&&State.playbackSourceMode==='online')renderShelfItem(def,items);
+                renderShelfItem(HOME_DEFS[0],[]);
+            }
         }catch(_){}
-        try{return dedupeCatalogueTracks(await OnlineMusic.fetchTrending()).slice(0,12);}catch(_){return [];}
+        suggestState.loading='';
+        return suggestState.items;
+    };
+    const collectSuggestedTracks = async () => refreshSuggestions(true);
+    const schedulePersonal = () => {
+        clearTimeout(personalTimer);
+        personalTimer=setTimeout(()=>{
+            if(State.playbackSourceMode!=='online')return;
+            renderHomePersonal();
+            refreshSuggestions(false);
+        },900);
+    };
+    const loadHomeArtistShelves = async () => {
+        const apply=items=>{
+            const list=(items||[]).slice();
+            homeShelves.artists={kind:'artists',items:list};
+            homeShelves.forYouArtists={kind:'artists',items:list};
+            HOME_DEFS.filter(def=>def.key==='artists').forEach(def=>renderShelfItem(def,list));
+        };
+        try{const artists=await collectHomeArtists(items=>apply(items),24);apply(artists);}catch(_){}
     };
     const loadHomeShelves = async (force=false) => {
         if(homeLoadPromise)return homeLoadPromise;
@@ -485,57 +732,62 @@
         if(!force&&homeLastLoaded&&Date.now()-homeLastLoaded<HOME_TTL&&Object.keys(homeShelves).length>=4)return;
         homeLoadPromise=(async()=>{
             const loadingFallback=document.getElementById('online-home-fallback');if(loadingFallback)loadingFallback.hidden=true;
-            await Promise.all(HOME_DEFS.filter(def=>!['artists','forYouArtists','quick'].includes(def.key)).map(async def=>{
-                try{const items=def.key==='suggested'?await collectSuggestedTracks():(def.kind==='songs'?await collectTrackPages(def.query):await collectEntityPages(def.kind,def.query));if(items.length)homeShelves[def.key]={kind:def.kind,items:def.kind==='songs'?dedupeCatalogueTracks(items):items};renderShelfItem(def,homeShelves[def.key]?.items||[]);}catch(_){renderShelfItem(def,homeShelves[def.key]?.items||[]);}
-            }));
-            const quickPicks=dedupeCatalogueTracks([...(onlineHistory.map(trackById).filter(Boolean).slice(0,5)),...(homeShelves.suggested?.items||[]),...(homeShelves.trending?.items||[])]).slice(0,10);
-            if(quickPicks.length){homeShelves.quick={kind:'songs',items:quickPicks};const quickDef=HOME_DEFS.find(def=>def.key==='quick');if(quickDef)renderShelfItem(quickDef,quickPicks);}
-            try{const artists=await collectHomeArtists(items=>{homeShelves.forYouArtists={kind:'artists',items:items.slice()};const shelf=HOME_DEFS.find(def=>def.key==='forYouArtists');if(shelf)renderShelfItem(shelf,items);},8);homeShelves.artists={kind:'artists',items:artists.slice()};homeShelves.forYouArtists={kind:'artists',items:artists.slice()};}catch(_){}
-            HOME_DEFS.filter(def=>def.key==='forYouArtists').forEach(def=>renderShelfItem(def,homeShelves.forYouArtists?.items||[]));
+            const loadDef=async def=>{
+                if(def.derived||['artists','forYouArtists'].includes(def.key))return;
+                try{
+                    if(def.key==='suggested')await refreshSuggestions(force);
+                    else{
+                        const items=def.kind==='songs'?await collectTrackPages(def.query):await collectEntityPages(def.kind,def.query);
+                        if(items.length)homeShelves[def.key]={kind:def.kind,items:def.kind==='songs'?dedupeCatalogueTracks(items):items};
+                    }
+                }catch(_){}
+                if(State.playbackSourceMode==='online')renderShelfItem(def,homeShelves[def.key]?.items||[]);
+            };
+            for(const stage of [1,2,3]){
+                if(State.playbackSourceMode!=='online'||!navigator.onLine)break;
+                const tasks=HOME_DEFS.filter(def=>def.stage===stage).map(loadDef);
+                if(stage===2)tasks.push(loadHomeArtistShelves());
+                await Promise.all(tasks);
+                if(State.playbackSourceMode==='online'){renderShelfItem(HOME_DEFS[0],[]);renderShelfItem(HOME_DEFS.find(def=>def.key==='forYouArtists'),[]);}
+                await new Promise(resolve=>setTimeout(resolve,40));
+            }
             homeLastLoaded=Date.now();cacheHomeShelves();
-            const visibleShelves=HOME_DEFS.some(def=>(homeShelves[def.key]?.items||[]).length>0);
+            const visibleShelves=HOME_DEFS.some(def=>!def.derived&&(homeShelves[def.key]?.items||[]).length>0);
             const fallback=document.getElementById('online-home-fallback');
             if(fallback){fallback.hidden=visibleShelves;fallback.innerHTML=visibleShelves?'':`<div class="online-network-state"><span class="material-symbols-rounded">cloud_off</span><div class="empty-title">Music is temporarily unavailable</div><div class="online-network-actions"><button class="btn" data-action="retry-online-home">Try again</button><button class="btn" data-action="toggle-playback-mode">Local library</button></div></div>`;}
         })().finally(()=>{homeLoadPromise=null;});
         return homeLoadPromise;
     };
+    const renderHomePersonal = () => {
+        updateGreeting();
+        renderShelfItem(HOME_DEFS[0],[]);
+        const suggestedDef=HOME_DEFS.find(def=>def.key==='suggested');
+        if(suggestedDef)renderShelfItem(suggestedDef,homeShelves.suggested?.items||[]);
+        updateSuggestNote(suggestionSeeds());
+        const recent=onlineHistory.map(trackById).filter(Boolean).slice(0,18);
+        const recentWrap=document.getElementById('online-shelf-recent-wrap');if(recentWrap)recentWrap.hidden=!recent.length;
+        const recentNode=document.getElementById('online-home-recent');if(recentNode)recentNode.innerHTML=renderTrackCards(recent,'online-history');
+        const artistDef=HOME_DEFS.find(def=>def.key==='artists');
+        if(artistDef)renderShelfItem(artistDef,homeShelves.artists?.items||artistCatalogue);
+        const rail=HOME_DEFS.find(def=>def.key==='forYouArtists');
+        if(rail)renderShelfItem(rail,[]);
+        const userWrap=document.getElementById('online-shelf-collections-wrap');if(userWrap)userWrap.hidden=false;
+        const userNode=document.getElementById('online-home-playlists');if(userNode)userNode.innerHTML=renderUserPlaylistCards(playlists.slice(0,30));
+    };
     const renderHome = () => {
         if(State.playbackSourceMode!=='online')return;
         const status=document.getElementById('online-home-connection');if(status)status.hidden=Boolean(navigator.onLine);
         if(!Object.keys(homeShelves).length)restoreHomeShelves();
-        const fallback=document.getElementById('online-home-fallback');if(fallback && Object.values(homeShelves).some(s=>s?.items?.length))fallback.hidden=true;
-        if(!Object.keys(homeShelves).length&&navigator.onLine){HOME_DEFS.forEach(def=>{const n=document.getElementById(def.node);if(n)n.innerHTML='<div class="online-skeleton-list"><span></span><span></span><span></span></div>';});}
-        HOME_DEFS.forEach(def=>renderShelfItem(def,homeShelves[def.key]?.items||[]));
-        const recent=onlineHistory.map(trackById).filter(Boolean).slice(0,18);
-        const recentWrap=document.getElementById('online-shelf-recent-wrap');if(recentWrap)recentWrap.hidden=!recent.length;
-        const recentNode=document.getElementById('online-home-recent');if(recentNode)recentNode.innerHTML=renderTrackCards(recent,'online-history');
-        // Keep Home to one artist scroller; rank the same cached catalogue by listening activity.
-        const playedArtists=artistCatalogue.filter(item=>(artistStatFor(item)?.plays||0)>0);
-        const combinedArtists=rankArtistItems([...(playedArtists.length?playedArtists:[]),...(homeShelves.forYouArtists?.items||artistCatalogue)],'recommended').slice(0,12);
-        const artistShelf=HOME_DEFS.find(def=>def.key==='forYouArtists');
-        if(artistShelf&&combinedArtists.length){homeShelves.forYouArtists={kind:'artists',items:combinedArtists};renderShelfItem(artistShelf,combinedArtists);}
-        ['online-shelf-artists-wrap','online-shelf-recent-artists-wrap','online-shelf-popular-artists-wrap'].forEach(id=>{const el=document.getElementById(id);if(el)el.hidden=true;});
-        const userWrap=document.getElementById('online-shelf-collections-wrap');if(userWrap){userWrap.hidden=false;userWrap.style.display='block';}
-        const userNode=document.getElementById('online-home-playlists');if(userNode)userNode.innerHTML=renderUserPlaylistCards(playlists.slice(0,30));
-        const homeView=document.getElementById('view-online-home');
-        let brandFooter=homeView?.querySelector('.online-brand-footer');
-        if(homeView&&!brandFooter){brandFooter=document.createElement('footer');brandFooter.className='online-brand-footer';brandFooter.setAttribute('aria-label','Mujic watermark');brandFooter.innerHTML='<div class="online-brand-wordmark" aria-hidden="true">Mujic</div>';}
-        if(brandFooter&&homeView){
-            if(!brandFooter.querySelector('.online-brand-wordmark'))brandFooter.innerHTML='<div class="online-brand-wordmark" aria-hidden="true">Mujic</div>';
-            const wordmark=brandFooter.querySelector('.online-brand-wordmark');
-            if(wordmark.textContent.trim()!=='Mujic')wordmark.textContent='Mujic';
-            // Force a visible brand footer from JS as well as CSS. Older theme rules previously
-            // made the wordmark nearly black on a black Home background.
-            brandFooter.hidden=false;brandFooter.removeAttribute('hidden');
-            Object.assign(brandFooter.style,{display:'block',visibility:'visible',contentVisibility:'visible',opacity:'1',position:'relative',minHeight:'clamp(130px,16vw,230px)',overflow:'visible'});
-            Object.assign(wordmark.style,{display:'block',visibility:'visible',opacity:'1',width:'max-content',maxWidth:'100%',fontSize:'clamp(82px,16vw,224px)',fontWeight:'850',letterSpacing:'-.09em',lineHeight:'.88',whiteSpace:'nowrap',color:'rgba(255,255,255,.28)',WebkitTextFillColor:'rgba(255,255,255,.28)',pointerEvents:'none'});
-            wordmark.style.setProperty('color','rgba(255,255,255,.28)','important');
-            wordmark.style.setProperty('-webkit-text-fill-color','rgba(255,255,255,.28)','important');
-            if(brandFooter!==homeView.lastElementChild)homeView.appendChild(brandFooter);
+        const fallback=document.getElementById('online-home-fallback');if(fallback&&Object.values(homeShelves).some(shelf=>shelf?.items?.length))fallback.hidden=true;
+        if(!Object.keys(homeShelves).length&&navigator.onLine){
+            HOME_DEFS.filter(def=>!def.derived&&def.kind!=='wall'&&def.kind!=='artists'&&def.stage<3).forEach(def=>{const node=document.getElementById(def.node);if(node)node.innerHTML='<div class="online-skeleton-list"><span></span><span></span><span></span></div>';});
         }
+        HOME_DEFS.filter(def=>!def.derived).forEach(def=>renderShelfItem(def,homeShelves[def.key]?.items||[]));
+        renderHomePersonal();
         renderSearchHistory();
         if(!navigator.onLine){renderConnectivityState();return;}
         if(Date.now()-homeLastLoaded>HOME_TTL||!Object.keys(homeShelves).length)loadHomeShelves(false);
+        else refreshSuggestions(false);
     };
     const renderRemotePlaylistCards = list => renderEntityGrid(list,'playlists');
     const loadPublicPlaylists = async (query='Hindi romantic',append=false) => {
@@ -607,6 +859,18 @@
     };
     const openLibraryTab = tab => {setLibraryTab(tab);if(State.playbackSourceMode==='online'&&document.getElementById('view-online-playlists')?.classList.contains('active'))return;UI.switchView('online-playlists');};
     const isFavorite = id => {const track=trackById(id);return onlineFavorites.some(item=>item.id===id||(track&&sameSong(item,track)));};
+    const syncFavoriteUI = (track, liked) => {
+        const icon=document.getElementById('ctx-fav-icon');
+        if(icon&&State.actionTargetId===track.id){
+            icon.innerText=liked?'favorite':'favorite_border';icon.style.color=liked?'var(--accent-color)':'inherit';
+            const label=document.getElementById('ctx-fav-text');if(label)label.innerText=liked?'Remove Favorite':'Favorite';
+        }
+        document.querySelectorAll('.track-row[data-id]').forEach(row=>{
+            if(row.dataset.id!==track.id)return;
+            row.querySelector('.online-row-heart')?.remove();
+            if(liked){const anchor=row.querySelector('.online-row-playing-state')||row.querySelector('[data-action="track-options"]');if(anchor)anchor.insertAdjacentHTML('beforebegin','<span class="material-symbols-rounded online-row-heart">favorite</span>');}
+        });
+    };
     const toggleFavorite = id => {
         const track=trackById(id||State.currentTrackId);if(!track||!OnlineMusic.isOnlineTrack(track))return false;
         const index=onlineFavorites.findIndex(item=>item.id===track.id);const equivalent=onlineFavorites.findIndex(item=>sameSong(item,track));
@@ -615,7 +879,7 @@
         if(liked)onlineFavorites.unshift(serializeTrack(track));else onlineFavorites.splice(index,1);
         onlineFavorites=onlineFavorites.slice(0,500);persist();
         const button=document.getElementById('fav-btn');if(button&&State.currentTrackId===track.id)button.innerHTML=`<span class="material-symbols-rounded" style="font-variation-settings: 'FILL' ${liked?1:0}; color:${liked?'var(--accent-color)':'inherit'}">favorite</span>`;
-        if(libraryTab==='liked')renderLiked();renderHome();UI.showToast(liked?'Added to Liked Songs':'Removed from Liked Songs',liked?'favorite':'favorite_border');return liked;
+        syncFavoriteUI(track,liked);if(libraryTab==='liked')renderLiked();renderHomePersonal();UI.showToast(liked?'Added to Liked Songs':'Removed from Liked Songs',liked?'favorite':'favorite_border');return liked;
     };
     const openPlaylist = id => {activePlaylistId=id||null;renderPlaylists();UI.lazyLoadArtwork();};
     const clearHistory = () => {onlineHistory=[];persist();renderHistory();renderHome();UI.showToast('History cleared.','delete');};
@@ -972,8 +1236,9 @@
         if(artistCatalogue.length)saveArtistCatalogue();
         onlineHistory=[serializeTrack(track),...onlineHistory.filter(t=>!sameSong(t,track))].slice(0,100);
         if(window.OnlineCache) OnlineCache.rememberTrack(track);
+        recordTaste(track);
         persist(); saveQueueSnapshot('online');
-        if(document.getElementById('view-online-home')?.classList.contains('active')) renderHome();
+        schedulePersonal();
         if(document.getElementById('view-online-history')?.classList.contains('active')||libraryTab==='history'&&document.getElementById('view-online-playlists')?.classList.contains('active')) renderHistory();
         if(libraryTab==='liked'&&document.getElementById('view-online-playlists')?.classList.contains('active'))renderLiked();
     };
@@ -1094,6 +1359,18 @@
         onlineHistory=dedupePlaylistTracks(hydrate(safeRead(KEYS.history,[]))).slice(0,100);
         onlineFavorites=dedupePlaylistTracks(hydrate(safeRead(KEYS.favorites,[]))).slice(0,500);
         artistStats=safeRead(KEYS.artistStats,{});if(!artistStats||typeof artistStats!=='object'||Array.isArray(artistStats))artistStats={};
+        taste=safeRead(KEYS.taste,{parts:{}});if(!taste||typeof taste!=='object'||Array.isArray(taste))taste={parts:{}};
+        trackPlays=safeRead(KEYS.trackPlays,{});if(!trackPlays||typeof trackPlays!=='object'||Array.isArray(trackPlays))trackPlays={};
+        clearInterval(greetingTimer);greetingTimer=setInterval(updateGreeting,60000);
+        document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')updateGreeting();});
+        if(!document.body.dataset.onlineCardKeys){
+            document.body.dataset.onlineCardKeys='1';
+            document.addEventListener('keydown',event=>{
+                if(event.key!=='Enter'&&event.key!==' ')return;
+                const target=event.target;
+                if(target?.matches?.('.online-media-card[role="button"],.online-compact-row[role="button"]')){event.preventDefault();target.click();}
+            });
+        }
         restoreArtistCatalogue();
         if(window.OnlineRecommendations)OnlineRecommendations.seedHistory(onlineHistory.map(trackById).filter(Boolean));
         searchHistory=safeRead(KEYS.searches,[]).filter(x=>typeof x==='string').slice(0,30);
@@ -1101,19 +1378,64 @@
         // Repair playlists already saved by older builds, including duplicates under different catalogue IDs.
         persist();
         queueSnapshots=safeRead(KEYS.queues,{offline:null,online:null});if(!queueSnapshots||typeof queueSnapshots!=='object')queueSnapshots={offline:null,online:null};
-        linked=localStorage.getItem(KEYS.linked)==='yes';restoreHomeShelves();
+        linked=localStorage.getItem(KEYS.linked)==='yes';restoreHomeShelves();restoreSuggest();updateGreeting();
         const input=document.getElementById('online-search-input');
         if(input&&input.dataset.bound!=='1'){
             input.dataset.bound='1';let timer;
             input.addEventListener('input',()=>{clearTimeout(timer);const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!input.value.trim();timer=setTimeout(()=>performSearch(input.value),300);});
             input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);performSearch(input.value);}});
         }
-        restoreQueueSnapshot(State.playbackSourceMode==='online'?'online':'offline');updateWorkspaceUI();renderSearchHistory();setSearchTypeUI();renderSearchBlank();setLibraryTab('playlists');
+        initBackToTop();restoreQueueSnapshot(State.playbackSourceMode==='online'?'online':'offline');updateWorkspaceUI();renderSearchHistory();setSearchTypeUI();renderSearchBlank();setLibraryTab('playlists');
+    };
+    const getNavViewValue = () => {
+        let item=activeRemoteEntity;
+        while(item?.parent)item=item.parent;
+        const view=item?.returnView&&item.returnView!=='online-detail'?item.returnView:'online-home';
+        return view==='online-artists'?'online-home':view;
+    };
+    const backFromDetail = () => {
+        const current=activeRemoteEntity;
+        if(current?.parent){activeRemoteEntity=current.parent;UI.switchView('online-detail');renderRemoteDetail();}
+        else{activeRemoteEntity=null;UI.switchView(current?.returnView||'online-home');}
+    };
+    const scrollerOf = () => {
+        const main=document.getElementById('main-content');
+        if(main&&main.scrollHeight>main.clientHeight+4&&getComputedStyle(main).overflowY!=='visible')return main;
+        return document.scrollingElement||document.documentElement;
+    };
+    const scrollToTop = () => {
+        const behavior=document.body.classList.contains('reduced-motion')?'auto':'smooth';
+        scrollerOf().scrollTo({top:0,behavior});
+        window.scrollTo({top:0,behavior});
+    };
+    const jumpTo = id => {
+        const el=document.getElementById(id);if(!el||el.hidden)return;
+        el.scrollIntoView({behavior:document.body.classList.contains('reduced-motion')?'auto':'smooth',block:'start'});
+    };
+    const handleNavRetap = view => {
+        const active=document.querySelector('.view.active')?.id||'';
+        if(active==='view-online-detail'&&State.playbackSourceMode==='online'&&getNavViewValue()===view){backFromDetail();return true;}
+        if(active===`view-${view}`){scrollToTop();return true;}
+        return false;
+    };
+    const initBackToTop = () => {
+        const button=document.getElementById('online-back-top');if(!button||button.dataset.bound==='1')return;
+        button.dataset.bound='1';
+        let frame=0;
+        const check=()=>{
+            frame=0;
+            const active=document.querySelector('.view.active');
+            const online=State.playbackSourceMode==='online'&&active?.classList.contains('online-workspace-view');
+            const top=Math.max(scrollerOf().scrollTop||0,window.scrollY||0);
+            button.classList.toggle('visible',Boolean(online&&top>700));
+        };
+        document.addEventListener('scroll',()=>{if(!frame)frame=requestAnimationFrame(check);},{passive:true,capture:true});
+        button.addEventListener('click',scrollToTop);
     };
     const getPlaylists = () => playlists.slice();
     const getPendingTrackId = () => pendingTrackId;
     const backToPlaylists = () => { activePlaylistId=null; renderPlaylists(); };
     const getOnlineHistory = () => onlineHistory.map(trackById).filter(Boolean);
     const getSearchResults = () => searchResults.slice();
-    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,saveQueueSnapshot,setSearchType,openRemoteEntity,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:()=>{let item=activeRemoteEntity;while(item?.parent)item=item.parent;const view=item?.returnView&&item.returnView!=='online-detail'?item.returnView:'online-home';return view==='online-artists'?'online-home':view;},saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},getSearchType:()=>searchType,playTrackFromShelf:(id,context)=>{const list=shelfContexts.get(context)||[];const ix=list.findIndex(t=>t.id===id);if(ix>=0){const ordered=[...list.slice(ix),...list.slice(0,ix)];setSearchContext(list);Player.playContext(ordered,0);}else{const t=trackById(id);if(t)Player.playContext([t],0);}},clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail:()=>{const current=activeRemoteEntity;if(current?.parent){activeRemoteEntity=current.parent;UI.switchView('online-detail');renderRemoteDetail();}else{activeRemoteEntity=null;UI.switchView(current?.returnView||'online-home');}}};
+    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,saveQueueSnapshot,setSearchType,openRemoteEntity,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},getSearchType:()=>searchType,playTrackFromShelf:(id,context)=>{const list=shelfContexts.get(context)||[];const ix=list.findIndex(t=>t.id===id);if(ix>=0){const ordered=[...list.slice(ix),...list.slice(0,ix)];setSearchContext(list);Player.playContext(ordered,0);}else{const t=trackById(id);if(t)Player.playContext([t],0);}},clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal};
 })();

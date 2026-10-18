@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic UI module: library rendering: home, albums, artists, playlists, context views, track rows, playlist actions. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             renderHome: async () => {
@@ -211,7 +212,7 @@
                     ? `<img src="${Utils.escapeHTML(t.artworkUrl)}" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
                     : artHtml;
                 const playlistControls = isOnline
-                    ? `<span class="online-row-playing-state ${isCurrentOnline?'is-current':''}" aria-label="${isCurrentOnline?'Current track':''}">${isCurrentOnline?`<span class="online-now-playing-bars" aria-hidden="true"><i></i><i></i><i></i></span>`:''}</span><button class="icon-btn online-row-action" data-action="online-open-track-playlist" data-id="${safeId}" aria-label="Add ${Utils.escapeHTML(t.title)} to streaming playlist" title="Add to playlist"><span class="material-symbols-rounded" style="pointer-events:none;">playlist_add</span></button><button class="icon-btn online-row-action" data-action="online-download-track" data-id="${safeId}" aria-label="Download ${Utils.escapeHTML(t.title)}" title="Download highest-quality AAC"><span class="material-symbols-rounded" style="pointer-events:none;">download</span></button><button class="icon-btn online-row-action" data-action="track-options" data-id="${safeId}" aria-label="More options for ${Utils.escapeHTML(t.title)}" title="More actions"><span class="material-symbols-rounded" style="pointer-events:none;">more_horiz</span></button>`
+                    ? `${isF?'<span class="material-symbols-rounded online-row-heart">favorite</span>':''}<span class="online-row-playing-state ${isCurrentOnline?'is-current':''}" aria-label="${isCurrentOnline?'Current track':''}">${isCurrentOnline?`<span class="online-now-playing-bars" aria-hidden="true"><i></i><i></i><i></i></span>`:''}</span><button class="icon-btn online-row-action" data-action="online-open-track-playlist" data-id="${safeId}" aria-label="Add ${Utils.escapeHTML(t.title)} to streaming playlist" title="Add to playlist"><span class="material-symbols-rounded" style="pointer-events:none;">playlist_add</span></button><button class="icon-btn online-row-action" data-action="online-download-track" data-id="${safeId}" aria-label="Download ${Utils.escapeHTML(t.title)}" title="Download highest-quality AAC"><span class="material-symbols-rounded" style="pointer-events:none;">download</span></button><button class="icon-btn online-row-action" data-action="track-options" data-id="${safeId}" aria-label="More options for ${Utils.escapeHTML(t.title)}" title="More actions"><span class="material-symbols-rounded" style="pointer-events:none;">more_horiz</span></button>`
                     : (contextName === 'playlist' && contextData ? `
                     <button class="icon-btn" data-action="move-playlist-track" data-key1="${Utils.escapeHTML(contextData.playlistId)}" data-index="${contextData.playlistIndex}" data-direction="up" ${contextData.playlistIndex===0?'disabled':''} aria-label="Move track up"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_up</span></button>
                     <button class="icon-btn" data-action="move-playlist-track" data-key1="${Utils.escapeHTML(contextData.playlistId)}" data-index="${contextData.playlistIndex}" data-direction="down" ${contextData.playlistIndex===contextData.playlistLength-1?'disabled':''} aria-label="Move track down"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_down</span></button>
@@ -268,9 +269,8 @@
                 const infoAction = document.getElementById('ctx-info'); if (infoAction) infoAction.hidden = false;
                 const shareAction = document.getElementById('ctx-share'); if (shareAction) shareAction.hidden = !isOnlineTrack;
                 // Online tracks can be organized in the Online workspace's own playlists.
-                ['ctx-fav', 'ctx-remove'].forEach(elementId => {
-                    const el = document.getElementById(elementId); if (el) el.hidden = isOnlineTrack;
-                });
+                const removeOption = document.getElementById('ctx-remove'); if (removeOption) removeOption.hidden = isOnlineTrack;
+                const favoriteOption = document.getElementById('ctx-fav'); if (favoriteOption) favoriteOption.hidden = false;
                 const playlistAction=document.getElementById('ctx-playlist');
                 const playlistActionText=document.getElementById('ctx-playlist-text');
                 const playlistActionIcon=document.getElementById('ctx-playlist-icon');

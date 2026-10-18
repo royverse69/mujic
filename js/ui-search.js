@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic UI module: search. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             handleSearch: Utils.debounce((e) => {

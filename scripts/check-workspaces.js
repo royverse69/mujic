@@ -104,7 +104,9 @@ if (!fs.existsSync(path.join(root, 'icons/icon-192.png')) || !fs.existsSync(path
       return null;
     },
     querySelector: () => null,
-    querySelectorAll: () => []
+    querySelectorAll: () => [],
+    addEventListener: () => {},
+    body: { dataset: {}, classList: { contains: () => false } }
   };
   const context = {
     window: {}, State: { playbackSourceMode: 'online', searchResults: localSearchResults, playbackOrder: [], queue: [], queueIndex: -1, library: [], playlists: [] },
@@ -116,7 +118,7 @@ if (!fs.existsSync(path.join(root, 'icons/icon-192.png')) || !fs.existsSync(path
     OnlineRecommendations: { cleanTitle: value => String(value || '').toLowerCase(), cleanArtist: value => String(value || '').toLowerCase(), seedHistory() {}, primeQueue: async () => false, wasPlayedOrEquivalent: () => false },
     Player: { getTrackById: () => null, getCurrentTrack: () => null, playContext(tracks, index) { playedArtistContext = { tracks: tracks.slice(), index }; } },
     StorageAdapter: { saveSettings() {}, savePlaylist: async () => {} },
-    Dialog: { show: async () => null }, console, URL, Date, Math, JSON, Promise, Map, Set, String, Number, Array, Object, Error, AbortController, setTimeout, clearTimeout
+    Dialog: { show: async () => null }, console, URL, Date, Math, JSON, Promise, Map, Set, String, Number, Array, Object, Error, AbortController, setTimeout, clearTimeout, setInterval: () => 0, clearInterval: () => {}, requestAnimationFrame: callback => setTimeout(callback, 0)
   };
   context.window.OnlineMusic = music;
   context.window.OnlineCache = context.OnlineCache;

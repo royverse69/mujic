@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Lightweight online cache: metadata persists locally; signed audio URLs and full audio do not. */
 (() => {
     const KEY = 'mujic-online-metadata-v1';

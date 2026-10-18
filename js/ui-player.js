@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic UI module: player: queue, now-playing metadata, progress. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             renderQueue: () => {

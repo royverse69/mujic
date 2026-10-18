@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Optional metadata parser loader: no network requests until the user imports a file. */
 (function () {
   'use strict';

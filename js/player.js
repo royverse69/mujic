@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic player engine: Web Audio graph, transport, Media Session and queue. */
         const AudioAdapter = {
             audio: new Audio(), ctx: null, source: null, analyser:null, eqFilters:[], compressor:null, masterGain:null,

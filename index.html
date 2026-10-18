@@ -1,10 +1,11 @@
 <!DOCTYPE html>
+<!-- Copyright mujic@royverse69 -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic</title>
-    <meta name="application-version" content="12.0.42">
+    <meta name="application-version" content="12.0.43">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -161,34 +162,54 @@
                     </div>
                     <div class="home-actions" aria-label="Home actions"><button class="icon-btn home-action-btn" data-action="online-create-playlist" aria-label="New playlist" title="New playlist"><span class="material-symbols-rounded">add</span></button><button class="icon-btn home-action-btn" data-action="switch-view" data-view="online-history" aria-label="Listening history" title="History"><span class="material-symbols-rounded">history</span></button></div>
                 </header>
+                <nav class="online-jump" aria-label="Jump to a section">
+                    <button type="button" class="online-jump-chip" data-action="online-jump" data-target="online-shelf-quick-wrap">Quick Picks</button>
+                    <button type="button" class="online-jump-chip" data-action="online-jump" data-target="online-shelf-suggested-wrap">For You</button>
+                    <button type="button" class="online-jump-chip" data-action="online-jump" data-target="online-shelf-collections-wrap">Playlists</button>
+                    <button type="button" class="online-jump-chip" data-action="online-jump" data-target="online-shelf-trending-wrap">Top Hits</button>
+                    <button type="button" class="online-jump-chip" data-action="online-jump" data-target="online-shelf-artists-wrap">Artists</button>
+                    <button type="button" class="online-jump-chip" data-action="online-jump" data-target="online-shelf-hits-wrap">Hindi</button>
+                    <button type="button" class="online-jump-chip" data-action="online-jump" data-target="online-shelf-english-hits-wrap">English</button>
+                    <button type="button" class="online-jump-chip" data-action="online-jump" data-target="online-shelf-albums-wrap">Albums</button>
+                </nav>
                 <div class="online-connection-state" id="online-home-connection" hidden><span class="online-connection-dot"></span><span id="online-home-status">No connection</span><button class="text-action" data-action="retry-online-home">Retry</button></div>
                 <div id="online-home-fallback" hidden></div>
+                <section class="online-shelf" id="online-shelf-quick-wrap" hidden>
+                    <div class="online-shelf-heading"><h2>Quick Picks</h2><span class="online-swipe-hint">Swipe Right <span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span></span></div>
+                    <div class="online-quick-rail" id="online-shelf-quick"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-suggested-wrap" hidden>
+                    <div class="online-shelf-heading"><h2>Suggested for You</h2><button class="text-action online-show-more" data-action="online-search-query" data-query="songs for you">Show more</button></div>
+                    <p class="online-shelf-note" id="online-suggest-note"></p>
+                    <div class="online-suggest-grid" id="online-shelf-suggested"></div>
+                </section>
                 <section class="online-shelf" id="online-shelf-collections-wrap">
-                    <div class="online-shelf-heading"><h2>Your Playlists</h2><button class="icon-btn online-shelf-more" data-action="switch-view" data-view="online-playlists" aria-label="All playlists"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-shelf-heading"><h2>Your Playlists</h2><button class="text-action online-show-more" data-action="switch-view" data-view="online-playlists">Show more</button></div>
                     <div class="online-card-rail" id="online-home-playlists"></div>
                 </section>
-                <section class="online-shelf" id="online-shelf-quick-wrap" hidden>
-                    <div class="online-shelf-heading"><h2>Quick Picks</h2><button class="icon-btn online-shelf-more" data-action="online-search-query" data-query="songs for you" aria-label="More quick picks"><span class="material-symbols-rounded">chevron_right</span></button></div>
-                    <div class="online-card-rail" id="online-shelf-quick"></div>
-                </section>
                 <section class="online-shelf" id="online-shelf-romantic-wrap">
-                    <div class="online-shelf-heading"><h2>Featured Playlists</h2><button class="icon-btn online-shelf-more" data-action="online-browse-playlists" data-query="Hindi romantic" aria-label="More playlists"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-shelf-heading"><h2>Featured Playlists</h2><button class="text-action online-show-more" data-action="online-browse-playlists" data-query="Hindi romantic">Show more</button></div>
                     <div class="online-card-rail" id="online-shelf-romantic"></div>
                 </section>
                 <section class="online-shelf" id="online-shelf-trending-wrap">
-                    <div class="online-shelf-heading"><h2>Top Hits</h2><button class="icon-btn online-shelf-more" data-action="online-search-query" data-query="trending Hindi songs" aria-label="More top hits"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-shelf-heading"><h2>Top Hits</h2><button class="text-action online-show-more" data-action="online-search-query" data-query="trending Hindi songs">Show more</button></div>
                     <div class="online-card-rail" id="online-shelf-trending"></div>
                 </section>
-                <section class="online-shelf" id="online-shelf-suggested-wrap">
-                    <div class="online-shelf-heading"><h2>Suggested for You</h2><button class="icon-btn online-shelf-more" data-action="online-search-query" data-query="Arijit Singh romantic songs" aria-label="More suggestions"><span class="material-symbols-rounded">chevron_right</span></button></div>
-                    <div class="online-card-rail" id="online-shelf-suggested"></div>
+                <section class="online-shelf online-artists-section" id="online-shelf-artists-wrap" hidden>
+                    <div class="online-shelf-heading online-artists-heading"><h2>ARTISTS</h2><div class="online-rail-controls"><button class="icon-btn online-wall-btn" data-action="online-shift-artist-wall" data-target="online-home-artists-mosaic" data-direction="left" aria-label="Previous artists" disabled><span class="material-symbols-rounded">arrow_back</span></button><button class="icon-btn online-wall-btn" data-action="online-shift-artist-wall" data-target="online-home-artists-mosaic" data-direction="right" aria-label="Next artists"><span class="material-symbols-rounded">arrow_forward</span></button></div></div>
+                    <div class="online-wall" id="online-home-artists-mosaic" tabindex="0" role="region" aria-label="Artists, swipe or use the arrows"></div>
+                    <div class="online-artists-more"><button class="text-action" data-action="online-show-all-artists">View all artists</button></div>
                 </section>
-                <section class="online-shelf online-shelf-artist-wall" id="online-shelf-artists-wrap" hidden>
-                    <div class="online-shelf-heading online-artists-heading"><h2>ARTISTS</h2><div class="online-rail-controls"><button class="icon-btn online-shelf-more" data-action="online-shift-artist-wall" data-direction="left" aria-label="Previous artists"><span class="material-symbols-rounded">arrow_back</span></button><button class="icon-btn online-shelf-more" data-action="online-shift-artist-wall" data-direction="right" aria-label="Next artists"><span class="material-symbols-rounded">arrow_forward</span></button><button class="text-action online-show-all-artists" data-action="online-show-all-artists">All artists</button></div></div>
-                    <div class="online-artist-mosaic online-home-artist-mosaic" id="online-home-artists-mosaic"></div>
+                <section class="online-shelf" id="online-shelf-hits-wrap">
+                    <div class="online-shelf-heading"><h2>Hindi Hits</h2><button class="text-action online-show-more" data-action="online-search-query" data-query="Hindi hits">Show more</button></div>
+                    <div class="online-card-rail" id="online-shelf-hits"></div>
                 </section>
-                <section class="online-shelf" id="online-shelf-for-you-artists-wrap">
-                    <div class="online-shelf-heading"><h2>Artists</h2><div class="online-rail-controls"><button class="icon-btn online-shelf-more" data-action="online-scroll-rail" data-target="online-shelf-for-you-artists" data-direction="left" aria-label="Scroll artists left" title="Previous artists"><span class="material-symbols-rounded">arrow_back</span></button><button class="icon-btn online-shelf-more" data-action="online-scroll-rail" data-target="online-shelf-for-you-artists" data-direction="right" aria-label="Scroll artists right" title="Next artists"><span class="material-symbols-rounded">arrow_forward</span></button><button class="text-action" data-action="online-show-all-artists">Explore</button></div></div>
+                <section class="online-shelf" id="online-shelf-english-hits-wrap">
+                    <div class="online-shelf-heading"><h2>English Hits</h2><button class="text-action online-show-more" data-action="online-search-query" data-query="English hits">Show more</button></div>
+                    <div class="online-card-rail" id="online-shelf-english-hits"></div>
+                </section>
+                <section class="online-shelf" id="online-shelf-for-you-artists-wrap" hidden>
+                    <div class="online-shelf-heading"><h2>Your Artists</h2><div class="online-rail-controls"><button class="icon-btn online-shelf-more" data-action="online-scroll-rail" data-target="online-shelf-for-you-artists" data-direction="left" aria-label="Scroll artists left" title="Previous artists"><span class="material-symbols-rounded">arrow_back</span></button><button class="icon-btn online-shelf-more" data-action="online-scroll-rail" data-target="online-shelf-for-you-artists" data-direction="right" aria-label="Scroll artists right" title="Next artists"><span class="material-symbols-rounded">arrow_forward</span></button></div></div>
                     <div class="online-card-rail online-artist-rail" id="online-shelf-for-you-artists"></div>
                 </section>
                 <section class="online-shelf" id="online-shelf-recent-artists-wrap" hidden>
@@ -199,32 +220,25 @@
                     <div class="online-shelf-heading"><h2>Most Played Artists</h2><button class="text-action" data-action="online-show-all-artists">View all</button></div>
                     <div class="online-card-rail online-artist-rail" id="online-shelf-popular-artists"></div>
                 </section>
-                <section class="online-shelf" id="online-shelf-hits-wrap">
-                    <div class="online-shelf-heading"><h2>Hindi Hits</h2><button class="icon-btn online-shelf-more" data-action="online-search-query" data-query="Hindi hits" aria-label="More Hindi hits"><span class="material-symbols-rounded">chevron_right</span></button></div>
-                    <div class="online-card-rail" id="online-shelf-hits"></div>
-                </section>
-                <section class="online-shelf" id="online-shelf-english-hits-wrap">
-                    <div class="online-shelf-heading"><h2>English Hits</h2><button class="icon-btn online-shelf-more" data-action="online-search-query" data-query="English hits" aria-label="More English hits"><span class="material-symbols-rounded">chevron_right</span></button></div>
-                    <div class="online-card-rail" id="online-shelf-english-hits"></div>
-                </section>
                 <section class="online-shelf" id="online-shelf-punjabi-wrap">
-                    <div class="online-shelf-heading"><h2>Punjabi Love Songs</h2><button class="icon-btn online-shelf-more" data-action="online-browse-playlists" data-query="Punjabi love songs" aria-label="More Punjabi playlists"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-shelf-heading"><h2>Punjabi Love Songs</h2><button class="text-action online-show-more" data-action="online-browse-playlists" data-query="Punjabi love songs">Show more</button></div>
                     <div class="online-card-rail" id="online-shelf-punjabi"></div>
                 </section>
                 <section class="online-shelf" id="online-shelf-albums-wrap">
-                    <div class="online-shelf-heading"><h2>Albums for You</h2><button class="icon-btn online-shelf-more" data-action="online-set-search-type" data-type="albums" aria-label="More albums"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-shelf-heading"><h2>Albums for You</h2><button class="text-action online-show-more" data-action="online-set-search-type" data-type="albums">Show more</button></div>
                     <div class="online-card-rail" id="online-shelf-albums"></div>
                 </section>
                 <section class="online-shelf" id="online-shelf-recent-wrap" hidden>
-                    <div class="online-shelf-heading"><h2>Recently Played</h2><button class="icon-btn online-shelf-more" data-action="switch-view" data-view="online-history" aria-label="Full listening history"><span class="material-symbols-rounded">chevron_right</span></button></div>
+                    <div class="online-shelf-heading"><h2>Recently Played</h2><button class="text-action online-show-more" data-action="switch-view" data-view="online-history">History</button></div>
                     <div class="online-card-rail" id="online-home-recent"></div>
                 </section>
-                <footer class="online-brand-footer" aria-label="Mujic"><div class="online-brand-wordmark">Mujic</div></footer>
+                <footer class="online-brand-footer" aria-label="Mujic"><div class="online-brand-wordmark" aria-hidden="true">Mujic</div></footer>
             </section>
 
             <section id="view-online-artists" class="view online-workspace-view online-artists-page" data-workspace-root="online">
                 <header class="online-artists-page-header"><button class="icon-btn" data-action="online-artists-back" aria-label="Back to Home" title="Back"><span class="material-symbols-rounded">arrow_back</span></button><h1>ARTISTS</h1><span id="online-artists-total">Discover</span></header>
-                <div id="online-artists-feature-mosaic" class="online-artist-mosaic"></div>
+                <div class="online-wall-bar"><span>Swipe or use the arrows</span><div class="online-rail-controls"><button class="icon-btn online-wall-btn" data-action="online-shift-artist-wall" data-target="online-artists-feature-mosaic" data-direction="left" aria-label="Previous artists" disabled><span class="material-symbols-rounded">arrow_back</span></button><button class="icon-btn online-wall-btn" data-action="online-shift-artist-wall" data-target="online-artists-feature-mosaic" data-direction="right" aria-label="Next artists"><span class="material-symbols-rounded">arrow_forward</span></button></div></div>
+                <div id="online-artists-feature-mosaic" class="online-wall" tabindex="0" role="region" aria-label="Artists, swipe or use the arrows"></div>
                 <div class="online-artist-directory-heading"><div><h2>All artists</h2><p>Discover performers, revisit favourites and explore new music.</p></div><div class="online-artist-sort" role="group" aria-label="Sort artists"><button class="active" data-action="online-sort-artists" data-sort="recommended">For you</button><button data-action="online-sort-artists" data-sort="recent">Recent</button><button data-action="online-sort-artists" data-sort="popular">Most played</button><button data-action="online-sort-artists" data-sort="alpha">A–Z</button></div></div>
                 <div id="online-artists-directory" class="online-artist-directory"></div>
             </section>
@@ -700,6 +714,7 @@
 
                 <div class="app-footer">Made with <span aria-label="love">♥</span> by Machhar</div>
             </section>
+        <button type="button" id="online-back-top" class="online-back-top" aria-label="Back to top" title="Back to top"><span class="material-symbols-rounded">keyboard_arrow_up</span></button>
         </main>
     </div>
 

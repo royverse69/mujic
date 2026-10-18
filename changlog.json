@@ -1,21 +1,38 @@
 {
   "latest": {
-    "version": "12.0.41",
-    "date": "2026-10-17",
-    "title": "Minimal Player, Track Sharing and Smooth Scrolling",
+    "version": "12.0.43",
+    "date": "2026-10-18",
+    "title": "Artist Wall, Personal Home and Customization Fixes",
     "changes": [
-      "Refined the mini player with quieter controls, less backdrop blur, and a compact three-dot track menu.",
-      "Added Song Info, highest-quality AAC download and Share Song Link actions for the currently playing track.",
-      "Added compact Mujic share URLs using ?s=<song-id>; opening the URL resolves the exact catalogue song through the Render-backed API and starts that track.",
-      "Moved desktop wheel-to-horizontal scrolling handlers from the document to individual rails, reducing interference with normal vertical page scrolling.",
-      "Changed the main vertical scroller to native scrolling and reduced mini-player paint and transition costs.",
-      "Moved track info/share/deep-link logic into a dedicated js/track-actions.js feature chunk while preserving the existing feature-module loading order."
+      "Artists now scroll as a wall of portraits (large, 2x2 cluster, large) on Home and the Artists page, with previous/next buttons, touch swipe, mouse drag and arrow-key support.",
+      "Quick Picks and Suggested for You are now personal: they re-rank from your plays, likes, recent history, favourite artists and time of day, and refresh a moment after each new song instead of staying static.",
+      "The Home greeting now follows the time of day (morning, afternoon, evening, night) and keeps updating.",
+      "Fixed UI customization: layout density now applies to the streaming Home, accent colour is used across streaming tabs and chips, text size covers the new sections, and Restore Default Appearance resets everything.",
+      "Auto performance mode no longer switches on for typical phones (only very low-spec devices or data saver), so transitions and glass effects respect your settings.",
+      "Added Home navigation: jump chips, a back-to-top button, tapping the active tab scrolls to the top, and sticky headers on artist and detail pages.",
+      "Favorite is available from the three-dot menu for streaming songs, and liked songs show a heart in lists.",
+      "Replaced the stacked watermark overrides with one theme-aware rule so the Mujic wordmark is visible in dark and light themes."
     ]
   },
   "app": "Mujic",
-  "version": "12.0.41",
-  "updatedAt": "2026-10-17",
+  "version": "12.0.43",
+  "updatedAt": "2026-10-18",
   "entries": [
+    {
+      "version": "12.0.43",
+      "date": "2026-10-18",
+      "title": "Artist Wall, Personal Home and Customization Fixes",
+      "changes": [
+        "Artists now scroll as a wall of portraits (large, 2x2 cluster, large) on Home and the Artists page, with previous/next buttons, touch swipe, mouse drag and arrow-key support.",
+        "Quick Picks and Suggested for You are now personal: they re-rank from your plays, likes, recent history, favourite artists and time of day, and refresh a moment after each new song instead of staying static.",
+        "The Home greeting now follows the time of day (morning, afternoon, evening, night) and keeps updating.",
+        "Fixed UI customization: layout density now applies to the streaming Home, accent colour is used across streaming tabs and chips, text size covers the new sections, and Restore Default Appearance resets everything.",
+        "Auto performance mode no longer switches on for typical phones (only very low-spec devices or data saver), so transitions and glass effects respect your settings.",
+        "Added Home navigation: jump chips, a back-to-top button, tapping the active tab scrolls to the top, and sticky headers on artist and detail pages.",
+        "Favorite is available from the three-dot menu for streaming songs, and liked songs show a heart in lists.",
+        "Replaced the stacked watermark overrides with one theme-aware rule so the Mujic wordmark is visible in dark and light themes."
+      ]
+    },
     {
       "version": "12.0.41",
       "date": "2026-10-17",

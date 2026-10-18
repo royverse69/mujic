@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic UI module: settings: groups, appearance, EQ, stats, import/export, visualizer, install, update checks. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             checkForUpdates: async (manual = false) => {
@@ -384,7 +385,8 @@
                 const cores = Number(navigator.hardwareConcurrency) || 0;
                 const memory = Number(navigator.deviceMemory) || 0;
                 const reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-                const constrainedDevice = (cores > 0 && cores <= 4) || (memory > 0 && memory <= 4) || reducedMotion;
+                const saveData = !!(navigator.connection && navigator.connection.saveData);
+                const constrainedDevice = (cores > 0 && cores <= 2) || (memory > 0 && memory <= 2) || saveData;
                 const profile = ['auto','low-end','full'].includes(State.performanceProfile) ? State.performanceProfile : 'auto';
                 const lowEndActive = profile === 'low-end' || (profile === 'auto' && (constrainedDevice || State.lowEndMode));
                 State.lowEndModeActive = lowEndActive;
@@ -425,7 +427,7 @@
                 else if (State.cornerRadius === 'extra') { root.style.setProperty('--radius-sm', '16px'); root.style.setProperty('--radius-md', '24px'); root.style.setProperty('--radius-lg', '32px'); } 
                 else { root.style.setProperty('--radius-sm', '8px'); root.style.setProperty('--radius-md', '12px'); root.style.setProperty('--radius-lg', '16px'); }
                 
-                if (State.motion === 'reduced') document.body.classList.add('reduced-motion'); else document.body.classList.remove('reduced-motion');
+                document.body.classList.toggle('reduced-motion', State.motion === 'reduced' || reducedMotion);
                 
                 const artContainer = document.getElementById('player-art-container');
                 if (State.playerArtworkMode === 'contained') artContainer.classList.add('contained'); else artContainer.classList.remove('contained');
@@ -455,7 +457,7 @@
                 UI.updatePlayerSettingsLabels(); UI.updateEQUI(); UI.updateVisualizerUI(); UI.updateWaveformStyleUI();
             },
             resetAppearance: () => {
-                State.theme = 'system'; State.accentPreset = 'dynamic'; State.surfaceTheme = 'oled'; State.interfaceStyle = 'subtle'; State.cornerRadius = 'rounded'; State.motion = 'full'; State.lyricsStyle = 'apple';
+                State.theme = 'system'; State.accentPreset = 'dynamic'; State.accentColor = '#ffffff'; State.surfaceTheme = 'oled'; State.interfaceStyle = 'subtle'; State.cornerRadius = 'rounded'; State.motion = 'full'; State.lyricsStyle = 'apple'; State.textScale = 'normal'; State.layoutDensity = 'comfortable'; State.performanceProfile = 'auto';
                 StorageAdapter.saveSettings(); UI.applySettings(); UI.showToast("Appearance restored", "refresh");
             },
             setupInstallPrompt: () => {

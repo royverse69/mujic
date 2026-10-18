@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Lyrics providers: embedded or music-catalogue text first, then verified fallbacks. */
         const BACKEND_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
 

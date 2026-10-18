@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Online catalogue and playback provider. The supplied API specification defines the primary endpoints.
  * Legacy stream endpoints remain a compatibility fallback. Signed stream URLs are memory-only.
  */

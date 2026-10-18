@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic app bootstrap, lifecycle and PWA registration. */
         const App = {
             init: async () => {

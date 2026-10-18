@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Shared accessible dialog controller. */
         const Dialog = {
             show: (opts) => {

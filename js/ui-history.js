@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic UI module: listening history sheet. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             renderHistoryContent: (sheet, restoreScroll = 0) => {

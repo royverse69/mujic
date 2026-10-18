@@ -1,4 +1,5 @@
-const CACHE_NAME = 'mujic-pwa-v12.0.42-existing-menu-wordmark-deeplink';
+/* Copyright mujic@royverse69 */
+const CACHE_NAME = 'mujic-pwa-v12.0.43-wall-personal-home-custom-fix';
 const MEDIA_CHUNK_CACHE = 'mujic-media-chunks-v3';
 const MEDIA_IMAGE_CACHE = 'mujic-media-images-v3';
 const BACKEND_MEDIA_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/media';

@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic library layer: import, metadata, playlists and persistence-facing library operations. */
         const Library = {
             importFiles: async (e, targetPlaylistId = null) => {

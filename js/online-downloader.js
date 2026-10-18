@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* AAC/M4A-only online downloader. Uses the same native-M4A tagging approach as Mujic Dloader.
  * No MP3 transcode path: if the provider cannot supply a valid AAC/MP4 source, fail clearly.
  */

@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic UI module: global event delegation and gestures. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             setupGlobalDelegation: () => {
@@ -98,7 +99,11 @@
                     try {
                         switch (action) {
                             case 'switch-view':
-                                e.preventDefault(); e.stopPropagation(); UI.switchView(btn.dataset.view); return;
+                                e.preventDefault(); e.stopPropagation();
+                                if (btn.classList.contains('nav-item') && State.playbackSourceMode === 'online' && window.OnlineWorkspace?.handleNavRetap?.(btn.dataset.view)) return;
+                                UI.switchView(btn.dataset.view); return;
+                            case 'online-jump':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.jumpTo(btn.dataset.target); return;
                             case 'set-playback-mode':
                                 e.preventDefault(); e.stopPropagation(); await OnlineMusic.setMode(btn.dataset.mode); return;
                             case 'toggle-playback-mode':
@@ -122,7 +127,7 @@
                                 return;
                             }
                             case 'online-shift-artist-wall': {
-                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.shiftHomeArtistWall(btn.dataset.direction || 'right'); return;
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.shiftHomeArtistWall(btn.dataset.direction || 'right', btn.dataset.target || 'online-home-artists-mosaic'); return;
                             }
                             case 'retry-online-home':
                                 e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.refreshActiveView(); return;
@@ -150,7 +155,7 @@
                             case 'online-play-track':
                                 e.preventDefault(); e.stopPropagation();
                                 if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
-                                OnlineWorkspace.playTrackFromShelf(btn.dataset.id,btn.dataset.context); UI.switchView('online-queue'); return;
+                                OnlineWorkspace.playTrackFromShelf(btn.dataset.id,btn.dataset.context); return;
                             case 'online-detail-back':
                                 e.preventDefault(); e.stopPropagation(); OnlineWorkspace.backFromDetail(); return;
                             case 'online-play-remote-entity':

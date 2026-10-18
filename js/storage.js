@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic storage layer: IndexedDB access, settings persistence, and listening statistics (runs entirely in the browser). */
         const StorageAdapter = {
             db: null,

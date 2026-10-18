@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic desktop layer: customizable keyboard shortcuts and drag-and-drop import. */
 const Keyboard = {
     ACTIONS: [

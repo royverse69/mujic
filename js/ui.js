@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic UI layer (core: history state, init, view switching, sheets, toasts, volume/sleep UI). Other UI modules extend this object via Object.assign(UI, ...). */
         const UI = {
             // History URL mutation is not consistently supported for file:// pages (Windows users
@@ -31,7 +32,7 @@
                     try { initialize.call(UI); }
                     catch (error) { console.error(`Mujic ${label} initialization failed; continuing startup.`, error); }
                 }
-                setTimeout(() => { document.querySelectorAll('.home-greeting').forEach(g => g.classList.add('hidden')); }, 25000);
+                setTimeout(() => { document.querySelectorAll('.home-greeting:not(#online-greeting-text)').forEach(g => g.classList.add('hidden')); }, 25000);
                 const persistResume = () => {
                     if (State.resumePlayback && State.currentTrackId) { State.resumePosition = State.currentTime; State.lastPositionSave = Date.now(); StorageAdapter.saveSettings(); }
                 };

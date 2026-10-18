@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Online autoplay/recommendation engine. Never auto-queues likely duplicate recordings or variants. */
 (() => {
     const playedIds = new Set();

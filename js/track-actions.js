@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic track actions: focused module for track metadata, maximum-quality downloads and share links. */
 (() => {
     const SHARE_BASE = 'https://royverse69.github.io/mujic/';

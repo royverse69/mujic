@@ -1,3 +1,4 @@
+/* Copyright mujic@royverse69 */
 /* Mujic UI module: lyrics display and modes. Extends the UI object defined in ui.js. */
         Object.assign(UI, {
             syncLyrics: (time) => {
