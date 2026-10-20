@@ -1,27 +1,122 @@
 /* Copyright mujic@royverse69 */
         Object.assign(UI, {
-            syncLyrics: (time) => {
-                if(!State.currentLyrics || !State.currentLyrics.isSynced) return;
-                const lines = State.currentLyrics.parsed; if (!lines || !lines.length) return;
-                
-                let idx = -1;
-                for (let i = 0; i < lines.length; i++) {
-                    if (time + (Number(State.lyricsTimingOffset) || 0) >= lines[i].time - 0.3) idx = i; else break;
+            renderSyncedLyrics: (lyricsData = State.currentLyrics) => {
+                const container = document.getElementById('lyrics-content');
+                const lines = Array.isArray(lyricsData?.parsed) ? lyricsData.parsed : [];
+                if (!container) return;
+                if (!lines.length) {
+                    container.replaceChildren();
+                    State.activeLyricIndex = -1;
+                    return;
                 }
-                
-                if (idx !== State.activeLyricIndex) {
-                    State.activeLyricIndex = idx;
-                    const container = document.getElementById('lyrics-content');
-                    container.querySelectorAll('.lyric-line.active').forEach(el => el.classList.remove('active'));
-                    if (idx !== -1) {
-                        const activeEl = document.getElementById(`lyric-line-${idx}`);
-                        if (activeEl) {
-                            activeEl.classList.add('active');
-                            const offset = activeEl.offsetTop - (container.clientHeight / 2) + (activeEl.clientHeight / 2);
-                            container.scrollTo({ top: offset, behavior: 'smooth' });
+                const escape = value => Utils.escapeHTML(String(value ?? ''));
+                const wordsFor = text => String(text || '').trim().match(/\S+/gu) || [];
+                container.innerHTML = lines.map((line, index) => {
+                    const words = wordsFor(line.text);
+                    const content = State.lyricsWordByWord
+                        ? words.map((word, wordIndex) => `<span class="lyric-word" data-word-index="${wordIndex}" data-word-weight="${UI.lyricWordWeight(word)}">${escape(word)}</span>`).join(' ')
+                        : escape(line.text);
+                    return `<div class="lyric-line${State.lyricsWordByWord ? ' lyric-wordwise' : ''}" id="lyric-line-${index}" data-line-index="${index}" data-time="${Number(line.time) || 0}" data-action="seek-lyric">${content}</div>`;
+                }).join('');
+                State.activeLyricIndex = -1;
+                UI.syncLyrics(State.currentTime);
+            },
+            lyricWordWeight: word => {
+                const value = String(word || '').toLocaleLowerCase();
+                const letters = [...value].filter(char => /[\p{L}\p{N}]/u.test(char));
+                if (!letters.length) return 0.65;
+                // LRC has line timestamps, not word timestamps. Estimate relative spoken
+                // duration from syllable groups for Latin text and grapheme groups for
+                // other scripts instead of animating every word at an equal, rushed rate.
+                const latin = /[a-z]/i.test(value);
+                let units;
+                if (latin) {
+                    const groups = value.match(/[aeiouy]+/gi) || [];
+                    units = Math.max(1, groups.length);
+                    if (/[aeiouy][^aeiouy]e$/i.test(value) && units > 1) units -= 1;
+                } else {
+                    const count = letters.length;
+                    units = Math.max(1, Math.ceil(count / 3.2));
+                }
+                let weight = 0.72 + Math.min(2.3, units * 0.42);
+                if (/[.!?।॥…]$/u.test(value)) weight += 0.58;
+                else if (/[,;:]$/u.test(value)) weight += 0.25;
+                return Math.max(0.7, Math.min(3.6, weight));
+            },
+            syncLyrics: time => {
+                if (!State.currentLyrics || !State.currentLyrics.isSynced) return;
+                const lines = State.currentLyrics.parsed;
+                if (!Array.isArray(lines) || !lines.length) return;
+                const offset = Number(State.lyricsTimingOffset) || 0;
+                const clock = Math.max(0, Number(time) + offset);
+                let index = -1;
+                // Use the exact LRC cue boundary. An early boundary (previously -0.3s)
+                // cut the final word off every line before its next cue arrived.
+                for (let i = 0; i < lines.length; i++) {
+                    if (clock >= (Number(lines[i].time) || 0)) index = i;
+                    else break;
+                }
+                const container = document.getElementById('lyrics-content');
+                if (!container) return;
+                const changed = index !== State.activeLyricIndex;
+                if (changed) {
+                    State.activeLyricIndex = index;
+                    container.querySelectorAll('.lyric-line.active').forEach(node => node.classList.remove('active'));
+                    if (State.lyricsWordByWord) {
+                        // Finish previous lines completely, even when the user seeks forward.
+                        container.querySelectorAll('.lyric-line.lyric-wordwise').forEach(node => {
+                            const lineIndex = Number(node.dataset.lineIndex);
+                            node.querySelectorAll('.lyric-word').forEach(word => {
+                                word.classList.toggle('is-revealed', index >= 0 && lineIndex < index);
+                            });
+                        });
+                    }
+                    if (index >= 0) {
+                        const active = document.getElementById(`lyric-line-${index}`);
+                        if (active) {
+                            active.classList.add('active');
+                            // Center the cue inside the scrollport and clamp to a valid range.
+                            const containerRect = container.getBoundingClientRect();
+                            const activeRect = active.getBoundingClientRect();
+                            const desired = container.scrollTop + activeRect.top - containerRect.top - (container.clientHeight - activeRect.height) / 2;
+                            const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+                            const top = Math.max(0, Math.min(maxScroll, desired));
+                            if (Math.abs(container.scrollTop - top) > 10) {
+                                container.scrollTo({ top, behavior: document.body.classList.contains('reduced-motion') ? 'auto' : 'smooth' });
+                            }
                         }
                     }
                 }
+                if (!State.lyricsWordByWord || index < 0) return;
+                const line = lines[index];
+                const wordLine = document.getElementById(`lyric-line-${index}`);
+                if (!wordLine) return;
+                const words = [...wordLine.querySelectorAll('.lyric-word')];
+                if (!words.length) return;
+                const start = Math.max(0, Number(line.time) || 0);
+                const nextTime = index + 1 < lines.length ? Number(lines[index + 1].time) : NaN;
+                const gap = Number.isFinite(nextTime) && nextTime > start ? nextTime - start : 0;
+                const weights = words.map(word => Math.max(0.7, Number(word.dataset.wordWeight) || UI.lyricWordWeight(word.textContent)));
+                const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+                const estimate = Math.max(0.75, Math.min(7.5, totalWeight * 0.31 + words.length * 0.035));
+                // Prefer a real line interval for fast phrases, but do not stretch a short
+                // phrase across a long instrumental gap. Very rapid cues reveal together.
+                const duration = gap > 0 ? Math.min(gap, estimate * 1.35) : estimate;
+                const elapsed = Math.max(0, clock - start);
+                const progress = duration <= 0 ? 1 : Math.max(0, Math.min(1, elapsed / duration));
+                const revealCount = gap > 0 && gap < 0.48
+                    ? words.length
+                    : progress >= 0.94 ? words.length : (() => {
+                        let cumulative = 0;
+                        let count = 0;
+                        const target = progress * totalWeight;
+                        for (const weight of weights) {
+                            if (cumulative <= target + 0.02) count++;
+                            cumulative += weight;
+                        }
+                        return Math.max(progress > 0 ? 1 : 0, Math.min(words.length, count));
+                    })();
+                words.forEach((word, wordIndex) => word.classList.toggle('is-revealed', wordIndex < revealCount));
             },
             loadCurrentLyrics: async () => {
                 if (!State.isLyricsMode) return;
@@ -68,8 +163,7 @@
                         lyricsContent.innerHTML = Utils.escapeHTML(lyricsData.text);
                     }
                 } else {
-                    lyricsContent.innerHTML = lyricsData.parsed.map((line, i) => `<div class="lyric-line" id="lyric-line-${i}" data-time="${line.time}" data-action="seek-lyric">${Utils.escapeHTML(line.text)}</div>`).join('');
-                    UI.syncLyrics(State.currentTime);
+                    UI.renderSyncedLyrics(lyricsData);
                 }
             },
             toggleLyricsMode: () => {

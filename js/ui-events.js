@@ -26,6 +26,51 @@
                         if (e.pointerType === 'touch') activateNav(e);
                     }, true);
                 }
+                // PiP is a desktop-only control; mobile browser support is inconsistent.
+                const isMobilePiPContext = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.matchMedia('(max-width: 767px), (pointer: coarse)').matches;
+                const refreshPiPButtonVisibility = () => {
+                    const supported = Boolean(document.pictureInPictureEnabled && HTMLCanvasElement.prototype.captureStream);
+                    document.querySelectorAll('[data-action="picture-in-picture"]').forEach(button => { button.hidden = isMobilePiPContext() || !supported; button.setAttribute('aria-hidden', String(button.hidden)); });
+                };
+                refreshPiPButtonVisibility();
+                window.addEventListener('resize', refreshPiPButtonVisibility, {passive:true});
+                // Desktop PiP uses a lightweight canvas video so audio playback remains on the existing audio engine.
+                const openPlayerPiP = async () => {
+                    if (isMobilePiPContext()) { UI.showToast('Picture-in-Picture is available on supported desktop browsers.', 'info'); return; }
+                    if (!('pictureInPictureEnabled' in document) || !document.pictureInPictureEnabled || !HTMLCanvasElement.prototype.captureStream) {
+                        UI.showToast('Picture-in-Picture is not supported by this browser.', 'info'); return;
+                    }
+                    try {
+                        let video = document.getElementById('mujic-pip-video');
+                        if (!video) {
+                            const canvas = document.createElement('canvas'); canvas.width=640; canvas.height=360;
+                            const ctx=canvas.getContext('2d');
+                            video=document.createElement('video'); video.id='mujic-pip-video'; video.muted=true; video.playsInline=true; video.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px';
+                            video.srcObject=canvas.captureStream(12); document.body.appendChild(video);
+                            video.dataset.canvasReady='1';
+                            const paint=()=>{
+                                if(!document.getElementById('mujic-pip-video')||!video.isConnected)return;
+                                ctx.fillStyle='#09090b';ctx.fillRect(0,0,640,360);
+                                const art=document.getElementById('full-art')||document.getElementById('mini-art');
+                                try { if(art?.complete&&art.naturalWidth){const size=250;ctx.save();ctx.beginPath();ctx.roundRect(36,55,size,size,22);ctx.clip();ctx.drawImage(art,36,55,size,size);ctx.restore();} } catch(_) {}
+                                ctx.fillStyle='#fff';ctx.font='600 25px system-ui';ctx.fillText(String(document.getElementById('full-title')?.textContent||'Mujic').slice(0,28),320,150);
+                                ctx.fillStyle='#b9b9c2';ctx.font='18px system-ui';ctx.fillText(String(document.getElementById('full-artist')?.textContent||'Now Playing').slice(0,32),320,185);
+                                ctx.fillStyle='#777';ctx.font='14px system-ui';ctx.fillText('MACHHAR BETA V1',320,225);
+                                video._pipFrame=requestAnimationFrame(paint);
+                            }; paint();
+                        }
+                        await new Promise((resolve, reject) => { if (video.readyState >= 2) return resolve(); const timer=setTimeout(()=>reject(new Error('PiP video frame not ready')),1800); video.addEventListener('loadeddata',()=>{clearTimeout(timer);resolve();},{once:true}); video.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('PiP video failed'));},{once:true}); });
+                        await video.play();
+                        await video.requestPictureInPicture();
+                    } catch(error) { console.warn('PiP unavailable',error); UI.showToast('Could not open Picture-in-Picture. Use HTTPS or a supported desktop browser.', 'error'); }
+                };
+
+                const art = document.getElementById('player-art-container');
+                let artSwipe=null;
+                art?.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch'||e.target.closest('button'))return;artSwipe={x:e.clientX,y:e.clientY,id:e.pointerId};},{passive:true});
+                art?.addEventListener('pointerup',e=>{if(!artSwipe||artSwipe.id!==e.pointerId)return;const dx=e.clientX-artSwipe.x,dy=e.clientY-artSwipe.y;artSwipe=null;if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.25)return;e.preventDefault();e.stopPropagation();if(dx<0)Player.next();else Player.previous();},{passive:false});
+                art?.addEventListener('pointercancel',()=>{artSwipe=null;},{passive:true});
+
                 const mini = document.getElementById('mini-player');
                 mini?.querySelectorAll('.mini-action').forEach(btn => {
                     ['pointerdown','pointerup','click'].forEach(type => btn.addEventListener(type, e => { e.preventDefault(); e.stopPropagation(); }, {passive:false}));
@@ -85,6 +130,24 @@
 
                     try {
                         switch (action) {
+                            case 'picture-in-picture':
+                                e.preventDefault(); e.stopPropagation(); await openPlayerPiP(); return;
+                            case 'online-open-category':
+                                e.preventDefault(); e.stopPropagation(); if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return; await OnlineWorkspace.openCategory(btn.dataset.id); return;
+                            case 'online-open-radio':
+                                e.preventDefault(); e.stopPropagation(); if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return; await OnlineWorkspace.openRadioStation(btn.dataset.id); return;
+                            case 'online-show-radio-directory':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.openRadioDirectory(); return;
+                            case 'online-play-radio':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.startRadio(btn.dataset.id); return;
+                            case 'online-start-artist-radio':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.startArtistRadio(btn.dataset.id || '', btn.dataset.name || 'Artist'); return;
+                            case 'online-play-category':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.playCategory(); return;
+                            case 'online-load-category-more':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.loadMoreCategory(); return;
+                            case 'open-current-artist':
+                                e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.openCurrentArtist?.(btn.dataset.artistId || '', btn.dataset.artistName || ''); return;
                             case 'switch-view':
                                 e.preventDefault(); e.stopPropagation();
                                 if (btn.classList.contains('nav-item') && State.playbackSourceMode === 'online' && window.OnlineWorkspace?.handleNavRetap?.(btn.dataset.view)) return;
@@ -133,8 +196,19 @@
                                 UI.switchView('online-search');
                                 return;
                             }
+                            case 'online-browse-albums': {
+                                e.preventDefault(); e.stopPropagation();
+                                if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
+                                OnlineWorkspace.filterSearchType('albums');
+                                const input=document.getElementById('online-search-input'); if(input) input.value=btn.dataset.query || 'English hit albums';
+                                UI.switchView('online-search');
+                                return;
+                            }
                             case 'online-clear-search':
                                 e.preventDefault(); e.stopPropagation(); OnlineWorkspace.clearSearch(); return;
+                            case 'online-toggle-artist-bio': {
+                                e.preventDefault(); e.stopPropagation(); const bio=document.getElementById('online-artist-bio'); if(bio){const expanded=bio.classList.toggle('is-expanded');btn.textContent=expanded?'Read less':'Read more';btn.setAttribute('aria-expanded',String(expanded));} return;
+                            }
                             case 'online-open-entity':
                                 e.preventDefault(); e.stopPropagation();
                                 if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;
@@ -495,23 +569,25 @@
                     }
                 });
 
-                document.querySelectorAll('.settings-control').forEach(el => {
-                    el.addEventListener('change', (e) => {
-                        const key = e.target.dataset.setting; if (!key) return;
-                        State[key] = e.target.type === 'checkbox' ? e.target.checked : (e.target.type === 'range' || e.target.type === 'number' ? Number(e.target.value) : e.target.value);
-                        if (key === 'seekStep') State.seekStep = Number(State.seekStep) || 10;
-                        if (key === 'loudnessLevel' && !['soft','balanced','strong'].includes(State.loudnessLevel)) State.loudnessLevel = 'balanced';
-                        StorageAdapter.saveSettings(); UI.applySettings(); AudioAdapter.applySettings();
-                        if (key === 'keepScreenAwake') AudioAdapter.setWakeLock(State.keepScreenAwake);
-                        if (key === 'lyricsTimingOffset') { State.activeLyricIndex = -1; UI.syncLyrics(State.currentTime); }
-                        if (key === 'waveformStyle') UI.updateWaveformStyleUI();
-                        if (key === 'visualizerMode') UI.updateVisualizerUI();
-                        if (key === 'performanceProfile') UI.showToast(State.lowEndModeActive ? 'Low-end performance profile active.' : 'Full visual quality active.', 'speed');
-                        if(key === 'librarySort' || key === 'librarySortDir') { Library.sortLibrary(); UI.renderLibrary(); }
-                        if(key === 'showArtworkLists') UI.updateHighlights();
-                        if(['crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','seekStep','lyricsPlusEnabled','lyricsRenderEnabled'].includes(key)) UI.showToast('Playback preferences updated', 'check_circle');
-                    });
-                });
+                const commitSetting = e => {
+                    const el=e.target, key=el?.dataset?.setting; if(!key||!el.classList.contains('settings-control'))return;
+                    State[key] = el.type === 'checkbox' ? el.checked : (el.type === 'range' || el.type === 'number' ? Number(el.value) : el.value);
+                    if (key === 'seekStep') State.seekStep = Number(State.seekStep) || 10;
+                    if (key === 'loudnessLevel' && !['soft','balanced','strong'].includes(State.loudnessLevel)) State.loudnessLevel = 'balanced';
+                    StorageAdapter.saveSettings(); UI.applySettings(); AudioAdapter.applySettings();
+                    if (key === 'keepScreenAwake') AudioAdapter.setWakeLock(State.keepScreenAwake);
+                    if (key === 'lyricsTimingOffset') { State.activeLyricIndex = -1; UI.syncLyrics(State.currentTime); }
+                    if (key === 'lyricsWordByWord' && State.currentLyrics?.isSynced) UI.renderSyncedLyrics(State.currentLyrics);
+                    if (key === 'waveformStyle') UI.updateWaveformStyleUI();
+                    if (key === 'visualizerMode') UI.updateVisualizerUI();
+                    if (key === 'performanceProfile') UI.showToast(State.lowEndModeActive ? 'Low-end performance profile active.' : 'Full visual quality active.', 'speed');
+                    if(key === 'librarySort' || key === 'librarySortDir') { Library.sortLibrary(); UI.renderLibrary(); }
+                    if(key === 'showArtworkLists') UI.updateHighlights();
+                    if(['crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','seekStep','lyricsPlusEnabled','lyricsRenderEnabled'].includes(key)) UI.showToast('Playback preferences updated', 'check_circle');
+                };
+                // Delegation survives settings controls being moved into their category subpages.
+                document.addEventListener('change', commitSetting);
+                document.addEventListener('input', e => { const el=e.target; if(!el?.matches('.settings-control[type="range"]'))return; const key=el.dataset.setting;if(!key)return;State[key]=Number(el.value);UI.applySettings();if(key==='lyricsTimingOffset'){State.activeLyricIndex=-1;UI.syncLyrics(State.currentTime);} });
                 
                 const colorSchemeQuery = window.matchMedia?.('(prefers-color-scheme: light)');
                 const onColorSchemeChange = () => { if (State.theme === 'system') UI.applySettings(); };

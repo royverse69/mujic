@@ -1301,3 +1301,196 @@ body.online-mode .online-search-box .btn-primary { background:#ff453a; color:#ff
 @media (prefers-reduced-motion:reduce) {
   #mini-player,#mini-player .mini-action,#mini-player .mini-progress-fill{ transition:none!important; }
 }
+
+/* Machhar Beta v1: keep horizontal artwork gestures responsive without blocking vertical scroll. */
+#player-art-container{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+#player-art-container img{user-select:none;-webkit-user-drag:none;will-change:transform}
+@media(prefers-reduced-motion:reduce){#player-art-container img,#full-player,.online-artist-directory-card{transition:none!important;animation:none!important}}
+
+/* Motion and paint containment tuned for high-refresh displays without forcing GPU layers everywhere. */
+.track-row,.online-card,.online-compact-row{contain:layout style}
+@media(min-width:900px) and (prefers-reduced-motion:no-preference){.online-artist-directory-card,.online-artist-directory-orb,.player-art-container img{transition-duration:.16s}}
+
+/* Machhar Beta v1.2: appearance controls must win over legacy surface overrides. */
+.settings-section,
+.search-container {
+  background: var(--glass-panel-bg) !important;
+  border: var(--glass-panel-border) !important;
+  box-shadow: var(--glass-panel-shadow) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  border-radius: var(--panel-radius) !important;
+}
+body[data-interface-style="off"] :is(.glass-surface,.settings-section,.search-container,.bottom-sheet,.dialog-box,.eq-layout,#bottom-nav) {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-subtle) !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+body[data-interface-style="strong"]:not(.low-end-mode) :is(.glass-surface,.settings-section,.search-container,.bottom-sheet,.dialog-box,.eq-layout,#bottom-nav) {
+  background: var(--glass-panel-bg) !important;
+  border-color: var(--glass-panel-border-color, rgba(255,255,255,.14)) !important;
+  box-shadow: var(--glass-panel-shadow) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur) !important;
+}
+body[data-interface-style="subtle"]:not(.low-end-mode) :is(.glass-surface,.settings-section,.search-container,.bottom-sheet,.dialog-box,.eq-layout,#bottom-nav) {
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur) !important;
+}
+body[data-corner-radius="sharp"] :is(.settings-section,.settings-category-card,.search-container,.track-row,.art-wrapper,.track-art-small,.online-search-box,.online-search-tab,.online-media-art,.online-entity-art,.online-category-card,.online-reference-heading,.bottom-sheet,.dialog-box,.eq-layout,#mini-player,.btn,.icon-btn,.settings-control,.apple-select-wrapper,.online-back-top) { border-radius: 0 !important; }
+body[data-corner-radius="medium"] :is(.settings-section,.settings-category-card,.bottom-sheet,.dialog-box,.eq-layout,.online-reference-heading) { border-radius: var(--panel-radius) !important; }
+body[data-corner-radius="medium"] :is(.search-container,.track-row,.art-wrapper,.track-art-small,.online-search-box,.online-search-tab,.online-media-art,.online-entity-art,.online-category-card,#mini-player) { border-radius: var(--radius-md) !important; }
+body[data-corner-radius="medium"] :is(.btn,.icon-btn,.settings-control,.apple-select-wrapper,.online-back-top) { border-radius: var(--radius-action) !important; }
+body[data-corner-radius="rounded"] :is(.settings-section,.settings-category-card,.bottom-sheet,.dialog-box,.eq-layout,.online-reference-heading) { border-radius: var(--panel-radius) !important; }
+body[data-corner-radius="rounded"] :is(.search-container,.track-row,.art-wrapper,.track-art-small,.online-search-box,.online-search-tab,.online-media-art,.online-entity-art,.online-category-card,#mini-player) { border-radius: var(--radius-md) !important; }
+body[data-corner-radius="rounded"] :is(.btn,.icon-btn,.settings-control,.apple-select-wrapper,.online-back-top) { border-radius: var(--radius-action) !important; }
+body[data-corner-radius="extra"] :is(.settings-section,.settings-category-card,.bottom-sheet,.dialog-box,.eq-layout,.online-reference-heading) { border-radius: var(--panel-radius) !important; }
+body[data-corner-radius="extra"] :is(.search-container,.track-row,.art-wrapper,.track-art-small,.online-search-box,.online-search-tab,.online-media-art,.online-entity-art,.online-category-card,#mini-player) { border-radius: var(--radius-lg) !important; }
+body[data-corner-radius="extra"] :is(.btn,.icon-btn,.settings-control,.apple-select-wrapper,.online-back-top) { border-radius: var(--radius-action) !important; }
+
+
+/* Machhar Beta v1.3: cleaner glass, balanced player geometry, restrained native-like motion. */
+body[data-interface-style="subtle"] .glass-surface,
+body[data-interface-style="strong"] .glass-surface { border:1px solid transparent !important; }
+#mini-player { border-color:transparent !important; }
+#full-player .player-header { display:grid !important; grid-template-columns:44px minmax(0,1fr) 88px; align-items:center; gap:8px; padding-inline:clamp(16px,4vw,28px); }
+#full-player .player-header > button:first-child { justify-self:start; }
+#full-player .player-header > div:nth-child(2) { justify-self:center; width:100%; min-width:0; text-align:center; }
+#full-player .player-header > div:last-child { justify-self:end; display:flex; align-items:center; justify-content:flex-end; gap:2px; min-width:0; }
+#player-context-label { display:block; max-width:min(58vw,420px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; font-size:13px !important; font-weight:600 !important; letter-spacing:-.015em; }
+.player-artist-link { display:inline-block; padding:0; margin:4px 0 0; max-width:100%; border:0; border-radius:5px; background:transparent; color:var(--text-secondary); font:inherit; text-align:left; text-decoration:none; cursor:pointer; }
+.player-artist-link:focus-visible { outline:2px solid var(--accent-color); outline-offset:3px; }
+.player-artist-link:active { opacity:.72; }
+#full-player .player-metadata-row { align-items:center; gap:16px; }
+#full-player .player-metadata-row > div:first-child { min-width:0; }
+#full-player .player-title { overflow-wrap:anywhere; line-height:1.16; }
+#full-player .player-art-container { flex-shrink:1; }
+#full-player .player-art-container img { object-fit:cover; aspect-ratio:1; }
+button,.btn,.icon-btn,.online-card,.online-artist-card,.online-entity-card,.online-media-card { -webkit-tap-highlight-color:transparent; }
+@media (prefers-reduced-motion:no-preference) {
+  button,.btn,.icon-btn { transition:background-color .16s ease,color .16s ease,opacity .16s ease,transform .16s cubic-bezier(.2,.75,.25,1),border-color .16s ease; }
+  button:active,.btn:active,.icon-btn:active { transform:scale(.97); }
+  #full-player .player-art-container img { transition:transform .22s cubic-bezier(.2,.75,.25,1),border-radius .22s ease; }
+  #mini-player { transition:opacity .18s ease,background-color .18s ease,transform .18s cubic-bezier(.2,.75,.25,1); }
+}
+.lyric-wordwise .lyric-word { display:inline-block; opacity:.3; transform:translateY(1px); transition:opacity .12s linear,transform .12s linear; }
+.lyric-wordwise .lyric-word.is-revealed { opacity:1; transform:translateY(0); }
+.player-artist-link { display:block; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; }
+.player-artist-marquee { display:inline-flex; align-items:center; gap:.35em; width:max-content; max-width:100%; white-space:nowrap; }
+.player-artist-marquee.is-overflowing { max-width:none; animation:artist-marquee 13s linear infinite; }
+.player-artist-marquee a { color:inherit; text-decoration:none; flex:none; }
+.player-artist-marquee a:hover { color:var(--text-primary); text-decoration:underline; }
+.player-artist-separator { opacity:.65; }
+@keyframes artist-marquee { 0%,8% { transform:translateX(0); } 92%,100% { transform:translateX(var(--marquee-distance, -20%)); } }
+.online-artist-bio { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden; }
+.online-artist-bio.is-expanded { display:block; overflow:visible; }
+.online-bio-more { border:0; padding:2px 0; background:transparent; color:var(--text-secondary); font:inherit; font-size:12px; cursor:pointer; }
+@media(max-width:767px) {
+  #full-player .player-header { grid-template-columns:40px minmax(0,1fr) 80px; gap:4px; padding:12px 14px 8px; }
+  #full-player .player-header > div:last-child .icon-btn { width:38px; min-width:38px; height:38px; }
+  #player-context-label { max-width:52vw; font-size:12px !important; }
+  #full-player .player-body { gap:0; }
+  #full-player .player-art-container { width:100%; padding:clamp(16px,5vw,26px) clamp(22px,8vw,38px); }
+  #full-player .player-controls-section { padding-inline:clamp(20px,6vw,30px); }
+  #full-player .player-metadata-row { gap:10px; padding-bottom:4px; }
+  #full-player .player-title { font-size:clamp(19px,5vw,24px); }
+  #full-player .player-artist { max-width:100%; white-space:normal; overflow-wrap:anywhere; line-height:1.35; }
+  .online-detail-hero.online-artist-detail-hero { grid-template-columns:clamp(82px,28vw,116px) minmax(0,1fr) !important; align-items:start !important; gap:14px !important; }
+  .online-detail-hero.online-artist-detail-hero > img { width:100%; height:auto; }
+  .online-detail-hero .online-detail-copy { min-width:0; max-width:100%; overflow:visible; }
+  .online-detail-hero .online-detail-copy h2 { max-width:100%; white-space:normal; overflow:visible; overflow-wrap:anywhere; word-break:normal; text-overflow:clip; line-height:1.1; }
+  .online-detail-hero .online-entity-subtitle { max-width:100%; min-width:0; display:block; white-space:normal; overflow:visible; overflow-wrap:anywhere; word-break:normal; text-overflow:clip; line-height:1.4; }
+  .online-detail-hero .online-action-row { flex-wrap:wrap; }
+}
+@media(max-width:360px) {
+  #full-player .player-header { grid-template-columns:36px minmax(0,1fr) 72px; padding-inline:10px; }
+  #full-player .player-header > div:last-child .icon-btn { width:34px; min-width:34px; height:34px; }
+  .online-detail-hero.online-artist-detail-hero { grid-template-columns:78px minmax(0,1fr) !important; gap:11px !important; }
+}
+@media(prefers-reduced-motion:reduce) {
+  button,.btn,.icon-btn,#mini-player,#full-player .player-art-container img,.lyric-wordwise .lyric-word,.player-artist-marquee.is-overflowing { animation:none!important; transition:none!important; }
+  button:active,.btn:active,.icon-btn:active { transform:none!important; }
+}
+
+.online-search-suggestions { display:flex; gap:8px; overflow-x:auto; padding:10px 0 4px; scrollbar-width:none; }
+.online-search-suggestions::-webkit-scrollbar { display:none; }
+.online-search-suggestions .online-chip { flex:none; white-space:nowrap; }
+
+/* Machhar Beta v1.5 — resilient lyric wrapping and a balanced full-screen player. */
+#full-player .player-header { grid-template-columns:44px minmax(0,1fr) auto !important; gap:clamp(4px,.7vw,10px) !important; }
+#full-player .player-header .player-header-actions { display:flex !important; align-items:center; justify-content:flex-end; flex-wrap:nowrap; gap:4px; min-width:0; }
+#full-player .player-header .player-header-actions > .icon-btn { display:flex; flex:0 0 40px; width:40px; min-width:40px; height:40px; align-items:center; justify-content:center; }
+#full-player .player-header .player-header-actions > .immersive-btn { position:static !important; inset:auto !important; top:auto !important; right:auto !important; z-index:auto !important; display:none !important; }
+@media(min-width:768px) { body.lyrics-mode #full-player .player-header .player-header-actions > .immersive-btn { display:flex !important; } }
+body.lyrics-mode.immersive-lyrics #full-player .player-header .player-header-actions > .immersive-btn { display:flex !important; }
+#full-player .player-header > div:nth-child(2) { min-width:0; }
+#full-player .player-header > div:nth-child(2) > span:last-child { max-width:clamp(100px,42vw,440px); min-width:0; }
+.player-lyrics-container { box-sizing:border-box; min-width:0; overflow-x:hidden !important; overflow-y:auto; overscroll-behavior:contain; scroll-padding-block:30%; }
+.player-lyrics-container .lyric-line { box-sizing:border-box; width:100%; min-width:0; max-width:100%; padding-inline:clamp(2px,.35em,8px); white-space:normal; word-break:normal; overflow-wrap:anywhere; text-wrap:pretty; transform:none !important; }
+.player-lyrics-container .lyric-line.active { transform:none !important; filter:none; }
+.lyric-wordwise .lyric-word { display:inline; position:relative; opacity:.34; transform:none; white-space:normal; overflow-wrap:anywhere; transition:opacity .14s linear,color .14s linear; }
+.lyric-wordwise .lyric-word.is-revealed { opacity:1; transform:none; }
+.player-lyrics-container .lyric-line:last-child { margin-bottom:clamp(44px,12vh,120px); }
+body.lyrics-mode.immersive-lyrics .player-lyrics-container { padding-bottom:calc(15vh + var(--safe-bottom,0px)) !important; scroll-padding-block:24% 32%; }
+@media(min-width:900px) {
+  body:not(.lyrics-mode) #full-player .player-body { display:grid !important; grid-template-columns:minmax(280px,min(39vw,500px)) minmax(360px,530px); align-items:center; justify-content:center; gap:clamp(36px,6vw,92px); width:100%; max-width:min(1320px,100vw) !important; margin:0 auto; padding:clamp(24px,4vw,58px) clamp(32px,5vw,76px); box-sizing:border-box; }
+  body:not(.lyrics-mode) #full-player .player-art-container { width:100%; max-width:500px; min-width:0; flex:none; padding:0; justify-self:center; }
+  body:not(.lyrics-mode) #full-player #full-art { display:block; width:100%; height:auto; max-height:min(64vh,500px); aspect-ratio:1; object-fit:cover; border-radius:clamp(14px,1.7vw,24px); box-shadow:0 24px 70px rgba(0,0,0,.28); }
+  body:not(.lyrics-mode) #full-player .player-controls-section { width:100%; min-width:0; max-width:530px; justify-self:center; padding:0; align-self:center; }
+  body:not(.lyrics-mode) #full-player .player-metadata-row { margin-bottom:clamp(18px,3vh,34px); align-items:center; }
+  body:not(.lyrics-mode) #full-player .player-title { font-size:clamp(26px,2.7vw,38px); line-height:1.12; letter-spacing:-.045em; }
+  body:not(.lyrics-mode) #full-player .player-artist { font-size:16px; line-height:1.4; }
+  body:not(.lyrics-mode) #full-player .btn-play-pause { width:64px; height:64px; }
+}
+@media(max-width:767px) {
+  #full-player .player-header { grid-template-columns:38px minmax(0,1fr) auto !important; gap:2px !important; padding-inline:12px !important; }
+  #full-player .player-header .player-header-actions { gap:1px; }
+  #full-player .player-header .player-header-actions > .icon-btn { flex-basis:36px; width:36px; min-width:36px; height:36px; }
+  #full-player .player-header > div:nth-child(2) > span:last-child { max-width:48vw; }
+  .player-lyrics-container .lyric-line { line-height:1.28; }
+}
+@media(max-width:380px) {
+  #full-player .player-header { grid-template-columns:32px minmax(0,1fr) auto !important; padding-inline:8px !important; }
+  #full-player .player-header .player-header-actions > .icon-btn { flex-basis:31px; width:31px; min-width:31px; height:32px; }
+  #full-player .player-header .player-header-actions > .icon-btn .material-symbols-rounded { font-size:20px; }
+  #full-player .player-header > div:nth-child(2) > span:last-child { max-width:43vw; font-size:11px !important; }
+}
+
+/* PiP is intentionally a desktop-only tool in Machhar Beta. */
+@media (max-width: 767px), (pointer: coarse) { #full-player [data-action="picture-in-picture"], .mini-player [data-action="picture-in-picture"] { display:none !important; } }
+
+/* v1.8: consistent now-playing state in queue and playlist rows, independent of the full-screen player. */
+.track-row.is-now-playing {
+  position:relative;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--accent-color) 8%,transparent),transparent 78%);
+  box-shadow:inset 2px 0 0 color-mix(in srgb,var(--accent-color) 82%,transparent);
+  border-radius:10px;
+}
+.track-row.is-now-playing .item-title { color:var(--accent-color); font-weight:700; }
+.track-now-playing-status {
+  display:inline-flex;
+  flex:0 0 auto;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  max-width:max-content;
+  margin-inline:7px 2px;
+  padding:5px 8px;
+  border:1px solid color-mix(in srgb,var(--accent-color) 24%,transparent);
+  border-radius:999px;
+  color:var(--accent-color);
+  background:color-mix(in srgb,var(--accent-color) 9%,var(--bg-surface));
+  line-height:1;
+}
+.track-now-playing-status .online-now-playing-bars { width:12px; height:13px; gap:2px; }
+.track-now-playing-status .online-now-playing-bars i { width:2px; }
+.track-now-playing-label { font-size:8px; font-weight:850; letter-spacing:.09em; white-space:nowrap; }
+@media(max-width:767px) {
+  .track-now-playing-status { gap:0; margin-inline:4px 1px; padding:5px; border-color:transparent; background:transparent; }
+  .track-now-playing-label { display:none; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .track-now-playing-status .online-now-playing-bars i { animation:none!important; transform:none!important; }
+}

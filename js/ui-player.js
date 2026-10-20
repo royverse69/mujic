@@ -4,16 +4,17 @@
                 document.getElementById('queue-list').innerHTML = State.playbackOrder.map((id, i) => {
                     const t = Player.getTrackById(id); if(!t) return '';
                     const isP = i === State.queueIndex;
-                    const isCurrentOnline = t.source === 'machhar-online' && String(id) === String(State.currentTrackId);
+                    const isCurrent = String(id) === String(State.currentTrackId);
+                    const isCurrentOnline = t.source === 'machhar-online' && isCurrent;
                     const def = Utils.generateDefaultArt(t.title);
                     const artHtml = t.source === 'machhar-online' && t.artworkUrl
                         ? `<img src="${Utils.escapeHTML(t.artworkUrl)}" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
                         : (State.showArtworkLists ? `<img src="${def}" data-art-id="${t.artworkId||''}" data-seed="${Utils.escapeHTML(t.title)}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';">` : `<div class="track-art-small art-placeholder" style="background-image:url('${def}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">music_note</span></div>`);
-                    return `<div class="track-row${isCurrentOnline?' online-playing-row':''}" data-action="play-queue-index" data-index="${i}" data-queue-index="${i}" ${isCurrentOnline?'aria-current="true"':''}>
+                    return `<div class="track-row${isCurrent?' is-now-playing':''}${isCurrentOnline?' online-playing-row':''}" data-action="play-queue-index" data-index="${i}" data-queue-index="${i}" ${isCurrent?'aria-current="true"':''}>
                         <div style="cursor: grab; margin-right: 8px; color: var(--text-tertiary); touch-action:none; user-select:none;" class="drag-handle" role="button" aria-label="Reorder queue item" tabindex="0"><span class="material-symbols-rounded" style="pointer-events:none;">drag_indicator</span></div>
                         ${artHtml}
                         <div class="track-meta"><div class="item-title">${Utils.escapeHTML(t.title)}</div><div class="item-subtitle">${Utils.escapeHTML(t.artist)}</div></div>
-                        ${isCurrentOnline?'<span class="online-row-playing-state is-current" aria-label="Now playing"><span class="online-now-playing-bars" aria-hidden="true"><i></i><i></i><i></i></span></span>':''}
+                        ${isCurrent?'<span class="track-now-playing-status" aria-label="Now playing" title="Now playing"><span class="online-now-playing-bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="track-now-playing-label">PLAYING</span></span>':''}
                         <div class="queue-mobile-controls">
                             <button class="icon-btn" data-action="move-queue" data-index="${i}" data-direction="up" ${i===0?'disabled':''} aria-label="Move up"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_up</span></button>
                             <button class="icon-btn" data-action="move-queue" data-index="${i}" data-direction="down" ${i===State.playbackOrder.length-1?'disabled':''} aria-label="Move down"><span class="material-symbols-rounded" style="pointer-events:none;">keyboard_arrow_down</span></button>
@@ -88,7 +89,23 @@
                 const reqId = ++State.artworkRequestId;
                 
                 document.getElementById('mini-title').innerText = t.title; document.getElementById('mini-artist').innerText = t.artist; 
-                document.getElementById('full-title').innerText = t.title; document.getElementById('full-artist').innerText = t.artist;
+                document.getElementById('full-title').innerText = t.title;
+                const fullArtist=document.getElementById('full-artist');
+                if(fullArtist){
+                    const raw=t.raw||{};const artistRows=[...(raw.artists?.primary||[]),...(raw.artists?.featured||[]),...(raw.artists?.all||[]),...(raw.artistMap?.primary_artists||[]),...(raw.more_info?.artistMap?.primary_artists||[])];
+                    const seenArtists=new Set();const artists=[];
+                    for(const row of artistRows){const name=String(row?.name||row?.title||'').trim();const id=String(row?.id||row?.artistId||'').trim();const key=(id||name).toLocaleLowerCase();if(name&&!seenArtists.has(key)){seenArtists.add(key);artists.push({name,id});}}
+                    if(!artists.length)String(t.artist||'Unknown Artist').split(/\s*,\s*|\s+&\s+/).filter(Boolean).forEach(name=>{if(!seenArtists.has(name.toLowerCase())){seenArtists.add(name.toLowerCase());artists.push({name,id:''});}});
+                    fullArtist.innerHTML=`<span class="player-artist-marquee">${artists.map((artist,index)=>`${index?'<span class="player-artist-separator" aria-hidden="true">·</span>':''}<a href="#" data-action="open-current-artist" data-artist-name="${Utils.escapeHTML(artist.name)}" data-artist-id="${Utils.escapeHTML(artist.id)}" aria-label="Open ${Utils.escapeHTML(artist.name)} artist page">${Utils.escapeHTML(artist.name)}</a>`).join('')}</span>`;
+                    fullArtist.setAttribute('aria-label',`Artists: ${artists.map(a=>a.name).join(', ')}`);fullArtist.title=`Open artist page: ${artists.map(a=>a.name).join(', ')}`;
+                    requestAnimationFrame(()=>{const marquee=fullArtist.querySelector('.player-artist-marquee');if(marquee&&marquee.scrollWidth>fullArtist.clientWidth+8){marquee.classList.add('is-overflowing');marquee.style.setProperty('--marquee-distance',`-${Math.min(55,100*(marquee.scrollWidth-fullArtist.clientWidth)/marquee.scrollWidth)}%`);}});
+                }
+                const contextLabel=document.getElementById('player-context-label');
+                if(contextLabel){
+                    const label=window.OnlineWorkspace?.getPlaybackLabel?.(t)||(t.source==='machhar-online'?'Streaming':(State.currentContextType==='playlist'?'From Playlist':'From Your Library'));
+                    contextLabel.textContent=String(label||'Now Playing');
+                    contextLabel.title=`${label||'Now Playing'} · ${t.title||''}`;
+                }
                 
                 const favBtn = document.getElementById('fav-btn'); const isF = OnlineMusic?.isOnlineTrack?.(t) ? Boolean(window.OnlineWorkspace?.isFavorite?.(t.id)) : State.favorites.includes(t.id);
                 favBtn.innerHTML = `<span class="material-symbols-rounded" style="font-variation-settings: 'FILL' ${isF?1:0}; color: ${isF?'var(--accent-color)':'inherit'};">favorite</span>`;

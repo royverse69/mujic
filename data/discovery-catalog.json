@@ -1,0 +1,1177 @@
+{
+  "schemaVersion": 1,
+  "categories": [
+    {
+      "id": "live-music",
+      "label": "Live Music",
+      "description": "Live performances, intimate sessions and unforgettable stage moments.",
+      "art": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1000&q=82",
+      "theme": "live",
+      "songs": [
+        "live music performances",
+        "live session songs",
+        "acoustic live performances"
+      ],
+      "playlists": [
+        "live music playlists",
+        "live concert playlists"
+      ],
+      "albums": [
+        "live albums",
+        "live concert albums"
+      ]
+    },
+    {
+      "id": "concerts",
+      "label": "Concerts",
+      "description": "Big stages, crowd favourites and live recordings.",
+      "art": "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=1000&q=82",
+      "theme": "concerts",
+      "songs": [
+        "concert songs",
+        "live concert songs",
+        "concert performances"
+      ],
+      "playlists": [
+        "concert playlists",
+        "live concert playlists"
+      ],
+      "albums": [
+        "live concert albums",
+        "concert albums"
+      ]
+    },
+    {
+      "id": "bollywood",
+      "label": "Bollywood",
+      "description": "Hindi film favourites, fresh soundtracks and Bollywood essentials.",
+      "art": "https://upload.wikimedia.org/wikipedia/commons/1/12/Shahrukh.Khan.jpg",
+      "theme": "bollywood",
+      "songs": [
+        "Bollywood hits",
+        "Hindi film songs",
+        "new Bollywood songs",
+        "Hindi movie songs"
+      ],
+      "playlists": [
+        "Bollywood playlists",
+        "Hindi film songs playlist",
+        "Bollywood hits playlist"
+      ],
+      "albums": [
+        "Bollywood albums",
+        "Hindi movie soundtracks",
+        "new Hindi albums"
+      ]
+    },
+    {
+      "id": "pop",
+      "label": "Pop",
+      "description": "Big pop hooks, global hits and songs you will know by heart.",
+      "art": "https://commons.wikimedia.org/wiki/Special:FilePath/Taylor_Swift_by_David_Shankbone.jpg?width=1000",
+      "theme": "pop",
+      "songs": [
+        "English pop hits",
+        "global pop hits",
+        "international pop songs"
+      ],
+      "playlists": [
+        "English pop playlists",
+        "global pop hits playlist"
+      ],
+      "albums": [
+        "English pop albums",
+        "global pop albums"
+      ]
+    },
+    {
+      "id": "charts",
+      "label": "Charts",
+      "description": "Popular tracks and frequently searched catalogue picks.",
+      "art": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1000&q=82",
+      "theme": "charts",
+      "songs": [
+        "trending songs 2026",
+        "top songs India",
+        "most popular songs"
+      ],
+      "playlists": [
+        "top hits playlists",
+        "top 50 songs playlist"
+      ],
+      "albums": [
+        "popular albums India",
+        "top albums"
+      ]
+    },
+    {
+      "id": "sing",
+      "label": "Sing",
+      "description": "Karaoke, sing-along favourites and vocal-led tracks.",
+      "art": "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=1000&q=82",
+      "theme": "sing",
+      "songs": [
+        "karaoke songs",
+        "sing along hits",
+        "popular songs lyrics"
+      ],
+      "playlists": [
+        "karaoke playlists",
+        "sing along playlist"
+      ],
+      "albums": [
+        "acoustic sing along albums"
+      ]
+    },
+    {
+      "id": "punjabi",
+      "label": "Punjabi",
+      "description": "Punjabi pop, bhangra and the latest Punjabi hits.",
+      "art": "https://upload.wikimedia.org/wikipedia/commons/e/e2/Diljit_Dosanjh.jpg",
+      "theme": "punjabi",
+      "songs": [
+        "Punjabi hits",
+        "new Punjabi songs",
+        "Punjabi pop songs"
+      ],
+      "playlists": [
+        "Punjabi hits playlists",
+        "Punjabi party playlist"
+      ],
+      "albums": [
+        "Punjabi albums",
+        "new Punjabi albums"
+      ]
+    },
+    {
+      "id": "radio",
+      "label": "Radio",
+      "description": "Keep the music moving with themed radio mixes.",
+      "art": "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?auto=format&fit=crop&w=1000&q=82",
+      "theme": "radio",
+      "songs": [
+        "radio hits",
+        "popular songs mix",
+        "non stop hits"
+      ],
+      "playlists": [
+        "radio hits playlists",
+        "non stop music playlist"
+      ],
+      "albums": [
+        "popular music albums"
+      ]
+    },
+    {
+      "id": "halloween",
+      "label": "Halloween",
+      "description": "Dark pop, eerie soundtracks and Halloween party picks.",
+      "art": "https://images.unsplash.com/photo-1509557965875-b88c97052f0e?auto=format&fit=crop&w=1000&q=82",
+      "theme": "halloween",
+      "songs": [
+        "Halloween songs",
+        "horror movie soundtrack",
+        "dark pop songs"
+      ],
+      "playlists": [
+        "Halloween party playlists",
+        "horror soundtrack playlist"
+      ],
+      "albums": [
+        "horror movie soundtracks"
+      ]
+    },
+    {
+      "id": "hip-hop",
+      "label": "Hip-Hop / Rap",
+      "description": "Indian hip-hop, global rap and bass-heavy favourites.",
+      "art": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1000&q=82",
+      "theme": "hiphop",
+      "songs": [
+        "hip hop rap hits",
+        "Indian hip hop songs",
+        "English rap hits"
+      ],
+      "playlists": [
+        "hip hop playlists",
+        "rap party playlists"
+      ],
+      "albums": [
+        "hip hop albums",
+        "rap albums"
+      ]
+    },
+    {
+      "id": "tamil",
+      "label": "Tamil",
+      "description": "Tamil cinema songs, independent tracks and new releases.",
+      "art": "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?auto=format&fit=crop&w=1000&q=82",
+      "theme": "tamil",
+      "songs": [
+        "Tamil hits",
+        "new Tamil songs",
+        "Tamil movie songs"
+      ],
+      "playlists": [
+        "Tamil hits playlists",
+        "Tamil love songs playlist"
+      ],
+      "albums": [
+        "Tamil albums",
+        "Tamil movie soundtracks"
+      ]
+    },
+    {
+      "id": "kids",
+      "label": "Kids",
+      "description": "Friendly sing-alongs and music for younger listeners.",
+      "art": "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&w=1000&q=82",
+      "theme": "kids",
+      "songs": [
+        "kids songs",
+        "children songs India",
+        "nursery rhymes songs"
+      ],
+      "playlists": [
+        "kids songs playlists",
+        "children music playlist"
+      ],
+      "albums": [
+        "kids music albums"
+      ]
+    },
+    {
+      "id": "family",
+      "label": "Family",
+      "description": "All-ages favourites for home, trips and shared moments.",
+      "art": "https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&w=1000&q=82",
+      "theme": "family",
+      "songs": [
+        "family songs",
+        "family friendly songs",
+        "feel good Hindi songs"
+      ],
+      "playlists": [
+        "family music playlists",
+        "feel good songs playlist"
+      ],
+      "albums": [
+        "family music albums"
+      ]
+    },
+    {
+      "id": "up-next",
+      "label": "Up Next",
+      "description": "New-to-you picks and popular songs worth discovering.",
+      "art": "https://images.unsplash.com/photo-1507874457470-272b3c8d8ee2?auto=format&fit=crop&w=1000&q=82",
+      "theme": "upnext",
+      "songs": [
+        "new popular songs",
+        "latest hits 2026",
+        "new music releases"
+      ],
+      "playlists": [
+        "new releases playlists",
+        "fresh hits playlist"
+      ],
+      "albums": [
+        "new music albums 2026",
+        "latest albums"
+      ]
+    },
+    {
+      "id": "telugu",
+      "label": "Telugu",
+      "description": "Telugu hits, film songs and standout soundtrack moments.",
+      "art": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1000&q=82",
+      "theme": "telugu",
+      "songs": [
+        "Telugu hits",
+        "new Telugu songs",
+        "Telugu movie songs"
+      ],
+      "playlists": [
+        "Telugu hits playlists",
+        "Telugu love songs playlist"
+      ],
+      "albums": [
+        "Telugu albums",
+        "Telugu movie soundtracks"
+      ]
+    },
+    {
+      "id": "voice",
+      "label": "Hey Siri, Play…",
+      "description": "Start with a mood or moment and let the songs follow.",
+      "art": "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1000&q=82",
+      "theme": "voice",
+      "songs": [
+        "popular songs",
+        "feel good songs",
+        "chill hits"
+      ],
+      "playlists": [
+        "mood music playlists",
+        "feel good playlists"
+      ],
+      "albums": [
+        "chill albums"
+      ]
+    },
+    {
+      "id": "rock",
+      "label": "Rock",
+      "description": "Guitar-driven classics, alternative tracks and modern rock.",
+      "art": "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=1000&q=82",
+      "theme": "rock",
+      "songs": [
+        "rock classics",
+        "alternative rock hits",
+        "classic rock songs"
+      ],
+      "playlists": [
+        "rock playlists",
+        "alternative rock playlist"
+      ],
+      "albums": [
+        "rock albums",
+        "classic rock albums"
+      ]
+    },
+    {
+      "id": "indian-independent",
+      "label": "Indian Independent",
+      "description": "Independent Indian artists across languages and styles.",
+      "art": "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=82",
+      "theme": "indie",
+      "songs": [
+        "Indian independent music",
+        "Indian indie songs",
+        "indie Hindi songs"
+      ],
+      "playlists": [
+        "Indian indie playlists",
+        "independent Indian artists playlist"
+      ],
+      "albums": [
+        "Indian indie albums"
+      ]
+    },
+    {
+      "id": "dj-mixes",
+      "label": "DJ Mixes",
+      "description": "Dancefloor mixes, remixes and high-energy transitions.",
+      "art": "https://images.unsplash.com/photo-1571266028243-d220c9c3b7c8?auto=format&fit=crop&w=1000&q=82",
+      "theme": "dj",
+      "songs": [
+        "DJ mixes",
+        "dance remixes",
+        "EDM hits"
+      ],
+      "playlists": [
+        "DJ mix playlists",
+        "dance party mix playlist"
+      ],
+      "albums": [
+        "EDM albums",
+        "dance albums"
+      ]
+    },
+    {
+      "id": "lofi",
+      "label": "Lo-fi",
+      "description": "Soft beats for focus, late-night work and slower moments.",
+      "art": "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1000&q=82",
+      "theme": "lofi",
+      "songs": [
+        "lofi study beats",
+        "lofi hip hop",
+        "chill beats"
+      ],
+      "playlists": [
+        "lofi study playlists",
+        "lofi chill playlist"
+      ],
+      "albums": [
+        "lofi albums"
+      ]
+    },
+    {
+      "id": "love-songs",
+      "label": "Love Songs",
+      "description": "Romantic Hindi and English songs for every kind of feeling.",
+      "art": "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=1000&q=82",
+      "theme": "romance",
+      "songs": [
+        "Hindi romantic songs",
+        "love songs Hindi",
+        "English romantic songs"
+      ],
+      "playlists": [
+        "romantic Hindi playlists",
+        "love songs playlist"
+      ],
+      "albums": [
+        "romantic albums",
+        "Hindi love song albums"
+      ]
+    },
+    {
+      "id": "workout",
+      "label": "Workout",
+      "description": "High-energy songs for training, running and keeping pace.",
+      "art": "https://images.unsplash.com/photo-1534438327276-14e530a2e8c5?auto=format&fit=crop&w=1000&q=82",
+      "theme": "workout",
+      "songs": [
+        "workout music",
+        "gym songs",
+        "high energy songs"
+      ],
+      "playlists": [
+        "workout playlists",
+        "gym motivation playlist"
+      ],
+      "albums": [
+        "workout albums"
+      ]
+    },
+    {
+      "id": "chill",
+      "label": "Chill",
+      "description": "Unhurried tunes for a quiet evening or a slower day.",
+      "art": "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1000&q=82",
+      "theme": "chill",
+      "songs": [
+        "chill songs",
+        "relaxing music",
+        "easy listening songs"
+      ],
+      "playlists": [
+        "chill playlists",
+        "relaxing music playlist"
+      ],
+      "albums": [
+        "chill albums"
+      ]
+    },
+    {
+      "id": "90s-hits",
+      "label": "90s Hits",
+      "description": "The memorable Hindi and international songs of the nineties.",
+      "art": "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=82",
+      "theme": "90s",
+      "songs": [
+        "90s Hindi songs",
+        "90s Bollywood hits",
+        "90s English hits"
+      ],
+      "playlists": [
+        "90s Bollywood playlists",
+        "90s hits playlist"
+      ],
+      "albums": [
+        "90s Hindi albums",
+        "90s Bollywood albums"
+      ]
+    },
+    {
+      "id": "2000s-hits",
+      "label": "2000s Hits",
+      "description": "Throwbacks from the 2000s across Bollywood and pop.",
+      "art": "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=1000&q=82",
+      "theme": "2000s",
+      "songs": [
+        "2000s Bollywood songs",
+        "2000s Hindi hits",
+        "2000s English pop hits"
+      ],
+      "playlists": [
+        "2000s Bollywood playlist",
+        "2000s pop hits playlist"
+      ],
+      "albums": [
+        "2000s Bollywood albums"
+      ]
+    },
+    {
+      "id": "jazz",
+      "label": "Jazz",
+      "description": "Smooth jazz, standards and laid-back instrumental selections.",
+      "art": "https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=1000&q=82",
+      "theme": "jazz",
+      "songs": [
+        "jazz classics",
+        "smooth jazz",
+        "jazz instrumentals"
+      ],
+      "playlists": [
+        "jazz playlists",
+        "smooth jazz playlist"
+      ],
+      "albums": [
+        "jazz albums"
+      ]
+    },
+    {
+      "id": "devotional",
+      "label": "Devotional",
+      "description": "Bhajans, spiritual music and devotional favourites.",
+      "art": "https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=1000&q=82",
+      "theme": "devotional",
+      "songs": [
+        "Hindi bhajans",
+        "devotional songs India",
+        "morning bhajans"
+      ],
+      "playlists": [
+        "devotional playlists",
+        "bhajan playlist"
+      ],
+      "albums": [
+        "devotional albums",
+        "bhajan albums"
+      ]
+    },
+    {
+      "id": "classical",
+      "label": "Classical",
+      "description": "Indian classical traditions and timeless instrumental works.",
+      "art": "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=1000&q=82",
+      "theme": "classical",
+      "songs": [
+        "Indian classical music",
+        "classical instrumental music",
+        "Hindustani classical songs"
+      ],
+      "playlists": [
+        "Indian classical playlists",
+        "classical instrumental playlist"
+      ],
+      "albums": [
+        "Indian classical albums"
+      ]
+    },
+    {
+      "id": "ghazal",
+      "label": "Ghazals",
+      "description": "Poetic ghazals, timeless voices and intimate arrangements.",
+      "art": "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=82",
+      "theme": "ghazal",
+      "songs": [
+        "ghazals Hindi",
+        "Jagjit Singh ghazals",
+        "classic ghazal songs"
+      ],
+      "playlists": [
+        "ghazal playlists",
+        "Jagjit Singh ghazal playlist"
+      ],
+      "albums": [
+        "ghazal albums"
+      ]
+    },
+    {
+      "id": "sufi",
+      "label": "Sufi",
+      "description": "Soulful Sufi, qawwali and devotional contemporary music.",
+      "art": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1000&q=82",
+      "theme": "sufi",
+      "songs": [
+        "Sufi songs",
+        "Sufi music India",
+        "qawwali songs"
+      ],
+      "playlists": [
+        "Sufi playlists",
+        "qawwali playlist"
+      ],
+      "albums": [
+        "Sufi albums",
+        "qawwali albums"
+      ]
+    },
+    {
+      "id": "electronic",
+      "label": "Electronic",
+      "description": "Electronic beats, synth-heavy tracks and dance music.",
+      "art": "https://images.unsplash.com/photo-1571266028243-d220c9c3b7c8?auto=format&fit=crop&w=1000&q=82",
+      "theme": "electronic",
+      "songs": [
+        "electronic music hits",
+        "EDM songs",
+        "house music hits"
+      ],
+      "playlists": [
+        "EDM playlists",
+        "electronic dance playlist"
+      ],
+      "albums": [
+        "electronic albums",
+        "EDM albums"
+      ]
+    }
+  ],
+  "stations": [
+    {
+      "id": "drive",
+      "name": "Drive Radio",
+      "description": "Steady, upbeat music for the open road.",
+      "art": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#d06b36",
+      "queries": [
+        "driving songs",
+        "road trip hits",
+        "upbeat pop songs"
+      ],
+      "seedQueries": [
+        "Life Is a Highway Rascal Flatts",
+        "Don't Stop Me Now Queen",
+        "Blinding Lights The Weeknd"
+      ]
+    },
+    {
+      "id": "bollywood",
+      "name": "Bollywood Radio",
+      "description": "Hindi film favourites and fresh soundtrack picks.",
+      "art": "https://upload.wikimedia.org/wikipedia/commons/1/12/Shahrukh.Khan.jpg",
+      "accent": "#c83b65",
+      "queries": [
+        "Bollywood hits",
+        "Hindi film songs",
+        "new Bollywood songs"
+      ],
+      "seedQueries": [
+        "Kesariya Arijit Singh",
+        "Apna Bana Le Arijit Singh",
+        "Raatan Lambiyan Jubin Nautiyal"
+      ]
+    },
+    {
+      "id": "english",
+      "name": "English Radio",
+      "description": "Global pop and familiar English-language hits.",
+      "art": "https://commons.wikimedia.org/wiki/Special:FilePath/Taylor_Swift_by_David_Shankbone.jpg?width=1000",
+      "accent": "#3d78c6",
+      "queries": [
+        "English hits",
+        "global pop hits",
+        "international pop songs"
+      ],
+      "seedQueries": [
+        "Blinding Lights The Weeknd",
+        "Levitating Dua Lipa",
+        "As It Was Harry Styles"
+      ]
+    },
+    {
+      "id": "old-hindi",
+      "name": "Old Hindi Radio",
+      "description": "Evergreen Hindi songs and old Bollywood classics.",
+      "art": "https://upload.wikimedia.org/wikipedia/commons/2/2c/Lata-Mangeshkar.jpg",
+      "accent": "#ac8a53",
+      "queries": [
+        "old Hindi songs",
+        "90s Hindi hits",
+        "classic Bollywood songs"
+      ],
+      "seedQueries": [
+        "Lag Jaa Gale Lata Mangeshkar",
+        "Pal Pal Dil Ke Paas Kishore Kumar",
+        "Gulabi Aankhen Mohammed Rafi"
+      ]
+    },
+    {
+      "id": "2000s",
+      "name": "2000s Bollywood Radio",
+      "description": "Soundtrack memories from the 2000s.",
+      "art": "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#9e5bca",
+      "queries": [
+        "2000s Bollywood songs",
+        "2000s Hindi hits",
+        "2000s romantic songs"
+      ],
+      "seedQueries": [
+        "Kal Ho Naa Ho Sonu Nigam",
+        "Mitwa Shankar Mahadevan",
+        "Tere Liye Veer Zaara"
+      ]
+    },
+    {
+      "id": "punjabi",
+      "name": "Punjabi Radio",
+      "description": "Punjabi pop, bhangra and party tracks.",
+      "art": "https://upload.wikimedia.org/wikipedia/commons/e/e2/Diljit_Dosanjh.jpg",
+      "accent": "#ba465b",
+      "queries": [
+        "Punjabi hits",
+        "Punjabi party songs",
+        "new Punjabi songs"
+      ],
+      "seedQueries": [
+        "Born To Shine Diljit Dosanjh",
+        "Lover Diljit Dosanjh",
+        "Excuses AP Dhillon"
+      ]
+    },
+    {
+      "id": "romance",
+      "name": "Hindi Love Radio",
+      "description": "Soft romantic songs and melody-led favourites.",
+      "art": "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#c85d85",
+      "queries": [
+        "Hindi romantic songs",
+        "Hindi love songs",
+        "romantic Bollywood hits"
+      ],
+      "seedQueries": [
+        "Raataan Lambiyan Jubin Nautiyal",
+        "Tera Ban Jaunga Akhil Sachdeva",
+        "Tum Se Hi Mohit Chauhan"
+      ]
+    },
+    {
+      "id": "sad",
+      "name": "Sad Songs Radio",
+      "description": "Melancholy melodies and heartbreak favourites.",
+      "art": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#526bb3",
+      "queries": [
+        "sad Hindi songs",
+        "heartbreak songs",
+        "sad Bollywood songs"
+      ],
+      "seedQueries": [
+        "Channa Mereya Arijit Singh",
+        "Agar Tum Saath Ho Alka Yagnik",
+        "Phir Le Aya Dil Arijit Singh"
+      ]
+    },
+    {
+      "id": "lofi",
+      "name": "Lo-fi Radio",
+      "description": "Low-key beats for study and slow evenings.",
+      "art": "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#517b91",
+      "queries": [
+        "lofi study beats",
+        "lofi hip hop",
+        "chill beats"
+      ],
+      "seedQueries": [
+        "lofi hip hop beats",
+        "chillhop instrumental",
+        "lofi study beats"
+      ]
+    },
+    {
+      "id": "chill",
+      "name": "Chill Radio",
+      "description": "A soft mix for relaxing and winding down.",
+      "art": "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#548c83",
+      "queries": [
+        "chill songs",
+        "relaxing music",
+        "easy listening songs"
+      ],
+      "seedQueries": [
+        "Sunset Lover Petit Biscuit",
+        "Heat Waves Glass Animals",
+        "Until I Found You Stephen Sanchez"
+      ]
+    },
+    {
+      "id": "workout",
+      "name": "Workout Radio",
+      "description": "High-energy songs to keep your pace.",
+      "art": "https://images.unsplash.com/photo-1534438327276-14e530a2e8c5?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#c04a35",
+      "queries": [
+        "workout music",
+        "gym songs",
+        "high energy songs"
+      ],
+      "seedQueries": [
+        "Believer Imagine Dragons",
+        "Till I Collapse Eminem",
+        "Kar Har Maidaan Fateh Sukhwinder Singh"
+      ]
+    },
+    {
+      "id": "party",
+      "name": "Party Radio",
+      "description": "Danceable pop, Bollywood and party anthems.",
+      "art": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#c7344e",
+      "queries": [
+        "party songs",
+        "Bollywood party songs",
+        "dance hits"
+      ],
+      "seedQueries": [
+        "Kala Chashma Amar Arshi",
+        "London Thumakda Labh Janjua",
+        "Ghungroo Arijit Singh"
+      ]
+    },
+    {
+      "id": "indie-india",
+      "name": "Indian Indie Radio",
+      "description": "Independent artists from across India.",
+      "art": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#1d977c",
+      "queries": [
+        "Indian indie songs",
+        "Indian independent music",
+        "indie Hindi songs"
+      ],
+      "seedQueries": [
+        "Kasoor Prateek Kuhad",
+        "Cold/Mess Prateek Kuhad",
+        "Baarishein Anuv Jain"
+      ]
+    },
+    {
+      "id": "pop",
+      "name": "Pop Radio",
+      "description": "Catchy pop songs from around the world.",
+      "art": "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#db578b",
+      "queries": [
+        "pop hits",
+        "English pop hits",
+        "global pop songs"
+      ],
+      "seedQueries": [
+        "Anti-Hero Taylor Swift",
+        "Levitating Dua Lipa",
+        "Espresso Sabrina Carpenter"
+      ]
+    },
+    {
+      "id": "rock",
+      "name": "Rock Radio",
+      "description": "Guitars, drums and enduring rock anthems.",
+      "art": "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#ba5c3b",
+      "queries": [
+        "rock classics",
+        "alternative rock hits",
+        "classic rock songs"
+      ],
+      "seedQueries": [
+        "Bohemian Rhapsody Queen",
+        "Smells Like Teen Spirit Nirvana",
+        "Seven Nation Army The White Stripes"
+      ]
+    },
+    {
+      "id": "hiphop",
+      "name": "Hip-Hop/Rap Radio",
+      "description": "Rap, hip-hop and bass-heavy tracks.",
+      "art": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#606ec7",
+      "queries": [
+        "hip hop rap hits",
+        "Indian hip hop songs",
+        "English rap hits"
+      ],
+      "seedQueries": [
+        "Maan Meri Jaan King",
+        "Brown Munde AP Dhillon",
+        "Lose Yourself Eminem"
+      ]
+    },
+    {
+      "id": "tamil",
+      "name": "Tamil Radio",
+      "description": "Tamil film songs and fresh Tamil tracks.",
+      "art": "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#9260c2",
+      "queries": [
+        "Tamil hits",
+        "new Tamil songs",
+        "Tamil movie songs"
+      ],
+      "seedQueries": [
+        "Hukum Anirudh",
+        "Arabic Kuthu Anirudh",
+        "Why This Kolaveri Dhanush"
+      ]
+    },
+    {
+      "id": "telugu",
+      "name": "Telugu Radio",
+      "description": "Telugu hits and soundtrack favourites.",
+      "art": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#5792c8",
+      "queries": [
+        "Telugu hits",
+        "new Telugu songs",
+        "Telugu movie songs"
+      ],
+      "seedQueries": [
+        "Naatu Naatu Rahul Sipligunj",
+        "Samajavaragamana Sid Sriram",
+        "Srivalli Sid Sriram"
+      ]
+    },
+    {
+      "id": "bengali",
+      "name": "Bengali Radio",
+      "description": "Bengali songs across film and independent music.",
+      "art": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#a45d78",
+      "queries": [
+        "Bengali songs hits",
+        "new Bengali songs",
+        "Bengali movie songs"
+      ],
+      "seedQueries": [
+        "Tomake Chai Arijit Singh Bengali",
+        "Bojhena Shey Bojhena Arijit Singh",
+        "Amake Amar Moto Thakte Dao Anupam Roy"
+      ]
+    },
+    {
+      "id": "marathi",
+      "name": "Marathi Radio",
+      "description": "Marathi film songs and popular regional music.",
+      "art": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#cd7c3f",
+      "queries": [
+        "Marathi hits",
+        "new Marathi songs",
+        "Marathi movie songs"
+      ],
+      "seedQueries": [
+        "Zingaat Ajay Atul",
+        "Sairat Zaala Ji Ajay Atul",
+        "Mala Ved Lagale Ajay Gogavale"
+      ]
+    },
+    {
+      "id": "malayalam",
+      "name": "Malayalam Radio",
+      "description": "Malayalam soundtrack highlights and newer songs.",
+      "art": "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#4b8a83",
+      "queries": [
+        "Malayalam hits",
+        "new Malayalam songs",
+        "Malayalam movie songs"
+      ],
+      "seedQueries": [
+        "Malare Vijay Yesudas",
+        "Darshana Hesham Abdul Wahab",
+        "Illuminati Sushin Shyam"
+      ]
+    },
+    {
+      "id": "kannada",
+      "name": "Kannada Radio",
+      "description": "Kannada film songs and widely loved favourites.",
+      "art": "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#5879bf",
+      "queries": [
+        "Kannada hits",
+        "new Kannada songs",
+        "Kannada movie songs"
+      ],
+      "seedQueries": [
+        "Belageddu Vijay Prakash",
+        "Ra Ra Rakkamma",
+        "Anisuthide Sonu Nigam"
+      ]
+    },
+    {
+      "id": "ghazal",
+      "name": "Ghazal Radio",
+      "description": "Unhurried poetry and timeless ghazal voices.",
+      "art": "https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#a8895a",
+      "queries": [
+        "ghazals Hindi",
+        "Jagjit Singh ghazals",
+        "classic ghazal songs"
+      ],
+      "seedQueries": [
+        "Hothon Se Chhoo Lo Tum Jagjit Singh",
+        "Chitthi Na Koi Sandesh Jagjit Singh",
+        "Tum Itna Jo Muskura Rahe Ho Jagjit Singh"
+      ]
+    },
+    {
+      "id": "sufi",
+      "name": "Sufi Radio",
+      "description": "Sufi songs, qawwali and soulful voices.",
+      "art": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#8a5db2",
+      "queries": [
+        "Sufi songs",
+        "Sufi music India",
+        "qawwali songs"
+      ],
+      "seedQueries": [
+        "Kun Faya Kun A R Rahman",
+        "Tajdar-e-Haram Atif Aslam",
+        "Allah Hu Nusrat Fateh Ali Khan"
+      ]
+    },
+    {
+      "id": "devotional",
+      "name": "Devotional Radio",
+      "description": "Bhajans and devotional music for quiet moments.",
+      "art": "https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#9d8b4e",
+      "queries": [
+        "Hindi bhajans",
+        "devotional songs India",
+        "morning bhajans"
+      ],
+      "seedQueries": [
+        "Shri Krishna Govind Hare Murari Jubin Nautiyal",
+        "Achyutam Keshavam Anup Jalota",
+        "Shiv Tandav Stotram"
+      ]
+    },
+    {
+      "id": "family",
+      "name": "Family Radio",
+      "description": "Feel-good songs for the whole family.",
+      "art": "https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#4c9a62",
+      "queries": [
+        "family friendly songs",
+        "feel good Hindi songs",
+        "happy songs"
+      ],
+      "seedQueries": [
+        "Ilahi Arijit Singh",
+        "Love You Zindagi Jasleen Royal",
+        "Aashayein KK"
+      ]
+    },
+    {
+      "id": "acoustic",
+      "name": "Acoustic Radio",
+      "description": "Acoustic versions and stripped-back songs.",
+      "art": "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#b17a5f",
+      "queries": [
+        "acoustic songs",
+        "acoustic covers songs",
+        "unplugged Hindi songs"
+      ],
+      "seedQueries": [
+        "Perfect Ed Sheeran",
+        "Photograph Ed Sheeran",
+        "Tera Yaar Hoon Main Arijit Singh"
+      ]
+    },
+    {
+      "id": "edm",
+      "name": "EDM/Dance Radio",
+      "description": "Electronic dance music and club-ready beats.",
+      "art": "https://images.unsplash.com/photo-1571266028243-d220c9c3b7c8?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#6b65c6",
+      "queries": [
+        "EDM hits",
+        "dance remixes",
+        "electronic music hits"
+      ],
+      "seedQueries": [
+        "Titanium David Guetta",
+        "Wake Me Up Avicii",
+        "The Nights Avicii"
+      ]
+    },
+    {
+      "id": "rainy",
+      "name": "Rainy Day Radio",
+      "description": "Gentle melodies for rainy afternoons.",
+      "art": "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#587d9a",
+      "queries": [
+        "rainy day songs Hindi",
+        "romantic rainy songs",
+        "soft Hindi songs"
+      ],
+      "seedQueries": [
+        "Baarish Yaariyan Shreya Ghoshal",
+        "Tip Tip Barsa Paani Alka Yagnik",
+        "Rim Jhim Gire Saawan Kishore Kumar"
+      ]
+    },
+    {
+      "id": "late-night",
+      "name": "Late Night Radio",
+      "description": "Atmospheric songs for the late hours.",
+      "art": "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#555a87",
+      "queries": [
+        "late night songs",
+        "midnight chill songs",
+        "slow English songs"
+      ],
+      "seedQueries": [
+        "Night Changes One Direction",
+        "The Night We Met Lord Huron",
+        "Phir Kabhi Arijit Singh"
+      ]
+    },
+    {
+      "id": "international",
+      "name": "International Mix",
+      "description": "A blend of international hits from multiple genres.",
+      "art": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1000&q=82",
+      "accent": "#2b8d9b",
+      "queries": [
+        "international pop hits",
+        "global hits songs",
+        "popular English songs"
+      ],
+      "seedQueries": [
+        "Flowers Miley Cyrus",
+        "Shape of You Ed Sheeran",
+        "Cruel Summer Taylor Swift"
+      ]
+    }
+  ],
+  "artworkAttributions": [
+    {
+      "category": "Bollywood",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/1/12/Shahrukh.Khan.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File:Shahrukh.Khan.jpg",
+      "credit": "Bollywood Hungama",
+      "license": "CC BY 3.0",
+      "note": "Tinted and cropped for the category artwork."
+    },
+    {
+      "category": "Punjabi",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/e/e2/Diljit_Dosanjh.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File:Diljit_Dosanjh.jpg",
+      "credit": "Government of India / Prime Minister’s Office",
+      "license": "Government Open Data License - India",
+      "note": "Tinted and cropped for the category artwork."
+    },
+    {
+      "category": "Old Hindi",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/2/2c/Lata-Mangeshkar.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File:Lata-Mangeshkar.jpg",
+      "credit": "Bollywood Hungama",
+      "license": "CC BY 3.0",
+      "note": "Tinted and cropped for the station artwork."
+    },
+    {
+      "category": "English Pop",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Taylor_Swift_by_David_Shankbone.jpg?width=1000",
+      "source": "https://commons.wikimedia.org/wiki/File:Taylor_Swift_by_David_Shankbone.jpg",
+      "credit": "David Shankbone",
+      "license": "CC BY 3.0",
+      "note": "Loaded via Wikimedia Special:FilePath, tinted and cropped for the station artwork."
+    }
+  ]
+}

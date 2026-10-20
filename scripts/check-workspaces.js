@@ -45,6 +45,12 @@ const required = [
   ['online autoplay priming', 'OnlineRecommendations.primeQueue', player],
   ['metadata cache stores no signed stream URLs', "source: 'machhar-online'", cache],
   ['online modules included in app-shell cache', 'js/online-workspace.js', sw],
+  ['English hit album shelf is present', 'id="online-shelf-english-hit-albums"', index],
+  ['English public playlist shelf is present', 'id="online-shelf-english-playlists"', index],
+  ['English discovery includes artist-focused queries', 'Taylor Swift hits', workspace],
+  ['single app-controlled search clear button uses text input', 'id="online-search-input" type="text"', index],
+  ['appearance values map into CSS data attributes', "setAttribute('data-interface-style'", read('js/ui-settings.js')],
+  ['corner radius selection maps into CSS data attributes', "setAttribute('data-corner-radius'", read('js/ui-settings.js')],
   ['track rows do not carry repeated online badges', 'More options for ${Utils.escapeHTML(t.title)}', read('js/ui-library.js')]
 ];
 for (const [label, token, source] of required) {

@@ -1,16 +1,16 @@
 # Music catalogue integration reference
 
-## Routing architecture (v12.0.36)
+## Routing architecture (Machhar Beta v1.2)
 
-The browser calls only the Render backend at `https://gaana-suno-varna-machhar-aajayega.onrender.com` for catalogue and lyrics API operations. Catalogue requests retain the documented `/api/...` path structure, including `/api/search/songs`, `/api/songs/{id}/suggestions`, `/api/artists/{id}/songs`, `/api/albums`, and `/api/playlists`. The Render server performs the fixed-upstream request server-side.
+Catalogue reads use the documented API origin from the supplied OpenAPI file, `https://saavn.sumit.co/api`, first. If the direct request errors or remains slow, the frontend races or falls back to the existing Render `/api/...` proxy at `https://gaana-suno-varna-machhar-aajayega.onrender.com`. Direct requests have short bounded timeouts; the fallback proxy adds in-process response caching for safe public catalogue metadata. Existing audio streaming continues to use the Render `/media` route where the returned media host is supported.
 
-Lyrics fallback requests are also routed through the same Render host: `/lyrics`, `/lyrics/get`, `/lyrics/search`, and `/lyricsplus/v2/lyrics/get`. Frontend modules must not call the catalogue host or lyrics-provider hosts directly.
+Lyrics fallback requests continue through the existing Render host: `/lyrics`, `/lyrics/get`, `/lyrics/search`, and `/lyricsplus/v2/lyrics/get`. The supplied catalogue OpenAPI does not define a lyrics-text endpoint, so these separate lyrics routes remain needed when the catalogue response has no lyrics text.
 
-**Deployment required:** the current Render service must be redeployed with the routes in `backend/proxy-route-patch.py` merged into the existing Flask app. The frontend ZIP cannot change a live Render deployment by itself. Merge into the currently deployed backend rather than blindly replacing a newer backend with a source snapshot. The patch only relays to fixed upstream hosts and allowlisted catalogue paths.
+**Deployment required:** the frontend ZIP cannot update a live Render backend by itself. If the live backend should use the new upstream cache/timeout behavior, deploy the included `backend/app.py` changes to the existing Render service, preserving any production-only routes or secrets. Do not blindly overwrite a newer live backend with an older source snapshot.
 
-Audio and artwork URLs returned from known `saavncdn.com` and `jiosaavn.com` hosts are rewritten to the Render `/media?url=...` route. The server-side media proxy supports Range requests for seeking and validates the host after redirects. A media URL on an unrecognized host remains a compatibility fallback and is not routed through this proxy.
+Audio and artwork URLs returned from known `saavncdn.com` and `jiosaavn.com` hosts are rewritten to the Render `/media?url=...` route where supported. The server-side media proxy supports Range requests for seeking and validates the host after redirects. A media URL on an unrecognized host remains a compatibility fallback and is not routed through this proxy.
 
-Mujic uses the endpoint contract supplied for the music catalogue. The configured runtime host lives in `js/online-provider.js`; service availability and cross-origin stream access are controlled by the external service.
+Mujic follows the supplied OpenAPI contract and the repository [documentation](https://github.com/sumitkolhe/jiosaavn-api). It supports global search, paginated song/album/artist/playlist search, song lookup, albums, playlists, artist details and suggestions. The OpenAPI file has no dedicated trending-chart or latest-release endpoint, so Home discovery uses search-based queries rather than claiming an official real-time chart feed. Service availability and cross-origin stream access remain controlled by external services.
 
 ## Search and discovery
 
@@ -43,6 +43,8 @@ Mujic namespaces remote track IDs so catalogue IDs cannot collide with local fil
 
 ## Queue quality, caching and mode separation
 
+The service worker caches JSON responses from both `https://saavn.sumit.co/api/...` and the existing Render `/api/...` host. Search responses are fresh for 45 seconds and can be served stale-while-revalidating for up to 10 minutes; details, songs and other catalogue responses use their own bounded freshness rules. The in-memory search and shelf caches are also versioned/short-lived, so repeat searches are fast without locking the Home shelves to an old set of results for long periods.
+
 Automatic recommendations use the documented suggestions endpoint first, then controlled search fallbacks. The autoplay filter compares provider IDs, ISRC when available, normalized titles, artists, variant labels and title similarity to skip exact repeats and likely remix/slowed/reverb versions already played or queued. Catalogue lists and persisted online playlists/liked songs/history are also deduplicated across differing IDs by recording identity; when a duplicate variant is found, the preferred base/highest-metadata track is kept. User-selected search results remain selectable, including alternate mixes.
 
 The Online workspace has a short-lived stream URL cache and a small metadata/artwork cache. Full audio is not silently imported into the Offline library. Shared appearance settings remain app-wide; search history, catalogue IDs, playback history and queue snapshots are separated by workspace. Optional linking copies playlist matches only when the user enables it.
@@ -60,9 +62,9 @@ The source record can expose `downloadUrl` entries with quality and URL fields. 
 Network calls are blocked when the browser reports offline. Online views have retry/failure states, while the Offline library and playback remain available without catalogue connectivity. Service availability and cross-origin audio permissions cannot be guaranteed by this repository.
 
 
-## Online performance notes (v12.0.36)
+## Online performance notes (Machhar Beta v1.2)
 
-- Artist profile requests ask for zero preview songs and a bounded album preview; song rows are loaded by one dedicated artist-song page.
+- Search renders its first page quickly and progressively loads additional song pages when result pages are sparse. A short-lived memory cache and the existing service-worker/API cache reduce repeat waits.
 - Artist detail views show at most 12 tracks initially and fetch the next page only after an explicit Load more action. Artist catalogue metadata is cached in a bounded local window.
 - Artwork selection ranks the catalogue's available image variants and sends only the best-quality URL to the media proxy. Playback chooses one highest-quality audio source; AAC-only download selection independently checks all URL metadata.
 - Metadata cache writes no longer launch hidden duplicate artwork `Image` requests. Track cards use native lazy loading.

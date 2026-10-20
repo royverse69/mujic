@@ -1,11 +1,14 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v12.0.44-mode-settings-pwa-cache';
-const API_CACHE = 'mujic-api-v1';
-const ART_CACHE = 'mujic-art-v1';
+const CACHE_NAME = 'mujic-pwa-v13.0.7-machhar-beta-v1-8';
+const API_CACHE = 'mujic-api-v2';
+const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';
 const API_ORIGIN = 'https://gaana-suno-varna-machhar-aajayega.onrender.com';
+const CATALOGUE_API_ORIGIN = 'https://saavn.sumit.co';
 const API_FRESH_MS = 30 * 60 * 1000;
 const API_SONG_FRESH_MS = 10 * 60 * 1000;
+const API_SEARCH_FRESH_MS = 45 * 1000;
+const API_SEARCH_STALE_MS = 10 * 60 * 1000;
 const API_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_API_ENTRIES = 400;
 const MAX_ART_ENTRIES = 600;
@@ -17,8 +20,8 @@ const MAX_MEDIA_IMAGE_ENTRIES = 400;
 const MAX_MEDIA_IMAGE_BYTES = 80 * 1024 * 1024;
 const APP_SHELL = [
   './', './index.html', './VERSION', './manifest.webmanifest', './changlog.json', './css/app.css', './css/online-workspace.css',
-  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
-  './icons/icon-192.png', './icons/icon-512.png'
+  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/discovery-catalog-data.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
+  './data/discovery-catalog.json', './icons/icon-192.png', './icons/icon-512.png'
 ];
 const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('install', event => {
@@ -159,15 +162,18 @@ const handleApi = async (request, event) => {
   const cache = await caches.open(API_CACHE);
   const cached = await cache.match(request.url);
   const age = cached ? Date.now() - Number(cached.headers.get('X-Mujic-Cached-At') || 0) : Infinity;
-  const isSong = /\/api\/songs(\/|$)/.test(new URL(request.url).pathname);
-  const fresh = isSong ? API_SONG_FRESH_MS : API_FRESH_MS;
+  const pathname = new URL(request.url).pathname;
+  const isSearch = /\/api\/search(?:\/|$)/.test(pathname);
+  const isSong = /\/api\/songs(\/|$)/.test(pathname);
+  const fresh = isSearch ? API_SEARCH_FRESH_MS : (isSong ? API_SONG_FRESH_MS : API_FRESH_MS);
+  const staleLimit = isSearch ? API_SEARCH_STALE_MS : API_STALE_MS;
   if (cached && age < fresh) return cached;
   const refresh = async () => {
     const response = await fetch(request.url, {credentials:'omit', mode:'cors'});
     await storeApi(cache, request.url, response);
     return response;
   };
-  if (cached && age < API_STALE_MS && !isSong) {
+  if (cached && age < staleLimit && !isSong) {
     event.waitUntil(refresh().catch(() => {}));
     return cached;
   }
@@ -176,22 +182,34 @@ const handleApi = async (request, event) => {
     await storeApi(cache, request.url, response).catch(() => {});
     return response;
   } catch (error) {
-    if (cached && age < API_STALE_MS) return cached;
+    if (cached && age < staleLimit) return cached;
     throw error;
   }
 };
 const handleArt = async request => {
   if (!(await cachingEnabled())) return fetch(request);
   const cache = await caches.open(ART_CACHE);
-  const hit = await cache.match(request.url);
+  const key = new Request(request.url, {method:'GET'});
+  const hit = await cache.match(key);
   if (hit) return hit;
   try {
     const response = await fetch(request.url, {mode:'cors', credentials:'omit'});
-    if (response.ok && response.status === 200 && (response.headers.get('Content-Type') || '').toLowerCase().startsWith('image/')) {
-      cache.put(request.url, response.clone()).then(() => trimEntries(cache, MAX_ART_ENTRIES)).catch(() => {});
+    const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
+    if (response.ok && response.status === 200 && contentType.startsWith('image/')) {
+      cache.put(key, response.clone()).then(() => trimEntries(cache, MAX_ART_ENTRIES)).catch(() => {});
     }
     return response;
-  } catch (_) { return fetch(request); }
+  } catch (error) {
+    try {
+      const opaque = await fetch(request.url, {mode:'no-cors', credentials:'omit'});
+      if (opaque.type === 'opaque') cache.put(key, opaque.clone()).then(() => trimEntries(cache, MAX_ART_ENTRIES)).catch(() => {});
+      return opaque;
+    } catch (_) {
+      const fallback = await cache.match(key);
+      if (fallback) return fallback;
+      throw error;
+    }
+  }
 };
 const handleMediaRoute = async request => {
   const url = new URL(request.url);
@@ -243,15 +261,12 @@ self.addEventListener('fetch', event => {
     event.respondWith(handleMediaRoute(req).catch(() => new Response('Media proxy unavailable', {status:502,headers:{'Content-Type':'text/plain; charset=utf-8'}})));
     return;
   }
-  if (url.origin === API_ORIGIN && url.pathname.startsWith('/api/')) {
+  if ((url.origin === API_ORIGIN || url.origin === CATALOGUE_API_ORIGIN) && url.pathname.startsWith('/api/')) {
     event.respondWith(handleApi(req, event).catch(() => Response.error()));
     return;
   }
-  const catalogueImage = req.destination === 'image' && (
-    (url.origin === API_ORIGIN && url.pathname === '/media') ||
-    url.hostname === 'saavncdn.com' || url.hostname.endsWith('.saavncdn.com') ||
-    url.hostname === 'jiosaavn.com' || url.hostname.endsWith('.jiosaavn.com'));
-  if (catalogueImage) {
+  const cacheableImage = req.destination === 'image' && url.protocol === 'https:' && !same;
+  if (cacheableImage) {
     event.respondWith(handleArt(req).catch(() => Response.error()));
     return;
   }
@@ -268,7 +283,7 @@ self.addEventListener('fetch', event => {
         return res;
       } catch (e) { return cached || cache.match('./index.html') || Response.error(); }
     }
-    if (same && cached) return cached;
+    if ((same || isFontCss || isFontFile) && cached) return cached;
     try {
       const res = await fetch(req);
       if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone()).catch(()=>{});

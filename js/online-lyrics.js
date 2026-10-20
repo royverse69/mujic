@@ -62,6 +62,40 @@
                 if (result && metadataMatches(result, track)) return { text: result.text, isSynced: result.synced, source: 'Machhar music source' };
             } catch (_) { }
         }
+        // LRCLIB is a secondary fallback only after the configured catalogue/backend failed.
+        if (navigator.onLine && track.title) {
+            const cacheKey = `mujic-lrclib:${norm(track.title)}:${norm(track.artist)}`;
+            try {
+                const cached = sessionStorage.getItem(cacheKey);
+                if (cached) { const item = JSON.parse(cached); if (item?.text) return item; }
+            } catch (_) {}
+            const title = String(track.title || '').split('(')[0].trim();
+            const artist = String(track.artist || '').split(',')[0].trim();
+            const duration = Number(track.duration) || 0;
+            const params = new URLSearchParams({ track_name:title, artist_name:artist });
+            if (track.album) params.set('album_name', String(track.album));
+            if (duration > 0) params.set('duration', String(Math.round(duration)));
+            try {
+                // /api/get returns 404 when metadata does not match exactly. Fall back to
+                // /api/search and select a verified candidate rather than treating 404 as final.
+                let result = await fetchJson(`https://lrclib.net/api/get?${params}`, 3200);
+                const valid = item => item && (item.syncedLyrics || item.plainLyrics) && metadataMatches({title:item.trackName, artist:item.artistName}, track);
+                if (!valid(result)) {
+                    const searchParams = new URLSearchParams({track_name:title, artist_name:artist});
+                    if (track.album) searchParams.set('album_name', String(track.album));
+                    if (duration > 0) searchParams.set('duration', String(Math.round(duration)));
+                    const results = await fetchJson(`https://lrclib.net/api/search?${searchParams}`, 3200);
+                    const list = Array.isArray(results) ? results : Array.isArray(results?.data) ? results.data : [];
+                    result = list.find(valid) || null;
+                }
+                if (valid(result)) {
+                    const text = String(result.syncedLyrics || result.plainLyrics).trim();
+                    const lyrics = { text, isSynced: Boolean(result.syncedLyrics), source:'LRCLIB' };
+                    try { sessionStorage.setItem(cacheKey, JSON.stringify(lyrics)); } catch (_) {}
+                    return lyrics;
+                }
+            } catch (_) {}
+        }
         return null;
     };
     window.OnlineLyrics = { fetchFromMusicSource };

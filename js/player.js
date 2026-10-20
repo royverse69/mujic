@@ -581,11 +581,14 @@
                             if (window.OnlineWorkspace) OnlineWorkspace.recordPlay(track);
                             const warmUpcoming=()=> (State.playbackOrder||[]).slice(State.queueIndex+1,State.queueIndex+3).map(id=>Player.getTrackById(id)).filter(item=>item?.source==='machhar-online');
                             if(window.OnlineMusic)OnlineMusic.prefetchStreams(warmUpcoming()).catch(()=>{});
-                            if (window.OnlineRecommendations) {
+                            const radioOwnsQueue=Boolean(window.OnlineWorkspace?.isRadioActive?.());
+                            if (window.OnlineRecommendations && !radioOwnsQueue) {
                                 Promise.resolve(OnlineRecommendations.primeQueue(track)).finally(() => {
                                     if (window.OnlineMusic) OnlineMusic.prefetchStreams(warmUpcoming()).catch(()=>{});
                                     if (window.OnlineWorkspace) OnlineWorkspace.saveQueueSnapshot('online');
                                 });
+                            } else if (radioOwnsQueue && window.OnlineWorkspace) {
+                                OnlineWorkspace.saveQueueSnapshot('online');
                             }
                         } else {
                             Stats.recordPlay(track);
@@ -633,14 +636,32 @@
                     }
                 }
                 const isAtQueueEnd = State.queueIndex >= State.playbackOrder.length - 1;
+                const shouldAutoplayRadio = !!(options.ended && isAtQueueEnd && State.repeat === 0 &&
+                    State.playbackSourceMode === 'online' && currentTrack?.source === 'machhar-online' && window.OnlineWorkspace?.isRadioActive?.());
                 const shouldAutoplayRecommend = !!(options.ended && isAtQueueEnd && State.repeat === 0 &&
-                    State.playbackSourceMode === 'online' && currentTrack?.source === 'machhar-online' && window.OnlineRecommendations);
+                    State.playbackSourceMode === 'online' && currentTrack?.source === 'machhar-online' && window.OnlineRecommendations && !shouldAutoplayRadio);
                 const ticket = ++State.playbackRequestId;
                 const canFade = !!(State.crossfade && !options.skipTransition && !options.ended && !AudioAdapter.audio.paused && AudioAdapter.masterGain);
                 if (canFade) await AudioAdapter.fadeMaster(0, 200);
                 if (ticket !== State.playbackRequestId) return;
                 AudioAdapter.pause();
                 State.transitionFadePending = canFade;
+                if (shouldAutoplayRadio) {
+                    try {
+                        const appended = await OnlineWorkspace.extendRadioQueue(currentTrack);
+                        if (ticket !== State.playbackRequestId) return;
+                        if (appended && appended.length) {
+                            State.queueIndex++;
+                            Player.startCurrentTrack();
+                            return;
+                        }
+                        if (window.OnlineRecommendations) {
+                            const fallback = await OnlineRecommendations.enqueueNext(currentTrack);
+                            if (ticket !== State.playbackRequestId) return;
+                            if (fallback) { State.queueIndex++; Player.startCurrentTrack(); return; }
+                        }
+                    } catch (error) { console.warn('Radio queue extension failed:', error); }
+                }
                 if (shouldAutoplayRecommend) {
                     try {
                         const appended = await OnlineRecommendations.enqueueNext(currentTrack);

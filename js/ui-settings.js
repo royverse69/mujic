@@ -273,14 +273,16 @@
                     if (!confirmed) return;
 
                     if (settings) {
-                        const allowed = new Set(['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','lowEndModeActive']);
-                        const boolKeys = new Set(['lowEndMode','resumePlayback','showArtworkLists','muted','shuffle','crossfade','skipSilence','instantSkipSilence','loudnessControl','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled']);
+                        const allowed = new Set(['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsWordByWord','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','lowEndModeActive']);
+                        const boolKeys = new Set(['lowEndMode','resumePlayback','showArtworkLists','muted','shuffle','crossfade','skipSilence','instantSkipSilence','loudnessControl','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','lyricsWordByWord']);
                         const stringEnums = {
-                            theme:['system','light','dark'], accentPreset:['dynamic','custom','default'], surfaceTheme:['oled','graphite','midnight','warm','forest'], textScale:['compact','normal','large'], layoutDensity:['compact','comfortable','spacious'], performanceProfile:['auto','low-end','full'], lyricsStyle:['apple','spotify','neon'], lyricsPosition:['upper','center','lower'], lyricsFontSize:['compact','normal','large','extra-large'], lyricsLineSpacing:['compact','normal','relaxed'], lyricsWidth:['narrow','standard','wide'], lyricsEmphasis:['soft','standard','strong','off'], interfaceStyle:['subtle','glass','solid'], cornerRadius:['sharp','rounded','pill'], motion:['full','reduced'], playerBackground:['artwork','solid','black'], playerArtworkMode:['full','contained'], librarySort:['dateAdded','title','artist','album'], librarySortDir:['asc','desc'], loudnessLevel:['soft','balanced','strong'], eq:['off','low','med','high'], eqPreset:['flat','bass','vocal','rock','treble','custom']
+                            theme:['system','light','dark'], accentPreset:['dynamic','custom','default'], surfaceTheme:['oled','graphite','midnight','warm','forest'], textScale:['compact','normal','large'], layoutDensity:['compact','comfortable','spacious'], performanceProfile:['auto','low-end','full'], lyricsStyle:['apple','spotify','neon'], lyricsPosition:['upper','center','lower'], lyricsFontSize:['compact','normal','large','extra-large'], lyricsLineSpacing:['compact','normal','relaxed'], lyricsWidth:['narrow','standard','wide'], lyricsEmphasis:['soft','standard','strong','off'], interfaceStyle:['subtle','strong','off'], cornerRadius:['sharp','medium','rounded','extra'], motion:['full','reduced'], playerBackground:['artwork','solid','black'], playerArtworkMode:['full','contained'], librarySort:['dateAdded','title','artist','album'], librarySortDir:['asc','desc'], loudnessLevel:['soft','balanced','strong'], eq:['off','low','med','high'], eqPreset:['flat','bass','vocal','rock','treble','custom']
                         };
                         for (const [key,value] of Object.entries(settings)) {
                             if (!allowed.has(key)) continue;
                             if (boolKeys.has(key)) { if (typeof value === 'boolean') State[key] = value; continue; }
+                            if (key === 'interfaceStyle') { const mapped = value === 'glass' ? 'subtle' : value === 'solid' ? 'off' : value; if (['subtle','strong','off'].includes(mapped)) State.interfaceStyle = mapped; continue; }
+                            if (key === 'cornerRadius') { const mapped = value === 'pill' ? 'extra' : value; if (['sharp','medium','rounded','extra'].includes(mapped)) State.cornerRadius = mapped; continue; }
                             if (stringEnums[key]) { if (typeof value === 'string' && stringEnums[key].includes(value)) State[key] = value; continue; }
                             if (key === 'eqBands') { if (Array.isArray(value) && value.length === 5 && value.every(v => Number.isFinite(Number(v)))) State.eqBands = value.map(v => Math.max(-12,Math.min(12,Number(v)))); continue; }
                             if (key === 'visualizerMode') { State.visualizerMode = value === 'off' ? 'off' : 'wave'; continue; }
@@ -327,7 +329,7 @@
                 }
             },
             exportData: async (kind) => {
-                const settingKeys = ['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','sleepTimer','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled'];
+                const settingKeys = ['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsWordByWord','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','sleepTimer','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled'];
                 const settings = {}; settingKeys.forEach(key => { if (State[key] !== undefined) settings[key] = State[key]; });
                 let payload;
                 if (kind === 'settings') {
@@ -387,6 +389,8 @@
                 const profile = ['auto','low-end','full'].includes(State.performanceProfile) ? State.performanceProfile : 'auto';
                 const lowEndActive = profile === 'low-end' || (profile === 'auto' && (constrainedDevice || State.lowEndMode));
                 State.lowEndModeActive = lowEndActive;
+                document.body.dataset.performanceProfile = profile;
+                document.body.setAttribute('data-performance-profile', profile);
                 document.body.classList.toggle('low-end-mode', lowEndActive);
                 document.body.classList.remove('theme-light');
                 if (State.theme === 'light') document.body.classList.add('theme-light');
@@ -411,21 +415,54 @@
                 
                 UI.setAccent(State.accentPreset === 'custom' ? State.accentColor : (State.accentPreset === 'dynamic' ? null : State.accentPreset));
                 
-                if (State.interfaceStyle === 'off') {
-                    root.style.setProperty('--glass-bg', 'var(--bg-surface)'); root.style.setProperty('--glass-blur', 'blur(0px)'); root.style.setProperty('--glass-border', '1px solid var(--border-subtle)');
-                } else if (State.interfaceStyle === 'strong') {
-                    root.style.setProperty('--glass-bg', 'rgba(10, 10, 10, 0.45)'); root.style.setProperty('--glass-blur', 'blur(40px)');
+                const interfaceStyle = ['subtle','strong','off'].includes(State.interfaceStyle) ? State.interfaceStyle : 'subtle';
+                State.interfaceStyle = interfaceStyle;
+                document.body.dataset.interfaceStyle = interfaceStyle;
+                document.body.setAttribute('data-interface-style', interfaceStyle);
+                if (interfaceStyle === 'off') {
+                    document.body.style.setProperty('--glass-bg', 'var(--bg-elevated)');
+                    document.body.style.setProperty('--glass-panel-bg', 'var(--bg-elevated)');
+                    document.body.style.setProperty('--glass-blur', 'blur(0px)');
+                    document.body.style.setProperty('--glass-border', '1px solid var(--border-subtle)');
+                    document.body.style.setProperty('--glass-panel-border', '1px solid var(--border-subtle)');
+                    document.body.style.setProperty('--glass-panel-shadow', 'none');
+                } else if (interfaceStyle === 'strong') {
+                    document.body.style.setProperty('--glass-bg', 'rgba(10,10,10,.38)');
+                    document.body.style.setProperty('--glass-panel-bg', 'rgba(10,10,10,.42)');
+                    document.body.style.setProperty('--glass-blur', 'blur(38px) saturate(155%)');
+                    document.body.style.setProperty('--glass-border', '1px solid rgba(255,255,255,.14)');
+                    document.body.style.setProperty('--glass-panel-border', '1px solid rgba(255,255,255,.14)');
+                    document.body.style.setProperty('--glass-panel-shadow', '0 22px 60px rgba(0,0,0,.24)');
                 } else {
-                    root.style.setProperty('--glass-bg', 'rgba(10, 10, 10, 0.65)'); root.style.setProperty('--glass-blur', 'blur(24px)');
+                    document.body.style.setProperty('--glass-bg', 'rgba(10,10,10,.65)');
+                    document.body.style.setProperty('--glass-panel-bg', 'rgba(12,12,12,.62)');
+                    document.body.style.setProperty('--glass-blur', 'blur(24px) saturate(135%)');
+                    document.body.style.setProperty('--glass-border', '1px solid rgba(255,255,255,.08)');
+                    document.body.style.setProperty('--glass-panel-border', '1px solid rgba(255,255,255,.09)');
+                    document.body.style.setProperty('--glass-panel-shadow', '0 18px 54px rgba(0,0,0,.2)');
                 }
-                
-                if (State.cornerRadius === 'sharp') { root.style.setProperty('--radius-sm', '0px'); root.style.setProperty('--radius-md', '0px'); root.style.setProperty('--radius-lg', '0px'); } 
-                else if (State.cornerRadius === 'medium') { root.style.setProperty('--radius-sm', '4px'); root.style.setProperty('--radius-md', '8px'); root.style.setProperty('--radius-lg', '12px'); } 
-                else if (State.cornerRadius === 'extra') { root.style.setProperty('--radius-sm', '16px'); root.style.setProperty('--radius-md', '24px'); root.style.setProperty('--radius-lg', '32px'); } 
-                else { root.style.setProperty('--radius-sm', '8px'); root.style.setProperty('--radius-md', '12px'); root.style.setProperty('--radius-lg', '16px'); }
-                
+
+                const cornerRadius = ['sharp','medium','rounded','extra'].includes(State.cornerRadius) ? State.cornerRadius : 'rounded';
+                State.cornerRadius = cornerRadius;
+                document.body.dataset.cornerRadius = cornerRadius;
+                document.body.setAttribute('data-corner-radius', cornerRadius);
+                const radiusProfiles = {
+                    sharp:   {sm:'0px', md:'0px', lg:'0px', panel:'0px', hero:'0px', action:'0px'},
+                    medium:  {sm:'4px', md:'8px', lg:'12px', panel:'12px', hero:'14px', action:'10px'},
+                    rounded: {sm:'8px', md:'12px', lg:'16px', panel:'14px', hero:'20px', action:'9999px'},
+                    extra:   {sm:'16px', md:'24px', lg:'32px', panel:'24px', hero:'30px', action:'24px'}
+                };
+                const radius = radiusProfiles[cornerRadius];
+                root.style.setProperty('--radius-sm', radius.sm);
+                root.style.setProperty('--radius-md', radius.md);
+                root.style.setProperty('--radius-lg', radius.lg);
+                root.style.setProperty('--panel-radius', radius.panel);
+                root.style.setProperty('--radius-hero', radius.hero);
+                root.style.setProperty('--radius-action', radius.action);
+
                 document.body.classList.toggle('reduced-motion', State.motion === 'reduced' || reducedMotion);
                 
+                const cornerControl = document.getElementById('corner-radius'); if (cornerControl && cornerControl.value !== State.cornerRadius) cornerControl.value = State.cornerRadius || 'rounded';
                 const artContainer = document.getElementById('player-art-container');
                 if (State.playerArtworkMode === 'contained') artContainer.classList.add('contained'); else artContainer.classList.remove('contained');
 

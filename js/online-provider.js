@@ -1,13 +1,17 @@
 /* Copyright mujic@royverse69 */
 const OnlineMusic = (() => {
     const LEGACY_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
-    const API_BASE = `${LEGACY_BASE.replace(/\/$/, '')}/api`;
+    const API_BASE = 'https://saavn.sumit.co/api';
+    const LEGACY_API_BASE = `${LEGACY_BASE.replace(/\/$/, '')}/api`;
+    const refreshingSearchCache = new Set();
     const ONLINE_PREFIX = 'machhar:';
     const streamCache = new Map();
     const onlineTracks = new Map();
     const searchCache = new Map();
     const entitySearchCache = new Map();
     const entityDetailsCache = new Map();
+    const relatedCache = new Map();
+    let relatedRateLimitedUntil = 0;
     const audioPreloaders = new Map();
     let latestSearchRequest = 0;
     let activeController = null;
@@ -196,20 +200,72 @@ const OnlineMusic = (() => {
         const track = { ...record, source: 'machhar-online', isOnline: true, raw: record.raw || {} };
         onlineTracks.set(String(track.id), track); return track;
     };
-    const request = async (url, signal, timeoutMs = 15000) => {
+    const request = async (url, signal, timeoutMs = 10000) => {
         if (!navigator.onLine) throw new Error('No internet connection. Reconnect and try again.');
-        const controller = signal ? null : new AbortController();
-        const requestSignal = signal || controller.signal;
-        const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+        const controller = new AbortController();
+        const relayAbort = () => controller.abort(signal?.reason);
+        if (signal?.aborted) relayAbort();
+        else signal?.addEventListener('abort', relayAbort, { once:true });
+        const timer = setTimeout(() => controller.abort(), Math.max(500, timeoutMs));
         try {
-            const response = await fetch(url, { method:'GET', headers:{ Accept:'application/json' }, cache:'no-store', credentials:'omit', signal:requestSignal });
+            const response = await fetch(url, { method:'GET', headers:{ Accept:'application/json' }, cache:'no-store', credentials:'omit', signal:controller.signal });
             if (!response.ok) throw new Error(`Music service returned HTTP ${response.status}`);
             const body = await response.text();
             try { return JSON.parse(body); } catch (_) { return body; }
-        } finally { if (timer) clearTimeout(timer); }
+        } finally {
+            clearTimeout(timer);
+            signal?.removeEventListener('abort', relayAbort);
+        }
     };
-    const requestSaavn = (path, signal, timeout = 15000) => request(`${API_BASE}/${path.replace(/^\//,'')}`, signal, timeout);
-    const requestLegacy = (path, signal, timeout = 15000) => request(`${LEGACY_BASE}${path.replace(/^\//,'')}`, signal, timeout);
+    const requestSaavn = async (path, signal, timeout = 10000) => {
+        const cleanPath = path.replace(/^\//, '');
+        if (signal?.aborted) throw new Error('Catalogue request cancelled.');
+        if (!navigator.onLine) throw new Error('No internet connection.');
+        const directController = new AbortController();
+        const proxyController = new AbortController();
+        const relayAbort = () => { directController.abort(signal?.reason); proxyController.abort(signal?.reason); };
+        signal?.addEventListener('abort', relayAbort, { once:true });
+        const asResult = (source, promise) => promise.then(value => ({source,value}), error => ({source,error}));
+        const directPromise = asResult('direct', request(`${API_BASE}/${cleanPath}`, directController.signal, Math.min(Math.max(1000, timeout), 4200)));
+        let fallbackTimer = null;
+        let proxyPromise = null;
+        try {
+            const first = await Promise.race([
+                directPromise,
+                new Promise(resolve => { fallbackTimer = setTimeout(() => resolve({source:'fallback-start'}), 650); })
+            ]);
+            if (first.source === 'direct' && !first.error) {
+                proxyController.abort();
+                return first.value;
+            }
+            if (signal?.aborted || !navigator.onLine) throw first.error || new Error('Catalogue request cancelled.');
+            proxyPromise = asResult('proxy', request(`${LEGACY_API_BASE}/${cleanPath}`, proxyController.signal, Math.min(Math.max(1000, timeout), 7000)));
+            const winner = first.source === 'direct'
+                ? await proxyPromise
+                : await Promise.race([directPromise, proxyPromise]);
+            if (winner.error) {
+                if (winner.source === 'direct' && proxyPromise) {
+                    const proxy = await proxyPromise;
+                    if (!proxy.error) { directController.abort(); return proxy.value; }
+                    throw proxy.error;
+                }
+                if (winner.source === 'proxy' && first.source === 'fallback-start') {
+                    const direct = await directPromise;
+                    if (!direct.error) { proxyController.abort(); return direct.value; }
+                    throw winner.error;
+                }
+                throw winner.error;
+            }
+            if (winner.source === 'direct') proxyController.abort();
+            else directController.abort();
+            return winner.value;
+        } finally {
+            if (fallbackTimer !== null) clearTimeout(fallbackTimer);
+            signal?.removeEventListener('abort', relayAbort);
+        }
+    };
+    const requestLegacy = (path, signal, timeout = 10000) => request(`${LEGACY_BASE}${path.replace(/^\//,'')}`, signal, timeout);
+    const requestLegacyApi = (path, signal, timeout = 9000) => request(`${LEGACY_API_BASE}/${path.replace(/^\//,'')}`, signal, timeout);
     const parseStreamChoices = payload => {
         if (typeof payload === 'string' && /^https?:\/\//i.test(payload)) return [{url:payload, quality:'unknown', codec:'', format:''}];
         if (payload?.stream && typeof payload.stream === 'string') return [{url:payload.stream, quality:payload.quality || 'unknown', codec:payload.codec || '', format:payload.format || ''}];
@@ -260,31 +316,55 @@ const OnlineMusic = (() => {
         if (State.playbackSourceMode !== 'online') throw new Error('Streaming mode is turned off.');
         if (!navigator.onLine) throw new Error('No internet connection.');
         if (!track?.onlineTrackId) return [];
-        const payload = track.provider === 'machhar'
-            ? await requestLegacy(`queue/${encodeURIComponent(track.onlineTrackId)}`, null, 12000)
-            : await requestSaavn(`songs/${encodeURIComponent(track.onlineTrackId)}/suggestions?limit=20`, null, 12000);
-        const candidates = [
-            payload?.data?.results, payload?.data?.songs?.results, payload?.data?.suggestions,
-            payload?.data?.songs, payload?.data?.queue, payload?.queue, payload?.songs,
-            payload?.results, Array.isArray(payload?.data) ? payload.data : null,
-            Array.isArray(payload) ? payload : null
-        ].find(Array.isArray);
-        if (candidates) return candidates;
-        const one = Array.isArray(payload?.data) ? payload.data[0] : (payload?.data || payload?.song || payload);
-        return one && typeof one === 'object' && (one.id || one.songId || one.name || one.title) ? [one] : [];
+        const cacheKey = `${track.provider || 'saavn'}:${track.onlineTrackId}`;
+        const cached = relatedCache.get(cacheKey);
+        if (cached && cached.expiresAt > Date.now()) return cached.items;
+        // The public suggestions route frequently returns HTTP 429. Respect that signal and
+        // avoid hammering it on every track transition; recommendations can use search fallback.
+        if (track.provider !== 'machhar' && Date.now() < relatedRateLimitedUntil) return [];
+        try {
+            const payload = track.provider === 'machhar'
+                ? await requestLegacy(`queue/${encodeURIComponent(track.onlineTrackId)}`, null, 6500)
+                : await requestSaavn(`songs/${encodeURIComponent(track.onlineTrackId)}/suggestions?limit=20`, null, 5200);
+            const candidates = [
+                payload?.data?.results, payload?.data?.songs?.results, payload?.data?.suggestions,
+                payload?.data?.songs, payload?.data?.queue, payload?.queue, payload?.songs,
+                payload?.results, Array.isArray(payload?.data) ? payload.data : null,
+                Array.isArray(payload) ? payload : null
+            ].find(Array.isArray);
+            const items = candidates || (() => { const one = Array.isArray(payload?.data) ? payload.data[0] : (payload?.data || payload?.song || payload); return one && typeof one === 'object' && (one.id || one.songId || one.name || one.title) ? [one] : []; })();
+            relatedCache.set(cacheKey, {items, expiresAt:Date.now() + (items.length ? 8*60*1000 : 45*1000)});
+            while (relatedCache.size > 80) relatedCache.delete(relatedCache.keys().next().value);
+            return items;
+        } catch (error) {
+            if (/429|rate limit/i.test(String(error?.message || error))) relatedRateLimitedUntil = Date.now() + 90*1000;
+            relatedCache.set(cacheKey, {items:[], expiresAt:Date.now()+30*1000});
+            throw error;
+        }
     };
     const fetchTrending = async () => {
         if (State.playbackSourceMode !== 'online' || !navigator.onLine) return [];
-        try {
-            const data = await requestSaavn('search/songs?query=trending%20Hindi%20songs&page=0&limit=30', null, 12000);
-            return extractRawSongs(data).map(raw => normalizeTrack({...raw, provider:'saavn'})).filter(Boolean);
-        } catch (_) {
+        // The supplied OpenAPI contract has no dedicated charts/trending route. Use its documented
+        // paginated song-search endpoint for fresh discovery queries, then merge/dedupe results.
+        const queries = ['trending songs 2026', 'latest new songs 2026', 'trending English songs'];
+        const pages = await Promise.all(queries.map(async query => {
             try {
-                const data = await requestLegacy('trending', null, 9000);
-                const list = Array.isArray(data?.songs) ? data.songs : extractRawSongs(data);
-                return list.map(raw => normalizeTrack({...raw, provider:'machhar'})).filter(Boolean);
+                const payload = await requestSaavn(`search/songs?query=${encodeURIComponent(query)}&page=0&limit=20`, null, 12000);
+                return extractRawSongs(payload).map(raw => normalizeTrack({...raw, provider:'saavn'})).filter(Boolean);
             } catch (_) { return []; }
+        }));
+        const seen = new Set(), merged=[];
+        for (const track of pages.flat()) {
+            const key = `${String(track.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}|${String(track.artist||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}`;
+            if (!key || key === '|' || seen.has(key)) continue;
+            seen.add(key); merged.push(track);
         }
+        if (merged.length) return merged.slice(0,40);
+        try {
+            const data = await requestLegacy('trending', null, 9000);
+            const list = Array.isArray(data?.songs) ? data.songs : extractRawSongs(data);
+            return list.map(raw => normalizeTrack({...raw, provider:'machhar'})).filter(Boolean);
+        } catch (_) { return []; }
     };
     const unwrapData = payload => payload?.data ?? payload?.result ?? payload;
     const getEntityTitle = item => decodeText(item?.name || item?.title || item?.album?.name || 'Untitled');
@@ -320,7 +400,7 @@ const OnlineMusic = (() => {
         const key = `${kind}|${q.toLocaleLowerCase()}|${page}|${limit}`;
         const cached = entitySearchCache.get(key);
         if (cached && cached.expiresAt > Date.now()) return cached.value;
-        const payload = await requestSaavn(`search/${kind}?query=${encodeURIComponent(q)}&page=${page}&limit=${limit}`, null, 15000);
+        const payload = await requestSaavn(`search/${kind}?query=${encodeURIComponent(q)}&page=${page}&limit=${limit}`, null, 8500);
         const value = entityResponse(payload, kind, q, page, limit);
         entitySearchCache.set(key, {value,expiresAt:Date.now()+10*60*1000});
         while (entitySearchCache.size > 100) entitySearchCache.delete(entitySearchCache.keys().next().value);
@@ -331,7 +411,7 @@ const OnlineMusic = (() => {
         if (!q) return { topQuery: [], songs: [], albums: [], artists: [], playlists: [] };
         if (State.playbackSourceMode !== 'online') throw new Error('Switch to streaming playback to search the catalogue.');
         if (!navigator.onLine) throw new Error('No internet connection.');
-        const payload = await requestSaavn(`search?query=${encodeURIComponent(q)}`, null, 16000);
+        const payload = await requestSaavn(`search?query=${encodeURIComponent(q)}`, null, 8500);
         const data = unwrapData(payload) || {};
         const rows = (kind) => {
             const collection = data?.[kind];
@@ -401,7 +481,13 @@ const OnlineMusic = (() => {
         let raw=unwrapData(payload);if(Array.isArray(raw))raw=raw[0];if(raw?.artist&&typeof raw.artist==='object')raw=raw.artist;
         if(!raw||typeof raw!=='object')throw new Error('Artist details were not returned.');
         const sourceId=String(raw.id||raw.artistId||reference);
-        const value={...normalizeEntity('artists',raw),id:`artists:${sourceId}`,sourceId,title:getEntityTitle(raw),image:getEntityImage('artists',raw),description:decodeText(Array.isArray(raw.bio)?raw.bio.map(x=>x?.text||x?.title||'').join(' '):raw.bio||''),tracks:[],albums:(Array.isArray(raw.topAlbums)?raw.topAlbums:[]).map(row=>normalizeEntity('albums',row)).filter(Boolean),artists:(Array.isArray(raw.similarArtists)?raw.similarArtists:[]).map(row=>normalizeEntity('artists',row)).filter(Boolean),totalSongs:Number(raw.songCount||raw.totalSongs||0),totalAlbums:Number(raw.albumCount||raw.totalAlbums||raw.topAlbums?.length||0),raw};
+        const bioRows=(Array.isArray(raw.bio)?raw.bio:[]).filter(Boolean).sort((a,b)=>(Number(a?.sequence)||0)-(Number(b?.sequence)||0));
+        const description=decodeText(bioRows.map(row=>row?.text||row?.title||'').filter(Boolean).join(' ').replace(/\s+/g,' ').trim()||raw.description||'');
+        const topTracks=(Array.isArray(raw.topSongs)?raw.topSongs:[]).map(song=>normalizeTrack({...song,provider:'saavn'})).filter(Boolean);
+        const singles=(Array.isArray(raw.singles)?raw.singles:[]).map(song=>normalizeTrack({...song,provider:'saavn'})).filter(Boolean);
+        const albums=(Array.isArray(raw.topAlbums)?raw.topAlbums:[]).map(row=>normalizeEntity('albums',row)).filter(Boolean);
+        const similarArtists=(Array.isArray(raw.similarArtists)?raw.similarArtists:[]).map(row=>normalizeEntity('artists',row)).filter(Boolean);
+        const value={...normalizeEntity('artists',raw),id:`artists:${sourceId}`,sourceId,title:getEntityTitle(raw),image:getEntityImage('artists',raw),description,tracks:topTracks,topTracks,singles,albums,artists:similarArtists,totalSongs:Number(raw.songCount||raw.totalSongs||0),totalAlbums:Number(raw.albumCount||raw.totalAlbums||albums.length||0),followerCount:raw.followerCount??null,fanCount:raw.fanCount??'',isVerified:Boolean(raw.isVerified),dominantLanguage:decodeText(raw.dominantLanguage||''),dominantType:decodeText(raw.dominantType||''),availableLanguages:Array.isArray(raw.availableLanguages)?raw.availableLanguages:[],dob:decodeText(raw.dob||''),isRadioPresent:Boolean(raw.isRadioPresent),social:{url:raw.url||'',fb:raw.fb||'',twitter:raw.twitter||'',wiki:raw.wiki||''},bioRows,raw};
         entityDetailsCache.set(key,{value,expiresAt:10*60*1000+Date.now()});return value;
     };
     const songBelongsToArtist = (track, artistId, artistName) => {
@@ -501,31 +587,43 @@ const OnlineMusic = (() => {
         return ranked.sort((a,b)=>b.score-a.score).map(row=>row.track);
     };
     const search = async (query, options = {}) => {
-        const q = String(query || '').trim(); if (!q) return decorateSearchResults([], {query:'',page:0,limit:40,total:0,hasMore:false,provider:'saavn'});
+        const q = String(query || '').trim();
+        if (!q) return decorateSearchResults([], {query:'',page:0,limit:40,total:0,hasMore:false,provider:'saavn'});
         if (State.playbackSourceMode !== 'online') throw new Error('Switch to streaming playback to search the catalogue.');
         if (!navigator.onLine) throw new Error('You are offline. Reconnect to search the music catalogue.');
         const page = Math.max(0, Number.parseInt(options.page,10) || 0);
         const limit = Math.min(50, Math.max(10, Number.parseInt(options.limit,10) || 40));
         const background = options.background === true;
+        const forceRefresh = options.forceRefresh === true;
         const cacheKey = `${q.toLocaleLowerCase()}|${page}|${limit}`;
         const cached = searchCache.get(cacheKey);
         if (cached && cached.expiresAt > Date.now()) {
             if (!background) searchMeta = {...cached.meta};
             return decorateSearchResults(cached.tracks.map(track => onlineTracks.get(track.id) || track), cached.meta);
         }
-        let requestId = 0, controller = new AbortController();
+        if (cached && cached.tracks.length && !forceRefresh) {
+            if (!refreshingSearchCache.has(cacheKey)) {
+                refreshingSearchCache.add(cacheKey);
+                search(q, {...options, background:true, forceRefresh:true}).catch(() => {}).finally(() => refreshingSearchCache.delete(cacheKey));
+            }
+            if (!background) searchMeta = {...cached.meta};
+            return decorateSearchResults(cached.tracks.map(track => onlineTracks.get(track.id) || track), cached.meta);
+        }
+        let requestId = 0;
+        const controller = new AbortController();
         if (!background) {
             latestSearchRequest++; requestId = latestSearchRequest;
-            if (activeController) activeController.abort(); activeController = controller;
+            if (activeController) activeController.abort();
+            activeController = controller;
         }
         const timeout = setTimeout(() => controller.abort(), 16000);
         let payload, rawSongs = [], chosenProvider = 'saavn', resultMeta = null;
         try {
             try {
-                payload = await requestSaavn(`search/songs?query=${encodeURIComponent(q)}&page=${page}&limit=${limit}`, controller.signal, 16000);
+                payload = await requestSaavn(`search/songs?query=${encodeURIComponent(q)}&page=${page}&limit=${limit}`, controller.signal, 8500);
                 rawSongs = extractRawSongs(payload);
-                if (!rawSongs.length && page === 0) {
-                    const global = await requestSaavn(`search?query=${encodeURIComponent(q)}`, controller.signal, 13000);
+                if (!rawSongs.length && page === 0 && !controller.signal.aborted) {
+                    const global = await requestSaavn(`search?query=${encodeURIComponent(q)}`, controller.signal, 7500);
                     const globalRows = extractRawSongs(global);
                     if (globalRows.length) { rawSongs = globalRows; payload = global; }
                 }
@@ -536,27 +634,31 @@ const OnlineMusic = (() => {
                     ? Math.max(0, Number(explicitStartValue))
                     : page * (rawSongs.length || limit);
                 const observedEnd = startIndex + rawSongs.length;
-                const hasMore = rawSongs.length > 0 && (explicitTotal ? observedEnd < explicitTotal : rawSongs.length >= 3);
+                const hasMore = rawSongs.length > 0 && (explicitTotal ? observedEnd < explicitTotal : rawSongs.length >= limit);
                 const total = explicitTotal || (hasMore ? Math.max(observedEnd + limit, (page + 1) * limit + 1) : observedEnd);
                 resultMeta = {query:q, page, limit, total:Math.max(total, observedEnd), start:startIndex, hasMore, provider:'saavn'};
             } catch (primaryError) {
-                if (controller.signal.aborted) throw primaryError;
+                if (controller.signal.aborted || !navigator.onLine) throw primaryError;
                 chosenProvider = 'machhar';
-                payload = await requestLegacy(`search?q=${encodeURIComponent(q)}`, controller.signal, 15000);
+                try {
+                    payload = await requestLegacy(`search?q=${encodeURIComponent(q)}`, controller.signal, 8000);
+                } catch (_) {
+                    payload = await requestLegacyApi(`search/songs?query=${encodeURIComponent(q)}&page=${page}&limit=${limit}`, controller.signal, 8000);
+                }
                 rawSongs = extractRawSongs(payload);
                 const info = unwrapData(payload) || payload?.data || {};
                 const explicitTotal = Number(info.total ?? info.totalCount ?? payload?.total) || 0;
-                const startIndex = Number(info.start ?? info.offset ?? 0) || 0;
+                const startIndex = Number(info.start ?? info.offset ?? page * (rawSongs.length || limit)) || 0;
                 const observedEnd = startIndex + rawSongs.length;
-                const hasMore = rawSongs.length >= 3 && (!explicitTotal || observedEnd < explicitTotal);
+                const hasMore = rawSongs.length > 0 && (explicitTotal ? observedEnd < explicitTotal : rawSongs.length >= limit);
                 resultMeta = {query:q, page, limit, total:explicitTotal||observedEnd+(hasMore?limit:0), start:startIndex, hasMore, provider:'machhar'};
             }
             if ((!background && requestId !== latestSearchRequest) || State.playbackSourceMode !== 'online') return decorateSearchResults([], resultMeta || {query:q,page,limit,total:0,hasMore:false,provider:chosenProvider});
             const normalized = rankRelevantSearchTracks(rawSongs.map(raw => normalizeTrack({...raw, provider:raw.provider || chosenProvider})).filter(Boolean),q);
             const meta = resultMeta || {query:q,page,limit,total:normalized.length,hasMore:false,provider:chosenProvider};
             if (!background && requestId === latestSearchRequest) searchMeta = {...meta};
-            searchCache.set(cacheKey, {tracks:normalized.slice(), meta:{...meta}, expiresAt:Date.now()+90_000});
-            while (searchCache.size > 80) searchCache.delete(searchCache.keys().next().value);
+            searchCache.set(cacheKey, {tracks:normalized.slice(), meta:{...meta}, expiresAt:Date.now()+180_000});
+            while (searchCache.size > 100) searchCache.delete(searchCache.keys().next().value);
             if (window.OnlineCache) OnlineCache.warmTracks(normalized.slice(0,50));
             return decorateSearchResults(normalized, meta);
         } finally {
@@ -665,7 +767,7 @@ const OnlineMusic = (() => {
         finally { clearTimeout(timeout); if(activeChunkPrefetch===controller)activeChunkPrefetch=null; }
     };
     const clearCache = () => {
-        streamCache.clear(); searchCache.clear(); entitySearchCache.clear(); entityDetailsCache.clear();
+        streamCache.clear(); searchCache.clear(); entitySearchCache.clear(); entityDetailsCache.clear(); relatedCache.clear(); relatedRateLimitedUntil = 0;
         for (const audio of audioPreloaders.values()) { try { audio.pause(); audio.removeAttribute('src'); audio.load(); } catch (_) {} }
         audioPreloaders.clear(); prefetchedChunks.clear(); if(activeChunkPrefetch){try{activeChunkPrefetch.abort();}catch(_){}} activeChunkPrefetch=null; navigator.serviceWorker?.controller?.postMessage({type:'CLEAR_ONLINE_MEDIA_CACHE'}); if (window.OnlineCache) OnlineCache.clear();
     };

@@ -1,8 +1,8 @@
 /* Copyright mujic@royverse69 */
 (() => {
-    const KEYS = { history:'mujic-online-history-v1', searches:'mujic-online-searches-v1', playlists:'mujic-online-playlists-v1', favorites:'mujic-online-favorites-v1', linked:'mujic-workspaces-linked-v1', queues:'mujic-workspace-queues-v1', shelves:'mujic-online-shelves-v9', caching:'mujic-online-caching-v1', taste:'mujic-online-taste-v1', trackPlays:'mujic-online-track-plays-v1', suggest:'mujic-online-suggest-v1', publicPlaylists:'mujic-online-public-playlists-v1', artistCache:'mujic-online-artist-cache-v6', artistCatalogue:'mujic-online-artist-catalogue-v4', artistStats:'mujic-online-artist-stats-v1' };
+    const KEYS = { history:'mujic-online-history-v1', searches:'mujic-online-searches-v1', playlists:'mujic-online-playlists-v1', favorites:'mujic-online-favorites-v1', linked:'mujic-workspaces-linked-v1', queues:'mujic-workspace-queues-v1', shelves:'mujic-online-shelves-v10', caching:'mujic-online-caching-v1', taste:'mujic-online-taste-v1', trackPlays:'mujic-online-track-plays-v1', suggest:'mujic-online-suggest-v1', publicPlaylists:'mujic-online-public-playlists-v1', artistCache:'mujic-online-artist-cache-v6', artistCatalogue:'mujic-online-artist-catalogue-v4', artistStats:'mujic-online-artist-stats-v1' };
     let onlineHistory = [], searchHistory = [], playlists = [], onlineFavorites = [], searchQuery = '', searchPage = 0, searchType = 'all';
-    let searchResults = [], entityResults = [], allSearchResults = null, activePlaylistId = null, pendingTrackId = null, requestSequence = 0;
+    let searchResults = [], entityResults = [], allSearchResults = null, activePlaylistId = null, pendingTrackId = null, requestSequence = 0, visibleSearchCount = 8, searchHasMore = false;
     let libraryTab = 'playlists', remoteRequestSequence = 0;
     let linked = false, queueSnapshots = {offline:null, online:null};
     let taste = {parts:{}}, trackPlays = {}, suggestState = {sig:'',items:[],savedAt:0,loading:''}, personalTimer = null, greetingTimer = null;
@@ -11,6 +11,63 @@
     let homeShelves = {}, homeLoadPromise = null, homeLastLoaded = 0, publicPlaylistQuery = 'Hindi romantic', publicPlaylistPage = 0, publicPlaylistResults = [], activeRemoteEntity = null;
     const artistTrackCache = new Map(), artistAlbumCache = new Map(), artistLoadPromises = new Map();
     const safeRead = (key, fallback) => { try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v ?? fallback; } catch (_) { return fallback; } };
+    const DISCOVERY_RESULT_KEY='mujic-discovery-results-v1', RADIO_RESULT_KEY='mujic-radio-results-v2', RADIO_HISTORY_KEY='mujic-radio-history-v1';
+    const DISCOVERY_FALLBACK = window.MUJIC_DISCOVERY_CATALOG || {
+        categories:[
+            {id:'bollywood',label:'Bollywood',description:'Hindi film favourites, fresh soundtracks and Bollywood essentials.',theme:'bollywood',art:'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1000&q=82',songs:['Bollywood hits','Hindi film songs'],playlists:['Bollywood playlists'],albums:['Hindi movie soundtracks']},
+            {id:'pop',label:'Pop',description:'Big pop hooks and global hits.',theme:'pop',art:'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=82',songs:['English pop hits','global pop hits'],playlists:['English pop playlists'],albums:['English pop albums']},
+            {id:'punjabi',label:'Punjabi',description:'Punjabi pop, bhangra and the latest hits.',theme:'punjabi',art:'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=1000&q=82',songs:['Punjabi hits','new Punjabi songs'],playlists:['Punjabi hits playlists'],albums:['Punjabi albums']},
+            {id:'rock',label:'Rock',description:'Guitar-driven classics and modern rock.',theme:'rock',art:'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=1000&q=82',songs:['rock classics','alternative rock hits'],playlists:['rock playlists'],albums:['rock albums']},
+            {id:'lofi',label:'Lo-fi',description:'Soft beats for focus and slower moments.',theme:'lofi',art:'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1000&q=82',songs:['lofi study beats','lofi hip hop'],playlists:['lofi study playlists'],albums:['lofi albums']}
+        ],
+        stations:[
+            {id:'drive',name:'Drive Radio',description:'Steady, upbeat music for the open road.',art:'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1000&q=82',accent:'#d06b36',queries:['driving songs','road trip hits','upbeat pop songs']},
+            {id:'bollywood',name:'Bollywood Radio',description:'Hindi film favourites and fresh soundtrack picks.',art:'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1000&q=82',accent:'#c83b65',queries:['Bollywood hits','Hindi film songs','new Bollywood songs']},
+            {id:'english',name:'English Radio',description:'Global pop and English-language hits.',art:'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=82',accent:'#3d78c6',queries:['English hits','global pop hits','international pop songs']},
+            {id:'old-hindi',name:'Old Hindi Radio',description:'Evergreen Hindi songs and old Bollywood classics.',art:'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=1000&q=82',accent:'#ac8a53',queries:['old Hindi songs','90s Hindi hits','classic Bollywood songs']}
+        ]
+    };
+    let discoveryCatalog=null, discoveryCatalogPromise=null, activeRadioSession=null;
+    let discoveryResultCache=safeRead(DISCOVERY_RESULT_KEY,{}), radioResultCache=safeRead(RADIO_RESULT_KEY,{}), radioHistory=safeRead(RADIO_HISTORY_KEY,{});
+    const saveBoundedCache=(key,cache,limit=8)=>{
+        const ordered=Object.entries(cache||{}).sort((a,b)=>(Number(b[1]?.savedAt)||0)-(Number(a[1]?.savedAt)||0)).slice(0,limit);
+        const normalized=Object.fromEntries(ordered);
+        try{localStorage.setItem(key,JSON.stringify(normalized));}catch(_){try{const reduced=Object.fromEntries(ordered.slice(0,Math.max(2,Math.floor(limit/2))));localStorage.setItem(key,JSON.stringify(reduced));}catch(__){}}
+        return normalized;
+    };
+    const loadDiscoveryCatalog=()=>{
+        if(discoveryCatalog)return Promise.resolve(discoveryCatalog);
+        if(discoveryCatalogPromise)return discoveryCatalogPromise;
+        if(typeof fetch!=='function'){discoveryCatalog=DISCOVERY_FALLBACK;return Promise.resolve(discoveryCatalog);}
+        discoveryCatalogPromise=fetch('./data/discovery-catalog.json',{cache:'force-cache'}).then(response=>{if(!response.ok)throw new Error('Discovery catalog unavailable');return response.json();}).then(data=>{
+            if(!Array.isArray(data?.categories)||!data.categories.length||!Array.isArray(data?.stations)||!data.stations.length)throw new Error('Discovery catalog is incomplete');
+            discoveryCatalog=data;renderRadioShelf();
+            const searchInput=document.getElementById('online-search-input');
+            if(document.getElementById('view-online-search')?.classList.contains('active')&&!searchInput?.value?.trim())renderSearchBlank();
+            return discoveryCatalog;
+        }).catch(()=>{discoveryCatalog=DISCOVERY_FALLBACK;renderRadioShelf();return discoveryCatalog;});
+        return discoveryCatalogPromise;
+    };
+    const shuffleTracks=list=>{const out=[...(Array.isArray(list)?list:[])];for(let i=out.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[out[i],out[j]]=[out[j],out[i]];}return out;};
+    const radioFingerprint=track=>`${titleKey(track?.title||'')}|${artistKey(track?.artist||'')}`;
+    const radioTrackKeys=track=>[`id:${String(track?.id||'')}`,`fp:${radioFingerprint(track)}`];
+    const getRadioHistory=id=>Array.isArray(radioHistory?.[id])?radioHistory[id]:[];
+    const rememberRadioTrack=(id,track)=>{
+        if(!id||!track?.id)return;
+        const rows=getRadioHistory(id),keys=radioTrackKeys(track).filter(value=>!value.endsWith(':'));
+        radioHistory={...radioHistory,[id]:[...rows.filter(row=>!keys.includes(row)),...keys].slice(-90)};
+        try{localStorage.setItem(RADIO_HISTORY_KEY,JSON.stringify(radioHistory));}catch(_){}
+    };
+    const currentViewName=()=>{const id=document.querySelector('.view.active')?.id||'view-online-home';return id.replace(/^view-/,'');};
+    const cachedRadioTracks=(station,page=0)=>{
+        const row=radioResultCache?.[`${station.id}:${page}`];
+        if(!row||Date.now()-Number(row.savedAt||0)>20*60*1000)return [];
+        return (row.tracks||[]).map(restoreTrack).filter(Boolean);
+    };
+    const saveRadioTracks=(station,page,tracks)=>{
+        radioResultCache[`${station.id}:${page}`]={savedAt:Date.now(),tracks:tracks.slice(0,65).map(serializeTrack)};
+        radioResultCache=saveBoundedCache(RADIO_RESULT_KEY,radioResultCache,10);
+    };
     const persist = () => {
         try { onlineHistory=dedupePlaylistTracks(onlineHistory).slice(0,100); localStorage.setItem(KEYS.history, JSON.stringify(onlineHistory)); } catch (_) {}
         try { localStorage.setItem(KEYS.artistStats,JSON.stringify(artistStats)); } catch (_) {}
@@ -106,7 +163,12 @@
         if (!navigator.onLine) { renderConnectivityState(); return; }
         const recent = searchHistory.slice(0,8);
         const chips = recent.map(q=>`<button type="button" class="online-chip" data-action="online-search-query" data-query="${esc(q)}">${esc(q)}</button>`).join('');
-        c.innerHTML = `<div class="online-search-start">${chips ? `<div class="online-mini-label">Recently Searched</div><div class="online-chip-list">${chips}</div>` : ''}<div class="online-mini-label">Browse Categories</div><div class="online-category-grid"><button class="online-category-card category-bollywood" data-action="online-search-query" data-query="Hindi hits"><strong>Bollywood</strong></button><button class="online-category-card category-punjabi" data-action="online-search-query" data-query="Punjabi love songs"><strong>Punjabi</strong></button><button class="online-category-card category-tamil" data-action="online-search-query" data-query="Tamil hits"><strong>Tamil</strong></button><button class="online-category-card category-telugu" data-action="online-search-query" data-query="Telugu romantic songs"><strong>Telugu</strong></button><button class="online-category-card category-lofi" data-action="online-search-query" data-query="Lo-fi chill"><strong>Lo-fi</strong></button><button class="online-category-card category-indie" data-action="online-search-query" data-query="Indian indie songs"><strong>Indie</strong></button></div></div>`;
+        const categories = discoveryCatalog?.categories || DISCOVERY_FALLBACK.categories;
+        const categoryCards = categories.map(category => `<button type="button" class="online-category-card category-${esc(category.theme||category.id)}" data-action="online-open-category" data-id="${esc(category.id)}" aria-label="Explore ${esc(category.label)}"><img class="online-category-art" src="${esc(category.art)}" alt="" loading="lazy" decoding="async"><span class="online-category-kicker">Explore</span><strong>${esc(category.label)}</strong></button>`).join('');
+        if(!discoveryCatalog)loadDiscoveryCatalog();
+        c.innerHTML = `<div class="online-search-start">${chips ? `<section class="online-search-recent"><div class="online-section-topline"><div><div class="online-mini-label">Pick up where you left off</div><h2>Recent searches</h2></div><span class="online-section-note">${recent.length} saved</span></div><div class="online-chip-list">${chips}</div></section>` : ''}<section class="online-browse-section"><div class="online-section-topline"><div><div class="online-mini-label">Explore the catalogue</div><h2>Browse Categories</h2><p>Find something for your mood, moment or music taste.</p></div></div><div class="online-category-grid">${categoryCards}</div></section></div>`;
+        const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=true;
+        const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=false;
         const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!(document.getElementById('online-search-input')?.value||'').trim();
     };
     const entityKey = item => String(item?.id || (item?.type && item?.sourceId ? `${item.type}:${item.sourceId}` : ''));
@@ -145,13 +207,15 @@
     };
     const renderAllSearchResults = (q, hasMore = false) => {
         const target=document.getElementById('online-search-results');if(!target)return;
+        const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;
+        const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=true;
         const data=allSearchResults||{topQuery:[],albums:[],artists:[],playlists:[]};
         const uniq=list=>{
             const seen=new Set();return (Array.isArray(list)?list:[]).filter(item=>item?.id&&!seen.has(item.id)&&seen.add(item.id));
         };
-        const tracks=searchResults.slice(0,24);
+        const tracks=searchResults.slice(0,visibleSearchCount);
         const renderShelf=(kind,label,items)=>{
-            const list=uniq(items).slice(0,10);if(!list.length)return '';
+            const list=uniq(items).slice(0,8);if(!list.length)return '';
             return `<section class="online-all-search-section"><div class="online-shelf-heading"><h3>${label}</h3><button class="text-action" data-action="online-set-search-type" data-type="${kind}">See all</button></div><div class="online-card-rail">${renderEntityRail(list,kind)}</div></section>`;
         };
         let html=`<div class="online-results-toolbar"><strong>${searchResults.length.toLocaleString()} results</strong></div>`;
@@ -164,99 +228,212 @@
         html+=renderShelf('artists','Artists',data.artists);
         html+=renderShelf('albums','Albums',data.albums);
         html+=renderShelf('playlists','Playlists',data.playlists);
-        if(hasMore)html+=`<div class="online-load-more-wrap"><button class="btn" data-action="online-load-more">Load more songs</button></div>`;
+        if(hasMore||searchResults.length>tracks.length)html+=`<div class="online-load-more-wrap"><button class="btn" data-action="online-load-more">Load more</button></div>`;
         target.innerHTML=html;
         if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50));
         UI.lazyLoadArtwork();
     };
     const paintSearchResults = (q, total = 0, hasMore = false) => {
         const target=document.getElementById('online-search-results');if(!target)return;
+        const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;
+        const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=true;
+        searchHasMore=Boolean(hasMore);
         if(searchType==='all'){renderAllSearchResults(q,hasMore);return;}
-        const list=searchType==='songs'?searchResults:entityResults;
-        const count=String(list.length.toLocaleString());
+        const sourceList=searchType==='songs'?searchResults:entityResults;
+        const list=sourceList.slice(0,visibleSearchCount);
+        const count=String(sourceList.length.toLocaleString());
         let body='';
         if(searchType==='songs') body=renderTrackRows(list,'online-search',`No results for “${q}”.`);
         else body=renderEntityGrid(list,searchType,'Search to discover more.');
-        const more=hasMore?'<div class="online-load-more-wrap"><button class="btn" data-action="online-load-more">Load more</button></div>':'';
+        const more=(hasMore||sourceList.length>list.length)?'<div class="online-load-more-wrap"><button class="btn" data-action="online-load-more">Load more</button></div>':'';
         target.innerHTML=`<div class="online-results-toolbar"><strong>${esc(count)} ${searchTypeLabels[searchType].toLowerCase()}</strong></div>${body}${more}`;
         if(searchType==='songs') { setSearchContext(searchResults); if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50)); }
         UI.lazyLoadArtwork();
+    };
+    const getSearchExpansions = (query, kind) => {
+        const q=String(query||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+        if (kind === 'songs' && ['english hits','english hit','english songs','english song','english pop','international hits'].includes(q)) {
+            return ['popular English songs','English pop hits','international pop hits'];
+        }
+        return [];
+    };
+    const getEntitySearchExpansions = (query, kind) => {
+        const q=String(query||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+        if (kind === 'playlists' && /\b(english|international|global|hollywood)\b/.test(q)) {
+            return ['English pop playlists','international hits playlist','global pop hits playlist'];
+        }
+        if (kind === 'albums' && /\b(english|international|global|hollywood)\b/.test(q)) {
+            return ['English hit albums','popular English albums','international pop albums'];
+        }
+        return [];
     };
     const performSearch = async (query, append = false) => {
         const input=document.getElementById('online-search-input');
         const target=document.getElementById('online-search-results');if(!target)return [];
         const q=String(query ?? input?.value ?? '').trim();
-        if(!q){searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;renderSearchBlank();return [];}
+        if(!q){searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;renderSearchBlank();return [];}
         if(State.playbackSourceMode!=='online')return [];
         if(!navigator.onLine){renderConnectivityState();return [];}
-        if(!append){searchQuery=q;searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;const requestId=++requestSequence;target.dataset.requestId=String(requestId);target.innerHTML='<div class="online-skeleton-list"><span></span><span></span><span></span><span></span><span></span></div>';rememberSearch(q);}
+        if(!append){searchQuery=q;searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;const requestId=++requestSequence;target.dataset.requestId=String(requestId);target.innerHTML='<div class="online-skeleton-list"><span></span><span></span><span></span></div>';rememberSearch(q);}
         else if(q!==searchQuery)return [];
         const requestId=Number(target.dataset.requestId||requestSequence);
-        const initialPage=append?searchPage+1:0;
-        const targetCount=append?0:24;
-        const maxPages=append?1:8;
-        let page=initialPage,lastHasMore=false,total=0,newForLastPage=0;
+        const page=append?searchPage+1:0;
+        const isCurrent=()=>requestId===Number(target.dataset.requestId||requestId)&&State.playbackSourceMode==='online';
         try{
             if(!append&&searchType==='all'){
-                try{allSearchResults=await OnlineMusic.globalSearch(q);}catch(_){
-                    const [artists,albums,playlists]=await Promise.all(['artists','albums','playlists'].map(kind=>OnlineMusic.searchEntities(kind,q,{page:0,limit:20}).catch(()=>({items:[]}))));
-                    allSearchResults={topQuery:[],artists:artists.items||[],albums:albums.items||[],playlists:playlists.items||[]};
-                }
-                if(requestId!==Number(target.dataset.requestId||requestId)||State.playbackSourceMode!=='online')return [];
-            }
-            for(let turn=0;turn<maxPages;turn++,page++){
-                if(requestId!==Number(target.dataset.requestId||requestId)||State.playbackSourceMode!=='online')return [];
-                let found=[],hasMore=false,reportedTotal=0;
-                if(searchType==='songs'||searchType==='all'){
-                    found=await OnlineMusic.search(q,{page,limit:40});
-                    if(searchType==='all'&&turn===0&&Array.isArray(allSearchResults?.songs))found=[...allSearchResults.songs,...found];
-                    const meta=found.searchMeta||OnlineMusic.getSearchMeta();hasMore=Boolean(meta.hasMore);reportedTotal=Number(meta.total)||0;
-                    const merged=mergeUnique(append||turn>0?searchResults:[],found,'songs');searchResults=merged.items;newForLastPage=merged.added;
-                    if(searchType==='all')searchResults=dedupeCatalogueTracks(searchResults);
+                try {
+                    allSearchResults=await OnlineMusic.globalSearch(q);
+                    if(!isCurrent())return [];
+                    const globalHasResults=Boolean((allSearchResults.topQuery||[]).length||(allSearchResults.songs||[]).length||(allSearchResults.albums||[]).length||(allSearchResults.artists||[]).length||(allSearchResults.playlists||[]).length);
+                    if(!globalHasResults)throw new Error('Global search returned no usable results');
+                    searchResults=dedupeCatalogueTracks(allSearchResults.songs||[]);
                     setSearchContext(searchResults);
-                }else{
-                    const result=await OnlineMusic.searchEntities(searchType,q,{page,limit:30});
-                    found=result.items||[];hasMore=Boolean(result.hasMore);reportedTotal=Number(result.total)||0;
-                    const merged=mergeUnique(append||turn>0?entityResults:[],found,searchType);entityResults=merged.items;newForLastPage=merged.added;
+                    paintSearchResults(q,searchResults.length,searchResults.length>=8);
+                    if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50));
+                    return searchResults;
+                } catch (_) {
+                    const [songs,artists,albums,playlists]=await Promise.all([
+                        OnlineMusic.search(q,{page:0,limit:10}).catch(()=>[]),
+                        OnlineMusic.searchEntities('artists',q,{page:0,limit:20}).catch(()=>({items:[]})),
+                        OnlineMusic.searchEntities('albums',q,{page:0,limit:20}).catch(()=>({items:[]})),
+                        OnlineMusic.searchEntities('playlists',q,{page:0,limit:20}).catch(()=>({items:[]}))
+                    ]);
+                    if(!isCurrent())return [];
+                    searchResults=dedupeCatalogueTracks(songs||[]);
+                    let pageMeta=songs.searchMeta||OnlineMusic.getSearchMeta();
+                    allSearchResults={topQuery:[],songs:searchResults,artists:artists.items||[],albums:albums.items||[],playlists:playlists.items||[]};
+                    setSearchContext(searchResults);
+                    paintSearchResults(q,Number(pageMeta.total)||searchResults.length,Boolean(pageMeta.hasMore));
+                    for(let nextPage=1;nextPage<8&&searchResults.length<24&&pageMeta?.hasMore&&isCurrent();nextPage++){
+                        await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+                        const next=await OnlineMusic.search(q,{page:nextPage,limit:10,background:true}).catch(()=>[]);
+                        if(!isCurrent())return [];
+                        if(!Array.isArray(next)||!next.length)break;
+                        const mergedPage=mergeUnique(searchResults,next,'songs');
+                        if(!mergedPage.added)break;
+                        searchResults=mergedPage.items;
+                        allSearchResults.songs=searchResults;
+                        setSearchContext(searchResults);
+                        pageMeta=next.searchMeta||OnlineMusic.getSearchMeta()||pageMeta;
+                        searchPage=nextPage;
+                        paintSearchResults(q,Number(pageMeta.total)||searchResults.length,Boolean(pageMeta.hasMore));
+                    }
+                    return searchResults;
                 }
-                total=Math.max(total,reportedTotal);lastHasMore=hasMore;searchPage=page;
-                if(requestId!==Number(target.dataset.requestId||requestId)||State.playbackSourceMode!=='online')return [];
-                const currentList=searchType==='songs'||searchType==='all'?searchResults:entityResults;
-                if(append||currentList.length>=targetCount||!hasMore||!found.length||newForLastPage===0)break;
-                if(turn===maxPages-1)lastHasMore=true;
             }
-            if(requestId!==Number(target.dataset.requestId||requestId)||State.playbackSourceMode!=='online')return [];
-            paintSearchResults(q,total,lastHasMore&&newForLastPage>0&&searchPage<100);
-            return searchType==='songs'||searchType==='all'?searchResults:entityResults;
+            if(searchType==='all'&&append){
+                const nextPageResult=await OnlineMusic.search(q,{page,limit:10});
+                if(!isCurrent())return [];
+                const pageMeta=nextPageResult.searchMeta||OnlineMusic.getSearchMeta()||{};
+                const mergedAll=mergeUnique(searchResults,nextPageResult,'songs');
+                searchResults=mergedAll.items;searchPage=page;searchHasMore=Boolean(pageMeta.hasMore);
+                if(allSearchResults)allSearchResults.songs=searchResults;
+                setSearchContext(searchResults);
+                paintSearchResults(q,Number(pageMeta.total)||searchResults.length,Boolean(pageMeta.hasMore));
+                return searchResults;
+            }
+            if(searchType==='songs'){
+                const firstPage=await OnlineMusic.search(q,{page,limit:10});
+                if(!isCurrent())return [];
+                let meta=firstPage.searchMeta||OnlineMusic.getSearchMeta();
+                let merged=mergeUnique(append?searchResults:[],firstPage,'songs');
+                searchResults=merged.items;
+                setSearchContext(searchResults);
+                searchPage=page;
+                paintSearchResults(q,Number(meta.total)||searchResults.length,Boolean(meta.hasMore));
+                const expansions=!append?getSearchExpansions(q,'songs'):[];
+                if(expansions.length){
+                    Promise.allSettled(expansions.map(term=>OnlineMusic.search(term,{page:0,limit:10,background:true}))).then(results=>{
+                        if(!isCurrent()||searchType!=='songs'||(String(input?.value||'').trim()&&String(input.value).trim().toLowerCase()!==q.toLowerCase()))return;
+                        const expanded=results.flatMap(result=>result.status==='fulfilled'?Array.from(result.value||[]):[]);
+                        if(!expanded.length)return;
+                        const enriched=mergeUnique(searchResults,expanded,'songs');
+                        if(enriched.added){
+                            searchResults=enriched.items;
+                            setSearchContext(searchResults);
+                            paintSearchResults(q,Math.max(Number(meta.total)||0,searchResults.length),Boolean(meta.hasMore));
+                        }
+                    }).catch(()=>{});
+                }
+                if(!append){
+                    for(let nextPage=1;nextPage<8&&searchResults.length<24&&meta?.hasMore&&isCurrent();nextPage++){
+                        await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+                        const next=await OnlineMusic.search(q,{page:nextPage,limit:10,background:true}).catch(()=>[]);
+                        if(!isCurrent())return [];
+                        if(!Array.isArray(next)||!next.length)break;
+                        merged=mergeUnique(searchResults,next,'songs');
+                        if(!merged.added)break;
+                        searchResults=merged.items;
+                        setSearchContext(searchResults);
+                        searchPage=nextPage;
+                        meta=next.searchMeta||OnlineMusic.getSearchMeta()||meta;
+                        paintSearchResults(q,Number(meta.total)||searchResults.length,Boolean(meta.hasMore));
+                    }
+                }
+                return searchResults;
+            }
+            const result=await OnlineMusic.searchEntities(searchType,q,{page,limit:30});
+            if(!isCurrent())return [];
+            const merged=mergeUnique(append?entityResults:[],result.items||[],searchType);
+            entityResults=merged.items;
+            searchPage=page;
+            paintSearchResults(q,Number(result.total)||entityResults.length,Boolean(result.hasMore));
+            const expansions=!append?getEntitySearchExpansions(q,searchType):[];
+            if(expansions.length){
+                Promise.allSettled(expansions.map(term=>OnlineMusic.searchEntities(searchType,term,{page:0,limit:20}))).then(results=>{
+                    if(!isCurrent()||searchType==='songs'||(String(input?.value||'').trim()&&String(input.value).trim().toLowerCase()!==q.toLowerCase()))return;
+                    const expanded=results.flatMap(item=>item.status==='fulfilled'?(item.value.items||[]):[]);
+                    const enriched=mergeUnique(entityResults,expanded,searchType);
+                    if(enriched.added){entityResults=enriched.items;paintSearchResults(q,Math.max(Number(result.total)||0,entityResults.length),Boolean(result.hasMore));}
+                }).catch(()=>{});
+            }
+            return entityResults;
         }catch(error){
-            if(State.playbackSourceMode!=='online'||requestId!==Number(target.dataset.requestId||requestId))return [];
+            if(!isCurrent())return [];
             target.innerHTML=`<div class="online-network-state"><span class="material-symbols-rounded">${navigator.onLine?'cloud_off':'wifi_off'}</span><div class="empty-title">${navigator.onLine?'Search unavailable':'No connection'}</div><div class="online-network-actions"><button class="btn" data-action="retry-online-search">Retry</button><button class="btn" data-action="toggle-playback-mode">Offline library</button></div></div>`;
             return [];
         }
     };
-    const loadMore = () => performSearch(searchQuery || document.getElementById('online-search-input')?.value || '', true);
-    const HOME_TTL = 12 * 60 * 60 * 1000;
+    const loadMore = async () => {
+        const q=searchQuery||document.getElementById('online-search-input')?.value||'';
+        const available=searchType==='songs'||searchType==='all'?searchResults:entityResults;
+        if(!q)return [];
+        if(available.length>visibleSearchCount){
+            visibleSearchCount=Math.min(available.length,visibleSearchCount+8);
+            paintSearchResults(q,available.length,searchHasMore);
+            return available;
+        }
+        visibleSearchCount+=8;
+        return performSearch(q,true);
+    };
+    const HOME_TTL = 15 * 60 * 1000;
+    const HOME_CACHE_VERSION = 4;
     const HOME_DEFS = [
         {key:'quick',kind:'quick',node:'online-shelf-quick',derived:true,stage:1},
         {key:'suggested',kind:'songs',query:'',node:'online-shelf-suggested',layout:'list',stage:1},
         {key:'romantic',kind:'playlists',query:'Hindi romantic playlists',node:'online-shelf-romantic',stage:1},
-        {key:'trending',kind:'songs',query:'trending Hindi songs',node:'online-shelf-trending',stage:1},
+        {key:'trending',kind:'songs',query:'trending songs 2026',node:'online-shelf-trending',stage:1},
+        {key:'latest',kind:'songs',query:'latest new songs 2026',queries:['latest new songs 2026','new Hindi songs 2026','new Bollywood songs 2026','new Punjabi songs 2026','latest English pop songs 2026','latest Indian music releases 2026','popular new songs 2026'],node:'online-shelf-latest',stage:1},
         {key:'artists',kind:'wall',node:'online-home-artists-mosaic',wrap:'online-shelf-artists-wrap',stage:2},
         {key:'hits',kind:'songs',query:'Hindi hits',node:'online-shelf-hits',stage:2},
-        {key:'englishHits',kind:'songs',query:'English hits',node:'online-shelf-english-hits',stage:2},
+        {key:'englishHits',kind:'songs',query:'English hits',queries:['English hits','popular English songs','English pop hits','international pop hits','Taylor Swift hits','The Weeknd hits','Ed Sheeran hits','Dua Lipa hits'],node:'online-shelf-english-hits',stage:2},
+        {key:'englishHitAlbums',kind:'albums',query:'English hit albums',queries:['English hit albums','popular English albums','international pop albums','The Weeknd albums','Taylor Swift albums','Ed Sheeran albums'],node:'online-shelf-english-hit-albums',stage:2},
+        {key:'englishPlaylists',kind:'playlists',query:'English hits playlists',queries:['English hits playlists','English pop playlists','international hits playlist','top English songs playlist','global pop hits playlist','English party hits playlist','romantic English songs playlist','English workout playlist'],node:'online-shelf-english-playlists',stage:2},
         {key:'forYouArtists',kind:'artists',query:'',node:'online-shelf-for-you-artists',stage:2},
         {key:'punjabi',kind:'playlists',query:'Punjabi love songs',node:'online-shelf-punjabi',stage:3},
         {key:'albums',kind:'albums',query:'Arijit Singh',node:'online-shelf-albums',stage:3}
     ];
     const safeEntity = item => ({id:String(item.id||''),sourceId:String(item.sourceId||''),type:String(item.type||''),title:String(item.title||''),artist:String(item.artist||''),image:String(item.image||''),description:String(item.description||''),year:String(item.year||''),language:String(item.language||''),songCount:Number(item.songCount||0),playCount:Number(item.playCount||0)});
-    const cacheHomeShelves = () => { try { localStorage.setItem(KEYS.shelves,JSON.stringify({savedAt:Date.now(),shelves:Object.fromEntries(Object.entries(homeShelves).map(([key,val])=>[key,{kind:val.kind,items:(val.items||[]).map(item=>val.kind==='songs'?serializeTrack(item):safeEntity(item))}]))})); } catch (_) {} };
+    const cacheHomeShelves = () => { try { localStorage.setItem(KEYS.shelves,JSON.stringify({version:HOME_CACHE_VERSION,savedAt:Date.now(),shelves:Object.fromEntries(Object.entries(homeShelves).map(([key,val])=>[key,{kind:val.kind,items:(val.items||[]).map(item=>val.kind==='songs'?serializeTrack(item):safeEntity(item))}]))})); } catch (_) {} };
     const restoreHomeShelves = () => {
         const stored=safeRead(KEYS.shelves,null);if(!stored?.shelves)return false;
+        const stale=stored.version!==HOME_CACHE_VERSION;
         homeShelves={};
         for(const [key,value] of Object.entries(stored.shelves)){
+            if(stale&&key==='latest')continue;
             const restored=(value.items||[]).map(item=>value.kind==='songs'?restoreTrack(item):item).filter(Boolean);homeShelves[key]={kind:value.kind,items:value.kind==='songs'?dedupeCatalogueTracks(restored):restored};
         }
-        homeLastLoaded=Number(stored.savedAt)||0;return true;
+        homeLastLoaded=stale?0:(Number(stored.savedAt)||0);return true;
     };
     const menuButton = t => `<button type="button" class="icon-btn online-card-menu" data-action="track-options" data-id="${esc(t.id)}" aria-label="More actions for ${esc(t.title)}" title="More actions"><span class="material-symbols-rounded">more_vert</span></button>`;
     const compactRow = (t, context, menu) => `<div class="online-compact-row" role="button" tabindex="0" data-action="online-play-track" data-id="${esc(t.id)}" data-context="${esc(context)}"><img loading="lazy" decoding="async" src="${esc(t.artworkUrl||'')||'./icons/icon-192.png'}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-compact-meta"><span class="online-compact-artist">${esc(t.artist||'')}</span><span class="online-compact-title">${esc(t.title)}</span></span>${menu?menuButton(t):''}</div>`;
@@ -330,16 +507,33 @@
     };
     const collectTrackPages = async query => {
         if(!navigator.onLine||State.playbackSourceMode!=='online')return [];
+        const queries=(Array.isArray(query)?query:[query]).map(value=>String(value||'').trim()).filter(Boolean);
+        if(!queries.length)return [];
+        let merged=[];
         try {
-            const batch=await OnlineMusic.search(query,{page:0,limit:16,background:true});
-            return dedupeCatalogueTracks(batch).slice(0,12);
-        } catch (_) { return []; }
+            for(let offset=0;offset<queries.length;offset+=2){
+                const batch=queries.slice(offset,offset+2);
+                const pages=await Promise.all(batch.map(term=>OnlineMusic.search(term,{page:0,limit:30,background:true}).catch(()=>[])));
+                merged=dedupeCatalogueTracks([...merged,...pages.flatMap(items=>Array.from(items||[]))]);
+                if(merged.length>=16)break;
+            }
+            return merged.slice(0,24);
+        } catch (_) { return merged.slice(0,24); }
     };
     const collectEntityPages = async (kind,query) => {
         if(!navigator.onLine||State.playbackSourceMode!=='online')return [];
+        const queries=(Array.isArray(query)?query:[query]).map(value=>String(value||'').trim()).filter(Boolean);
+        if(!queries.length)return [];
         try {
-            const result=await OnlineMusic.searchEntities(kind,query,{page:0,limit:12});
-            return (result.items||[]).slice(0,12);
+            const pages=await Promise.all(queries.map(term=>OnlineMusic.searchEntities(kind,term,{page:0,limit:25}).catch(()=>({items:[]}))));
+            const seenIds=new Set(),seenNames=new Set(),merged=[];
+            for(const item of pages.flatMap(result=>result.items||[])){
+                const id=String(item.sourceId||item.id||'');
+                const name=String(item.title||'').toLocaleLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+                if(!id||seenIds.has(id)||!name||seenNames.has(name))continue;
+                seenIds.add(id);seenNames.add(name);merged.push(item);
+            }
+            return merged.slice(0,30);
         } catch (_) { return []; }
     };
     const HOME_ARTIST_QUERIES = [
@@ -740,7 +934,8 @@
                 try{
                     if(def.key==='suggested')await refreshSuggestions(force);
                     else{
-                        const items=def.kind==='songs'?await collectTrackPages(def.query):await collectEntityPages(def.kind,def.query);
+                        const lookup=def.queries||def.query;
+                        const items=def.kind==='songs'?await collectTrackPages(lookup):await collectEntityPages(def.kind,lookup);
                         if(items.length)homeShelves[def.key]={kind:def.kind,items:def.kind==='songs'?dedupeCatalogueTracks(items):items};
                     }
                 }catch(_){}
@@ -761,6 +956,19 @@
         })().finally(()=>{homeLoadPromise=null;});
         return homeLoadPromise;
     };
+    const renderRadioCards=(stations,limit=31)=>{
+        const list=(stations||[]).slice(0,limit);
+        return list.map(station=>`<article class="online-radio-card" data-radio-id="${esc(station.id)}" style="--radio-accent:${esc(station.accent||'#6b69ba')}"><button type="button" class="online-radio-card-open" data-action="online-open-radio" data-id="${esc(station.id)}" aria-label="Open ${esc(station.name)} details"><img src="${esc(station.art||'./icons/icon-192.png')}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-radio-overlay"></span><span class="online-radio-copy"><span class="material-symbols-rounded online-radio-signal" aria-hidden="true">radio</span><strong>${esc(station.name)}</strong><small>${esc(station.description||'A fresh mix, made for you')}</small></span></button><button type="button" class="online-radio-play" data-action="online-play-radio" data-id="${esc(station.id)}" aria-label="Play ${esc(station.name)}" title="Play ${esc(station.name)}"><span class="material-symbols-rounded" aria-hidden="true">play_arrow</span></button></article>`).join('');
+    };
+    const renderRadioShelf=()=>{
+        const wrap=document.getElementById('online-shelf-radio-wrap'),node=document.getElementById('online-home-radio');if(!wrap||!node)return;
+        const catalog=discoveryCatalog||DISCOVERY_FALLBACK;const stations=catalog.stations||[];
+        wrap.hidden=!stations.length;
+        const signature=stations.slice(0,31).map(item=>item.id).join('|');
+        if(node.dataset.signature===signature&&node.childElementCount)return;
+        node.dataset.signature=signature;node.innerHTML=renderRadioCards(stations,31);
+        UI.lazyLoadArtwork();
+    };
     const renderHomePersonal = () => {
         updateGreeting();
         renderShelfItem(HOME_DEFS[0],[]);
@@ -779,6 +987,8 @@
     };
     const renderHome = () => {
         if(State.playbackSourceMode!=='online')return;
+        if(!discoveryCatalog)loadDiscoveryCatalog();
+        renderRadioShelf();
         const status=document.getElementById('online-home-connection');if(status)status.hidden=Boolean(navigator.onLine);
         if(!Object.keys(homeShelves).length)restoreHomeShelves();
         const fallback=document.getElementById('online-home-fallback');if(fallback&&Object.values(homeShelves).some(shelf=>shelf?.items?.length))fallback.hidden=true;
@@ -961,6 +1171,193 @@
             if(isCurrent()){UI.showToast('Artist tracks could not load yet. Tap Load more to retry.','info');renderRemoteDetail();}
         }
     };
+    const openCurrentArtist = async (preferredId='', preferredName='') => {
+        const track=Player.getCurrentTrack();
+        if(!track?.artist&&!preferredName)return false;
+        if(State.playbackSourceMode!=='online'){
+            const artistName=String(preferredName||track.artist).split(',')[0].trim();
+            return UI.openContextView('artist',artistName);
+        }
+        const raw=track.raw||{};
+        const candidates=[...(raw.artists?.primary||[]),...(raw.artists?.all||[]),...(raw.artists?.featured||[]),...(raw.artistMap?.primary_artists||[]),...(raw.more_info?.artistMap?.primary_artists||[])];
+        const wanted=String(preferredName||track.artist||'').split(',')[0].trim().toLowerCase();
+        let artist=candidates.find(item=>String(item?.id||item?.artistId||'')===String(preferredId)&&preferredId) || candidates.find(item=>String(item?.name||'').trim().toLowerCase()===wanted&&item?.id) || candidates.find(item=>item?.id);
+        let id=String(preferredId||artist?.id||artist?.artistId||'').trim();
+        if(!id){
+            try{
+                const result=await OnlineMusic.searchEntities('artists',wanted,{page:0,limit:8});
+                const items=Array.isArray(result?.items)?result.items:[];
+                const found=items.find(item=>String(item.title||item.name||'').trim().toLowerCase()===wanted)||items[0];
+                id=String(found?.sourceId||String(found?.id||'').replace(/^artists:/,'')).trim();
+            }catch(_){return false;}
+        }
+        if(!id){UI.showToast('Artist page is not available for this track.','info');return false;}
+        return openRemoteEntity('artists',id);
+    };
+
+    const getDiscoveryCategory=id=>(discoveryCatalog||DISCOVERY_FALLBACK).categories.find(item=>String(item.id)===String(id));
+    const getRadioStation=id=>(discoveryCatalog||DISCOVERY_FALLBACK).stations.find(item=>String(item.id)===String(id));
+    const storeDiscoveryResult=entity=>{
+        if(entity?.kind!=='category'||!entity?.data)return;
+        const data=entity.data;
+        discoveryResultCache[entity.id]={savedAt:Date.now(),tracks:(data.tracks||[]).slice(0,48).map(serializeTrack),playlists:(data.playlists||[]).slice(0,18).map(safeEntity),albums:(data.albums||[]).slice(0,18).map(safeEntity),songOffset:data.songOffset||0,playlistOffset:data.playlistOffset||0,albumOffset:data.albumOffset||0};
+        discoveryResultCache=saveBoundedCache(DISCOVERY_RESULT_KEY,discoveryResultCache,10);
+    };
+    const loadCachedCategory=id=>{
+        const row=discoveryResultCache?.[id];if(!row)return null;
+        return {tracks:(row.tracks||[]).map(restoreTrack).filter(Boolean),playlists:row.playlists||[],albums:row.albums||[],songOffset:Number(row.songOffset)||0,playlistOffset:Number(row.playlistOffset)||0,albumOffset:Number(row.albumOffset)||0,savedAt:Number(row.savedAt)||0};
+    };
+    const setDiscoveryRoute=(kind,id,data,returnView)=>{
+        const previous=document.querySelector('.view.active')?.id||'view-online-home';
+        const parent=previous==='view-online-detail'?activeRemoteEntity:null;
+        const resolvedReturn=returnView||(parent?'online-detail':previous.replace(/^view-/,'')||'online-home');
+        const requestId=++remoteRequestSequence;
+        activeRemoteEntity={kind,id:String(id||kind),data,requestId,returnView:resolvedReturn,parent};
+        UI.switchView('online-detail');
+        return requestId;
+    };
+    const interleaveTrackBatches=batches=>{
+        const rows=(Array.isArray(batches)?batches:[]).map(batch=>Array.isArray(batch)?batch:[]);
+        const out=[];const max=rows.reduce((n,row)=>Math.max(n,row.length),0);
+        for(let index=0;index<max;index++)for(const row of rows)if(row[index])out.push(row[index]);
+        return dedupeCatalogueTracks(out).slice(0,60);
+    };
+    const fetchDiscoverySongs=async(queries,page=0)=>{
+        const terms=(Array.isArray(queries)?queries:[queries]).map(value=>String(value||'').trim()).filter(Boolean);
+        if(!navigator.onLine||!terms.length)return [];
+        const batches=await Promise.all(terms.map(query=>OnlineMusic.search(query,{page,limit:30,background:true}).catch(()=>[])));
+        return interleaveTrackBatches(batches).slice(0,48);
+    };
+    const fetchCategoryBatch=async(entity,requestId,first=false)=>{
+        const category=getDiscoveryCategory(entity?.id);if(!category||!entity?.data)return;
+        const data=entity.data;
+        const songStart=Number(data.songOffset)||0,playlistStart=Number(data.playlistOffset)||0,albumStart=Number(data.albumOffset)||0;
+        const songQueries=(category.songs||[]).slice(songStart,songStart+(first?2:2));
+        const playlistQueries=(category.playlists||[]).slice(playlistStart,playlistStart+1);
+        const albumQueries=(category.albums||[]).slice(albumStart,albumStart+1);
+        if(!songQueries.length&&!playlistQueries.length&&!albumQueries.length){data.hasMore=false;renderRemoteDetail();return;}
+        data.loadingDiscovery=true;data.artistLoadError=false;renderRemoteDetail();
+        const [tracks,playlistsResult,albumsResult]=await Promise.all([
+            fetchDiscoverySongs(songQueries,0),
+            collectEntityPages('playlists',playlistQueries),
+            collectEntityPages('albums',albumQueries)
+        ]);
+        if(!activeRemoteEntity||activeRemoteEntity.requestId!==requestId||activeRemoteEntity.kind!=='category')return;
+        data.tracks=dedupeCatalogueTracks([...(data.tracks||[]),...tracks]);
+        data.playlists=mergeUnique(data.playlists||[],playlistsResult,'playlists').items;
+        data.albums=mergeUnique(data.albums||[],albumsResult,'albums').items;
+        data.songOffset=songStart+songQueries.length;data.playlistOffset=playlistStart+playlistQueries.length;data.albumOffset=albumStart+albumQueries.length;
+        data.hasMore=data.songOffset<(category.songs||[]).length||data.playlistOffset<(category.playlists||[]).length||data.albumOffset<(category.albums||[]).length;
+        data.loadingDiscovery=false;data.savedAt=Date.now();storeDiscoveryResult(entity);renderRemoteDetail();
+    };
+    const openCategory=async id=>{
+        const catalog=await loadDiscoveryCatalog();const category=catalog.categories.find(item=>String(item.id)===String(id));if(!category)return;
+        if(State.playbackSourceMode!=='online'){const enabled=await OnlineMusic.setMode('online');if(!enabled)return;}
+        const current=document.querySelector('.view.active')?.id||'view-online-search';
+        const returnView=current==='view-online-detail'?(activeRemoteEntity?.returnView||'online-search'):current.replace(/^view-/,'');
+        const cached=loadCachedCategory(category.id);
+        const data={id:category.id,title:category.label,description:category.description,image:category.art,theme:category.theme,tracks:cached?.tracks||[],playlists:cached?.playlists||[],albums:cached?.albums||[],songOffset:cached?.songOffset||0,playlistOffset:cached?.playlistOffset||0,albumOffset:cached?.albumOffset||0,hasMore:true,loadingDiscovery:!cached?.tracks?.length};
+        const requestId=setDiscoveryRoute('category',category.id,data,returnView);
+        renderRemoteDetail();
+        if(!navigator.onLine){if(!data.tracks.length)UI.showToast('Connect to load this category.','info');return;}
+        if(cached&&Date.now()-cached.savedAt<6*60*60*1000){data.hasMore=data.songOffset<(category.songs||[]).length||data.playlistOffset<(category.playlists||[]).length||data.albumOffset<(category.albums||[]).length;return;}
+        await fetchCategoryBatch(activeRemoteEntity,requestId,!cached);
+    };
+    const loadMoreCategory=async()=>{
+        const entity=activeRemoteEntity;if(entity?.kind!=='category'||entity.data?.loadingDiscovery)return;
+        const requestId=entity.requestId;await fetchCategoryBatch(entity,requestId,false);
+    };
+    const playCategory=()=>{
+        const entity=activeRemoteEntity;if(entity?.kind!=='category')return;
+        const tracks=dedupeCatalogueTracks(entity.data?.tracks||[]);if(!tracks.length){UI.showToast('This category has no playable tracks loaded yet.','info');return;}
+        activeRadioSession=null;setSearchContext(tracks);Player.playContext(tracks,0);saveQueueSnapshot('online');
+    };
+    const fetchRadioTracks=async(station,page=0)=>{
+        const cached=cachedRadioTracks(station,page);if(cached.length)return cached;
+        const seedTerms=(Array.isArray(station.seedQueries)&&station.seedQueries.length?station.seedQueries:station.queries||[station.name]).map(value=>String(value||'').trim()).filter(Boolean);
+        const batches=[];
+        for(const query of seedTerms.slice(0,3)){
+            const rows=await fetchDiscoverySongs([query],page);
+            if(rows.length)batches.push(rows);
+        }
+        let tracks=interleaveTrackBatches(batches).slice(0,48);
+        if(tracks.length<8){
+            const used=new Set(seedTerms);
+            for(const query of (station.queries||[]).map(value=>String(value||'').trim()).filter(value=>value&&!used.has(value)).slice(0,2)){
+                const rows=await fetchDiscoverySongs([query],page);
+                if(rows.length)batches.push(rows);
+                tracks=interleaveTrackBatches(batches).slice(0,48);
+                if(tracks.length>=18)break;
+            }
+        }
+        if(tracks.length)saveRadioTracks(station,page,tracks);
+        return tracks;
+    };
+    const openRadioDirectory=async()=>{
+        const catalog=await loadDiscoveryCatalog();const current=document.querySelector('.view.active')?.id||'view-online-home';
+        const returnView=current==='view-online-detail'?(activeRemoteEntity?.returnView||'online-home'):current.replace(/^view-/,'');
+        setDiscoveryRoute('radio-directory','all-stations',{title:'Radio',description:'Choose a station. Every mix is generated from catalogue searches and shuffled to avoid recent repeats.',stations:catalog.stations||[]},returnView);
+        renderRemoteDetail();
+    };
+    const openRadioStation=async id=>{
+        const catalog=await loadDiscoveryCatalog();const station=catalog.stations.find(item=>String(item.id)===String(id));if(!station)return;
+        if(State.playbackSourceMode!=='online'){const enabled=await OnlineMusic.setMode('online');if(!enabled)return;}
+        const current=document.querySelector('.view.active')?.id||'view-online-home';const returnView=current==='view-online-detail'?(activeRemoteEntity?.returnView||'online-home'):current.replace(/^view-/,'');
+        const cached=cachedRadioTracks(station,0);
+        const data={id:station.id,title:station.name,description:station.description,image:station.art,accent:station.accent,station,tracks:cached,loadingRadio:!cached.length};
+        const requestId=setDiscoveryRoute('radio',station.id,data,returnView);renderRemoteDetail();
+        if(!cached.length&&navigator.onLine){const tracks=await fetchRadioTracks(station,0);if(activeRemoteEntity?.requestId!==requestId)return;data.tracks=tracks;data.loadingRadio=false;renderRemoteDetail();}
+    };
+    const startRadio=async(stationOrId,artistName='')=>{
+        const catalog=await loadDiscoveryCatalog();let station=typeof stationOrId==='object'?stationOrId:catalog.stations.find(item=>String(item.id)===String(stationOrId));
+        if(!station){UI.showToast('This radio station is unavailable.','info');return false;}
+        if(State.playbackSourceMode!=='online'){const enabled=await OnlineMusic.setMode('online');if(!enabled)return false;}
+        if(!navigator.onLine){UI.showToast('Connect to start radio.','info');return false;}
+        const id=String(station.id), title=String(station.name||artistName||'Radio');
+        UI.showToast(`Tuning in to ${title}…`,'info');
+        let tracks=await fetchRadioTracks(station,0);
+        if(tracks.length<8){for(const query of (station.queries||[]).slice(0,2)){const extra=await fetchDiscoverySongs([query],0);tracks=dedupeCatalogueTracks([...tracks,...extra]).slice(0,60);if(tracks.length>=18)break;}}
+        if(!tracks.length){UI.showToast('Could not find tracks for this radio yet. Try again in a moment.','error');return false;}
+        const history=getRadioHistory(id),recent=new Set(history.slice(-72));
+        let fresh=tracks.filter(track=>!radioTrackKeys(track).some(key=>recent.has(key)));
+        if(fresh.length<8){const shortHistory=new Set(history.slice(-20));fresh=tracks.filter(track=>!radioTrackKeys(track).some(key=>shortHistory.has(key)));}
+        if(!fresh.length)fresh=tracks;
+        const ordered=shuffleTracks(fresh).slice(0,48);
+        activeRadioSession={id,title,station:{...station,queries:[...(station.queries||[])]},page:1,trackIds:new Set(ordered.map(track=>track.id)),catalogTracks:tracks,artistRadio:Boolean(station.artistId)};
+        shelfContexts.set(`radio:${id}`,ordered);setSearchContext(ordered);Player.playContext(ordered,0);saveQueueSnapshot('online');
+        UI.showToast(`${title} is playing`, 'check_circle');return true;
+    };
+    const startArtistRadio=async(id,name)=>{
+        const artistName=String(name||'Artist').trim();const safeId=String(id||`artist-${titleKey(artistName).replace(/\s+/g,'-')}`);
+        const station={id:`artist-${safeId}`,name:`${artistName} Radio`,description:`A shuffled mix inspired by ${artistName} and related catalogue searches.`,art:'',accent:'#9266d3',artistId:safeId,queries:[artistName,`${artistName} popular songs`,`${artistName} hits`]};
+        return startRadio(station,artistName);
+    };
+    const extendRadioQueue=async currentTrack=>{
+        const session=activeRadioSession;if(!session||State.playbackSourceMode!=='online'||!navigator.onLine)return [];
+        const queued=new Set([...(State.queue||[]),...(State.playbackOrder||[])]);
+        for(let attempt=0;attempt<3;attempt++){
+            const page=session.page++;
+            let batch=await fetchRadioTracks(session.station,page);
+            if(!batch.length&&attempt===0)batch=await fetchDiscoverySongs((session.station.queries||[]).map(q=>`${q} playlist`),page);
+            const history=new Set(getRadioHistory(session.id).slice(-72));
+            const fresh=dedupeCatalogueTracks(batch).filter(track=>!queued.has(track.id)&&!radioTrackKeys(track).some(key=>history.has(key)));
+            if(!fresh.length)continue;
+            const append=shuffleTracks(fresh).slice(0,30);
+            const ids=append.map(track=>track.id);State.queue=[...(State.queue||[]),...ids];State.playbackOrder=[...(State.playbackOrder||[]),...ids];
+            append.forEach(track=>session.trackIds.add(track.id));session.catalogTracks=dedupeCatalogueTracks([...(session.catalogTracks||[]),...append]);
+            shelfContexts.set(`radio:${session.id}`,session.catalogTracks);saveQueueSnapshot('online');UI.renderQueue();return append;
+        }
+        return [];
+    };
+    const getPlaybackLabel=track=>{
+        const trackId=String(track?.id||'');
+        if(activeRadioSession&&trackId&&activeRadioSession.trackIds.has(trackId))return activeRadioSession.title;
+        const entity=activeRemoteEntity;
+        if(entity?.kind==='category'&&(entity.data?.tracks||[]).some(item=>String(item.id)===trackId))return `${entity.data.title} Mix`;
+        if(track?.source!=='machhar-online')return State.currentContextType==='playlist'?'From Playlist':'From Your Library';
+        if(State.currentContextType==='playlist')return 'From Playlist';
+        return 'Online Music';
+    };
     const openRemoteEntity = async (kind,id) => {
         if(!['playlists','albums','artists'].includes(kind)||!id)return;
         const previousEntity=activeRemoteEntity;
@@ -971,6 +1368,17 @@
         activeRemoteEntity={kind,id:String(id),data:null,requestId,returnView,parent};
         UI.switchView('online-detail');
         const node=document.getElementById('online-remote-detail');if(node)node.innerHTML='<div class="online-skeleton-list"><span></span><span></span><span></span></div>';
+        if(kind==='artists'){
+            const sourceId=String(id).replace(/^artists:/,'');
+            const cachedArtist=artistCatalogue.find(item=>String(item.sourceId||String(item.id||'').replace(/^artists:/,''))===sourceId);
+            const current=Player.getCurrentTrack();
+            const rawArtists=[...(current?.raw?.artists?.primary||[]),...(current?.raw?.artists?.all||[]),...(current?.raw?.artists?.featured||[]),...(current?.raw?.artistMap?.primary_artists||[])];
+            const rawArtist=rawArtists.find(item=>String(item.id||item.artistId||'')===sourceId);
+            const title=cachedArtist?.title||rawArtist?.name|| (current?.artist||'').split(',')[0] || 'Artist';
+            const image=cachedArtist?.image||OnlineMusic.getImage?.(rawArtist||{})||'';
+            activeRemoteEntity.data={id:`artists:${sourceId}`,sourceId,title,image,description:cachedArtist?.description||'',tracks:[],albums:[],artists:[],total:0,totalSongs:0,totalAlbums:0,loadingTracks:true,hasMoreTracks:false,failedSongPages:[],songPage:-1,songPageSize:10,albumPage:-1,albumPageSize:6};
+            renderRemoteDetail();
+        }
         try{
             let data;
             if(kind==='playlists')data=await OnlineMusic.fetchPublicPlaylist(id,{page:0,limit:50});
@@ -1015,7 +1423,64 @@
             return true;
         }catch(error){UI.showToast(error?.message||'Could not open that music link. Check it and try again.','info');return false;}
     };
+    const artistFact = (label,value) => value !== undefined && value !== null && String(value).trim() !== ''
+        ? `<div class="online-artist-fact"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>` : '';
+    const safeArtistLink = value => {
+        const raw=String(value||'').trim();if(!raw)return '';
+        try{const url=new URL(raw);return ['https:','http:'].includes(url.protocol)?url.href:'';}catch(_){return '';}
+    };
+    const artistLanguages = value => (Array.isArray(value)?value:[]).map(item=>typeof item==='string'?item:(item?.name||item?.language||item?.value||item?.title||'')).map(value=>String(value||'').trim()).filter(Boolean);
+    const artistCount = value => {
+        if(value===undefined||value===null||value==='')return '';
+        const numeric=Number(value);
+        if(Number.isFinite(numeric)&&numeric>0)return new Intl.NumberFormat(undefined,{notation:numeric>=1000?'compact':'standard',maximumFractionDigits:1}).format(numeric);
+        return String(value);
+    };
+    const renderArtistProfile = e => {
+        const raw=e.raw||{};const facts=[];
+        const fans=raw.fanCount||e.fanCount||e.followerCount||raw.followerCount;
+        const fanText=artistCount(fans);
+        if(fanText)facts.push(artistFact('Fans',fanText));
+        if(e.dominantLanguage)facts.push(artistFact('Main language',e.dominantLanguage));
+        if(e.dominantType)facts.push(artistFact('Artist type',e.dominantType));
+        if(e.dob)facts.push(artistFact('Born',e.dob));
+        if(e.totalSongs)facts.push(artistFact('Songs',artistCount(e.totalSongs)));
+        if(e.totalAlbums)facts.push(artistFact('Albums',artistCount(e.totalAlbums)));
+        if(e.isVerified)facts.unshift('<span class="online-verified-artist"><span class="material-symbols-rounded">verified</span> Verified artist</span>');
+        if(e.isRadioPresent)facts.push(artistFact('Artist radio','Available'));
+        const langs=artistLanguages(e.availableLanguages||raw.availableLanguages);
+        const languageMarkup=langs.length?`<div class="online-artist-language-row"><span>Available in</span><div>${langs.slice(0,10).map(lang=>`<span>${esc(lang)}</span>`).join('')}${langs.length>10?`<span>+${langs.length-10}</span>`:''}</div></div>`:'';
+        const links=[['Artist page',raw.url],['Wikipedia',raw.wiki],['Facebook',raw.fb],['X / Twitter',raw.twitter]].map(([label,value])=>({label,url:safeArtistLink(value)})).filter(item=>item.url);
+        const linksMarkup=links.length?`<div class="online-artist-links">${links.map(item=>`<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.label)}<span class="material-symbols-rounded">north_east</span></a>`).join('')}</div>`:'';
+        const bioRows=(Array.isArray(e.bioRows)?e.bioRows:[]).filter(row=>String(row?.text||row?.title||'').trim());
+        const biography=bioRows.length?`<details class="online-artist-biography"><summary>Biography details</summary><div class="online-artist-biography-content">${bioRows.map(row=>`<section>${row.title?`<h3>${esc(row.title)}</h3>`:''}${row.text?`<p>${esc(row.text)}</p>`:''}</section>`).join('')}</div></details>`:'';
+        if(!facts.length&&!languageMarkup&&!linksMarkup&&!biography)return '';
+        return `<section class="online-artist-profile-data" aria-label="Artist information">${facts.length?`<div class="online-artist-facts">${facts.join('')}</div>`:''}${languageMarkup}${linksMarkup}${biography}</section>`;
+    };
+    const renderDiscoveryDetail=()=>{
+        const node=document.getElementById('online-remote-detail');if(!node||!activeRemoteEntity?.data)return;
+        const entity=activeRemoteEntity,data=entity.data;
+        if(entity.kind==='radio-directory'){
+            node.innerHTML=`<section class="online-radio-directory"><div class="online-discovery-eyebrow">MACHHAR RADIO</div><h1>${esc(data.title||'Radio')}</h1><p>${esc(data.description||'Choose a station and let the music run.')}</p><div class="online-radio-grid">${renderRadioCards(data.stations||[],31)}</div></section>`;
+            UI.lazyLoadArtwork();return;
+        }
+        const context=entity.kind==='category'?`category:${entity.id}`:`radio:${entity.id}`;
+        const tracks=dedupeCatalogueTracks(data.tracks||[]);shelfContexts.set(context,tracks);
+        const playButton=entity.kind==='category'?`<button class="btn btn-primary" data-action="online-play-category" data-id="${esc(entity.id)}"><span class="material-symbols-rounded">play_arrow</span>Play collection</button>`:`<button class="btn btn-primary" data-action="online-play-radio" data-id="${esc(entity.id)}"><span class="material-symbols-rounded">play_arrow</span>Play radio</button>`;
+        const hero=`<section class="online-discovery-hero" style="--discovery-accent:${esc(data.accent||'#8062c9')}"><img src="${esc(data.image||'./icons/icon-192.png')}" alt="" loading="eager" decoding="async" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><div class="online-discovery-shade"></div><div class="online-discovery-hero-copy"><span class="online-discovery-eyebrow">${entity.kind==='category'?'BROWSE CATEGORY':'MACHHAR RADIO'}</span><h1>${esc(data.title||'Music')}</h1><p>${esc(data.description||'A collection picked for this moment.')}</p><div class="online-discovery-actions">${playButton}${entity.kind==='radio'?'<span class="online-radio-live-pill"><i></i> RADIO MIX</span>':''}</div></div></section>`;
+        if(entity.kind==='radio'){
+            const waiting=data.loadingRadio&&!tracks.length;
+            node.innerHTML=`${hero}<section class="online-discovery-section"><div class="online-shelf-heading"><h2>Up Next</h2><span class="online-section-note">${tracks.length?`${tracks.length} tracks queued`:waiting?'Finding tracks…':'No tracks loaded'}</span></div>${waiting?'<div class="online-skeleton-list"><span></span><span></span><span></span></div>':renderTrackRows(tracks.slice(0,30),context,'This station has no playable tracks yet.')}<div class="online-load-more-wrap"><button class="btn" data-action="online-play-radio" data-id="${esc(entity.id)}">Shuffle and play radio</button></div></section>`;
+            UI.lazyLoadArtwork();return;
+        }
+        const playlistSection=(data.playlists||[]).length?`<section class="online-discovery-section"><div class="online-shelf-heading"><h2>Playlists</h2><span class="online-section-note">Curated for ${esc(data.title)}</span></div><div class="online-card-rail">${renderEntityRail(data.playlists,'playlists')}</div></section>`:'';
+        const albumSection=(data.albums||[]).length?`<section class="online-discovery-section"><div class="online-shelf-heading"><h2>Albums</h2><span class="online-section-note">From the catalogue</span></div><div class="online-card-rail">${renderEntityRail(data.albums,'albums')}</div></section>`:'';
+        const songsSection=`<section class="online-discovery-section"><div class="online-shelf-heading"><h2>Popular tracks</h2><span class="online-section-note">${tracks.length?`${tracks.length} songs`:data.loadingDiscovery?'Loading…':'Catalogue picks'}</span></div>${data.loadingDiscovery&&!tracks.length?'<div class="online-skeleton-list"><span></span><span></span><span></span></div>':renderTrackRows(tracks.slice(0,30),context,'No tracks have loaded yet.')}<div class="online-load-more-wrap">${data.hasMore?'<button class="btn" data-action="online-load-category-more">Load more music</button>':''}</div></section>`;
+        node.innerHTML=`${hero}${playlistSection}${songsSection}${albumSection}`;
+        UI.lazyLoadArtwork();
+    };
     const renderRemoteDetail = () => {
+        if(activeRemoteEntity&&['category','radio','radio-directory'].includes(activeRemoteEntity.kind)){renderDiscoveryDetail();return;}
         const node=document.getElementById('online-remote-detail');if(!node||!activeRemoteEntity?.data)return;
         const e=activeRemoteEntity.data;const tracks=e.tracks||[];const kind=activeRemoteEntity.kind;
         shelfContexts.set(`detail:${kind}:${activeRemoteEntity.id}`,tracks);
@@ -1023,10 +1488,14 @@
         const more=showMore?'<div class="online-load-more-wrap"><button class="btn" data-action="online-load-remote-more">Load more</button></div>':'';
         const artistHeading=kind==='artists'?`<div class="online-artist-detail-heading"><h3>Songs</h3><span class="online-artist-progress">${e.loadingTracks?`${tracks.length.toLocaleString()}${e.total?` / ${Number(e.total).toLocaleString()}`:''} loading`:tracks.length.toLocaleString()+' tracks'}</span></div>`:`<div class="online-collection-heading"><h3>${tracks.length?`${tracks.length} songs`: 'Songs'}</h3></div>`;
         const similar=kind==='artists'&&e.artists?.length?`<section class="online-detail-albums online-detail-similar"><div class="online-shelf-heading"><h2>Similar Artists</h2><div class="online-rail-controls"><button class="icon-btn online-shelf-more" data-action="online-scroll-rail" data-target="online-detail-similar-rail" data-direction="left" aria-label="Scroll similar artists left"><span class="material-symbols-rounded">arrow_back</span></button><button class="icon-btn online-shelf-more" data-action="online-scroll-rail" data-target="online-detail-similar-rail" data-direction="right" aria-label="Scroll similar artists right"><span class="material-symbols-rounded">arrow_forward</span></button></div></div><div id="online-detail-similar-rail" class="online-card-rail online-artist-rail">${renderEntityRail(e.artists,'artists')}</div></section>`:'';
-        const albums=kind==='artists'&&e.albums?.length?`<section class="online-detail-albums"><div class="online-shelf-heading"><h2>Albums</h2>${e.totalAlbums>e.albums.length?`<button class="text-action" data-action="online-load-artist-albums">More</button>`:''}</div><div class="online-card-rail">${renderEntityRail(e.albums,'albums')}</div></section>`:'';
-        const loadingNote=kind==='artists'&&e.loadingTracks&&tracks.length===0?'<div class="online-empty-inline">Loading tracks…</div>':'';
+        const albums=kind==='artists'&&e.albums?.length?`<section class="online-detail-albums online-artist-albums"><div class="online-shelf-heading"><h2>Albums</h2>${e.totalAlbums>e.albums.length?`<button class="text-action" data-action="online-load-artist-albums">See all</button>`:''}</div><div class="online-card-rail">${renderEntityRail(e.albums,'albums')}</div></section>`:'';
+        const loadingNote=kind==='artists'&&e.loadingTracks&&tracks.length===0?'<div class="online-empty-inline">Loading top songs…</div>':'';
         const errorNote=kind==='artists'&&e.artistLoadError?'<div class="online-empty-inline">Some tracks may be missing. Try again when connected.</div>':'';
-        node.innerHTML=`<div class="online-detail-hero ${kind==='artists'?'online-artist-detail-hero':''}"><img src="${esc(e.image||'./icons/icon-192.png')}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><div class="online-detail-copy"><div class="online-mini-label">${kind==='playlists'?'Playlist':kind==='albums'?'Album':'Artist'}</div><h2>${esc(e.title||'Collection')}</h2><div class="online-entity-subtitle">${esc(kind==='artists'?(e.description||e.raw?.dominantLanguage||''):(e.artist||e.description||''))}</div><div class="online-action-row"><button class="btn btn-primary" data-action="online-play-remote-entity">Play</button>${kind==='playlists'?`<button class="btn" data-action="online-save-remote-playlist">Save playlist</button>`:''}</div></div></div>${similar}${albums}${artistHeading}${loadingNote}${renderTrackRows(tracks,`online-remote:${kind}:${activeRemoteEntity.id}`,kind==='artists'&&e.hasMoreTracks?'No songs loaded yet. Use Load more to retry.':'No tracks in this collection.')}${errorNote}${more}`;
+        const artistProfile=kind==='artists'?renderArtistProfile(e):'';
+        const singles=kind==='artists'&&e.singles?.length?`<section class="online-artist-singles"><div class="online-shelf-heading"><h2>Singles &amp; featured tracks</h2><span class="online-section-note">${e.singles.length.toLocaleString()} tracks</span></div>${renderTrackRows(e.singles,`online-artist-singles:${activeRemoteEntity.id}`,'No singles listed.')}</section>`:'';
+        const hero=`<div class="online-detail-hero ${kind==='artists'?'online-artist-detail-hero':''}"><img src="${esc(e.image||'./icons/icon-192.png')}" alt="${esc(e.title||'')}" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><div class="online-detail-copy"><div class="online-mini-label">${kind==='playlists'?'Playlist':kind==='albums'?'Album':'Artist'}</div><h2>${esc(e.title||'Collection')}</h2>${kind==='artists'&&e.description?`<div class="online-entity-subtitle online-artist-bio" id="online-artist-bio">${esc(e.description)}</div>${e.description.length>100?'<button class="online-bio-more" data-action="online-toggle-artist-bio" aria-expanded="false">Read more</button>':''}`:`<div class="online-entity-subtitle">${esc(kind==='artists'?(e.description||e.raw?.dominantLanguage||''):(e.artist||e.description||''))}</div>`}<div class="online-action-row"><button class="btn btn-primary" data-action="online-play-remote-entity">Play</button>${kind==='artists'?`<button class="btn" data-action="online-start-artist-radio" data-id="${esc(e.sourceId||e.id)}" data-name="${esc(e.title)}"><span class="material-symbols-rounded">radio</span> Artist Radio</button>`:''}${kind==='playlists'?`<button class="btn" data-action="online-save-remote-playlist">Save playlist</button>`:''}</div></div></div>`;
+        const trackSection=`${artistHeading}${loadingNote}${renderTrackRows(tracks,`online-remote:${kind}:${activeRemoteEntity.id}`,kind==='artists'&&e.hasMoreTracks?'No songs loaded yet. Use Load more to retry.':'No tracks in this collection.')}${errorNote}${more}`;
+        node.innerHTML=kind==='artists'?`${hero}${artistProfile}${trackSection}${albums}${singles}${similar}`:`${hero}${similar}${albums}${trackSection}`;
         UI.lazyLoadArtwork();
     };
     const loadMoreRemote = async () => {
@@ -1200,7 +1669,7 @@
         else if(active==='view-online-playlists'){publicPlaylistResults=[];setLibraryTab(libraryTab);}
         else if(active==='view-online-history')renderHistory();
         else if(active==='view-online-queue')renderQueue();
-        else if(active==='view-online-detail'&&activeRemoteEntity)openRemoteEntity(activeRemoteEntity.kind,activeRemoteEntity.id);
+        else if(active==='view-online-detail'&&activeRemoteEntity){if(['category','radio','radio-directory'].includes(activeRemoteEntity.kind))renderRemoteDetail();else openRemoteEntity(activeRemoteEntity.kind,activeRemoteEntity.id);}
     };
     const renderActiveView = vid => {
         if(vid==='online-home')renderHome();
@@ -1212,10 +1681,12 @@
         if(vid==='online-history')renderHistory();
         if(vid==='online-queue')renderQueue();
         if(vid==='online-detail'&&activeRemoteEntity?.data)renderRemoteDetail();
+        if(vid==='online-home')renderRadioShelf();
         if(vid==='online-artists')renderArtistExplorer();
     };
     const recordPlay = track => {
         if(!track || !OnlineMusic.isOnlineTrack(track))return;
+        if(activeRadioSession){if(activeRadioSession.trackIds.has(String(track.id)))rememberRadioTrack(activeRadioSession.id,track);else activeRadioSession=null;}
         const now=Date.now(),rawArtists=track.raw?.artists?.primary||track.raw?.artists?.all||track.raw?.more_info?.artistMap?.primary_artists||[];
         const artistNames=Array.isArray(rawArtists)?rawArtists.map(item=>({name:String(item?.name||item||'').trim(),id:String(item?.id||''),image:OnlineMusic.resolveArtistArtwork?.(track.raw,item?.id,item?.name)||''})).filter(item=>item.name):[];
         if(!artistNames.length)artistNames.push(...String(track.artist||'').split(/\s*,\s*|\s+&\s+/).map(name=>({name:name.trim(),id:'',image:''})).filter(item=>item.name&&item.name.toLowerCase()!=='unknown artist'));
@@ -1366,7 +1837,7 @@
         const input=document.getElementById('online-search-input');
         if(input&&input.dataset.bound!=='1'){
             input.dataset.bound='1';let timer;
-            input.addEventListener('input',()=>{clearTimeout(timer);const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!input.value.trim();timer=setTimeout(()=>performSearch(input.value),300);});
+            input.addEventListener('input',()=>{clearTimeout(timer);const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!input.value.trim();const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=input.value.trim().length>=2;if(input.value.trim().length<2){renderSearchBlank();return;}const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;timer=setTimeout(()=>performSearch(input.value),120);});
             input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);performSearch(input.value);}});
         }
         initBackToTop();restoreQueueSnapshot(State.playbackSourceMode==='online'?'online':'offline');updateWorkspaceUI();renderSearchHistory();setSearchTypeUI();renderSearchBlank();setLibraryTab('playlists');
@@ -1400,7 +1871,7 @@
         const summary=document.getElementById('online-library-summary');
         if(summary)summary.textContent=`${onlineFavorites.length} liked · ${playlists.length} playlists · ${onlineHistory.length} recently played`;
     };
-    const CACHE_NAMES = ['mujic-api-v1','mujic-art-v1','mujic-media-images-v4','mujic-media-chunks-v4'];
+    const CACHE_NAMES = ['mujic-api-v2','mujic-art-v2','mujic-media-images-v4','mujic-media-chunks-v4'];
     const cachingEnabled = () => localStorage.getItem(KEYS.caching)!=='0';
     const postToWorker = message => {
         try{navigator.serviceWorker?.controller?.postMessage(message);}catch(_){}
@@ -1511,5 +1982,5 @@
     const backToPlaylists = () => { activePlaylistId=null; renderPlaylists(); };
     const getOnlineHistory = () => onlineHistory.map(trackById).filter(Boolean);
     const getSearchResults = () => searchResults.slice();
-    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,saveQueueSnapshot,setSearchType,openRemoteEntity,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},playTrackFromShelf:(id,context)=>{const list=shelfContexts.get(context)||[];const ix=list.findIndex(t=>t.id===id);if(ix>=0){const ordered=[...list.slice(ix),...list.slice(0,ix)];setSearchContext(list);Player.playContext(ordered,0);}else{const t=trackById(id);if(t)Player.playContext([t],0);}},clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,openLikedFromHome,renderSettings,renderSettingsStats,renderSettingsCache,setCaching,clearAllCaches,resetTaste,exportStreamingLibrary,importStreamingLibrary,getListeningStats,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal};
+    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,saveQueueSnapshot,setSearchType,openRemoteEntity,openCurrentArtist,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,openCategory,openRadioDirectory,openRadioStation,startRadio,startArtistRadio,extendRadioQueue,playCategory,loadMoreCategory,isRadioActive:()=>Boolean(activeRadioSession&&State.playbackSourceMode==='online'),getPlaybackLabel,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},playTrackFromShelf:(id,context)=>{const list=shelfContexts.get(context)||[];const ix=list.findIndex(t=>t.id===id);if(ix>=0){const ordered=[...list.slice(ix),...list.slice(0,ix)];setSearchContext(list);Player.playContext(ordered,0);}else{const t=trackById(id);if(t)Player.playContext([t],0);}},clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,openLikedFromHome,renderSettings,renderSettingsStats,renderSettingsCache,setCaching,clearAllCaches,resetTaste,exportStreamingLibrary,importStreamingLibrary,getListeningStats,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal};
 })();

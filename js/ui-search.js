@@ -38,5 +38,5 @@
                 if (songs.length) htmlOut += `<div class="section-title" style="padding:16px 16px 0;">Songs</div><div class="track-list">${songs.map(t => UI.buildTrackRow(t, 'search')).join('')}</div>`;
                 c.innerHTML = htmlOut || `<div class="search-no-results"><div class="empty-title">No matching songs found</div><div class="empty-desc">Mujic couldn't find “${Utils.escapeHTML(e.target.value || '')}” in your local library.</div><button type="button" class="btn btn-primary search-download-cta" data-action="find-music-online">Find more music <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span></button></div>`;
                 UI.lazyLoadArtwork();
-            }, 300),
+            }, 140),
         });

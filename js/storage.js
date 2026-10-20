@@ -99,7 +99,7 @@
             
             SAVED_KEYS: ['favorites','favoriteArtists','history','queue','currentTrackId','playbackSourceMode','volume','muted','repeat','shuffle','eq','eqPreset','eqBands',
                 'theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','interfaceStyle','cornerRadius','motion',
-                'lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis',
+                'lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsWordByWord','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis',
                 'playerBackground','playerArtworkMode','visualizerMode','resumePlayback','resumePosition','librarySort','librarySortDir','showArtworkLists','playStats',
                 'crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed',
                 'progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','keyboardShortcutsEnabled','keyBindings'],
@@ -136,11 +136,14 @@
                     }
                     
                     if(s.theme !== undefined) State.theme = s.theme; if(s.accentPreset !== undefined) State.accentPreset = s.accentPreset; if(s.lowEndMode !== undefined) State.lowEndMode = !!s.lowEndMode; if(s.performanceProfile !== undefined && ['auto','low-end','full'].includes(s.performanceProfile)) State.performanceProfile = s.performanceProfile;
-                    if(s.accentColor !== undefined) State.accentColor = s.accentColor; if(s.surfaceTheme !== undefined && ['oled','graphite','midnight','warm','forest'].includes(s.surfaceTheme)) State.surfaceTheme = s.surfaceTheme; if(s.textScale !== undefined && ['compact','normal','large'].includes(s.textScale)) State.textScale=s.textScale; if(s.layoutDensity !== undefined && ['compact','comfortable','spacious'].includes(s.layoutDensity)) State.layoutDensity=s.layoutDensity; if(s.interfaceStyle !== undefined) State.interfaceStyle = s.interfaceStyle;
-                    if(s.cornerRadius !== undefined) State.cornerRadius = s.cornerRadius; if(s.motion !== undefined) State.motion = s.motion;
+                    if(s.accentColor !== undefined) State.accentColor = s.accentColor; if(s.surfaceTheme !== undefined && ['oled','graphite','midnight','warm','forest'].includes(s.surfaceTheme)) State.surfaceTheme = s.surfaceTheme; if(s.textScale !== undefined && ['compact','normal','large'].includes(s.textScale)) State.textScale=s.textScale; if(s.layoutDensity !== undefined && ['compact','comfortable','spacious'].includes(s.layoutDensity)) State.layoutDensity=s.layoutDensity;
+                    if (['subtle','strong','off'].includes(s.interfaceStyle)) State.interfaceStyle=s.interfaceStyle; else if (s.interfaceStyle==='glass') State.interfaceStyle='subtle'; else if (s.interfaceStyle==='solid') State.interfaceStyle='off';
+                    if (['sharp','medium','rounded','extra'].includes(s.cornerRadius)) State.cornerRadius=s.cornerRadius; else if (s.cornerRadius==='pill') State.cornerRadius='extra';
+                    if(s.motion !== undefined) State.motion = s.motion;
                     if(s.lyricsStyle !== undefined && ['apple','spotify','neon'].includes(s.lyricsStyle)) State.lyricsStyle = s.lyricsStyle;
                     if(s.lyricsPosition !== undefined && ['upper','center','lower'].includes(s.lyricsPosition)) State.lyricsPosition=s.lyricsPosition;
                     if(s.lyricsVerticalOffset !== undefined) State.lyricsVerticalOffset=Math.max(-8,Math.min(8,Number(s.lyricsVerticalOffset)||0));
+                    if(s.lyricsWordByWord !== undefined) State.lyricsWordByWord = !!s.lyricsWordByWord;
                     if(s.lyricsTimingOffset !== undefined) State.lyricsTimingOffset=Math.max(-2,Math.min(2,Math.round((Number(s.lyricsTimingOffset)||0)*10)/10));
                     if(s.lyricsFontSize !== undefined && ['compact','normal','large','extra-large'].includes(s.lyricsFontSize)) State.lyricsFontSize=s.lyricsFontSize;
                     if(s.lyricsLineSpacing !== undefined && ['compact','normal','relaxed'].includes(s.lyricsLineSpacing)) State.lyricsLineSpacing=s.lyricsLineSpacing;

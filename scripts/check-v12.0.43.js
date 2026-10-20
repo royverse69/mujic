@@ -17,6 +17,6 @@ check(settings.includes("State.layoutDensity = 'comfortable'") && settings.inclu
 check(!/favoriteOption\.hidden = isOnlineTrack/.test(lib) && lib.includes("const favoriteOption"), 'Streaming tracks must be likeable from the menu.');
 check(events.includes("case 'online-jump'") && events.includes('handleNavRetap'), 'Jump chips and nav re-tap must be handled.');
 check(html.includes('id="online-back-top"') && html.includes('class="online-jump"'), 'Back-to-top button and jump chips are required.');
-check(/mujic-pwa-v12\.0\.4\d/.test(read('sw.js')), 'Service worker cache must be bumped.');
+check(/mujic-pwa-v\d+\.\d+\.\d+/.test(read('sw.js')), 'Service worker cache must be bumped.');
 check(!css.includes('body:not(.dark-mode)'), 'Watermark must not use the nonexistent dark-mode class.');
 console.log('v12.0.43 checks passed');

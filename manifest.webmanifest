@@ -1,7 +1,7 @@
 {
-  "name": "Mujic",
-  "short_name": "Mujic",
-  "description": "A lightweight, ad-free offline-first local music player with playlists, lyrics, audio effects and PWA support.",
+  "name": "Machhar Beta v1",
+  "short_name": "Machhar Beta",
+  "description": "Machhar Beta v1 \u2014 an offline-first music player with streaming discovery, artist pages and seamless playback.",
   "start_url": "./index.html?source=pwa",
   "scope": "./",
   "display": "standalone",

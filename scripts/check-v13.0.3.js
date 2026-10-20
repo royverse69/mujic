@@ -1,0 +1,18 @@
+const fs=require('node:fs');
+const read=f=>fs.readFileSync(f,'utf8');
+const check=(v,m)=>{if(!v)throw new Error(m);};
+const provider=read('js/online-provider.js');
+const lyrics=read('js/online-lyrics.js');
+const uiLyrics=read('js/ui-lyrics.js');
+const workspace=read('js/online-workspace.js');
+const player=read('js/ui-player.js');
+const html=read('index.html');
+const css=read('css/app.css');
+check(provider.includes('relatedRateLimitedUntil')&&provider.includes('relatedCache')&&provider.includes('suggestions?limit=20'),'Related API must cache results and respect suggestion rate limiting.');
+check(lyrics.includes('https://lrclib.net/api/search?')&&lyrics.includes('metadataMatches'),'LRCLIB must fall back to verified search results when exact lookup misses.');
+check(uiLyrics.includes('revealCount')&&uiLyrics.includes('is-revealed'),'Word-wise lyric emphasis must progress with line timing.');
+check(player.includes('player-artist-marquee')&&player.includes('data-artist-id'),'Every available artist credit must be rendered as an individually clickable link.');
+check(workspace.includes('online-artist-bio')&&workspace.includes('online-toggle-artist-bio'),'Artist biography must support collapsed and expanded reading.');
+check(html.includes('online-search-suggestions')&&html.includes('data-query="Bollywood love songs"'),'Search must include tap-to-search suggestions.');
+check(css.includes('.lyric-word.is-revealed')&&css.includes('.player-artist-marquee.is-overflowing'),'Timed lyric highlighting and one-line artist marquee styles must exist.');
+console.log('v13.0.3 checks passed: LRCLIB search fallback, 429-safe suggestions, timed lyric words, clickable artist credits, expandable bio, and search suggestions.');
