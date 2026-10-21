@@ -1,6 +1,7 @@
 /* Copyright mujic@royverse69 */
         Object.assign(UI, {
             renderQueue: () => {
+                Player.syncNowPlaying?.();
                 document.getElementById('queue-list').innerHTML = State.playbackOrder.map((id, i) => {
                     const t = Player.getTrackById(id); if(!t) return '';
                     const isP = i === State.queueIndex;

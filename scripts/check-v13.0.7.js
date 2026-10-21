@@ -16,5 +16,5 @@ check(appCss.includes('.track-row.is-now-playing') && appCss.includes('.track-no
 check(uiPlayer.includes('const isCurrent = String(id) === String(State.currentTrackId)') && uiPlayer.includes('track-now-playing-status'), 'Queue indicator must work for local and online current tracks.');
 check(uiLibrary.includes('const isCurrentTrack=String(State.currentTrackId||\'\')===String(t.id)') && uiLibrary.includes('${nowPlayingStatus}${playlistControls}'), 'Playlist and track rows must render their own current-track indicator.');
 check(workspace.includes("'new Hindi songs 2026'") && workspace.includes("'new Bollywood songs 2026'") && workspace.includes("'latest English pop songs 2026'") && workspace.includes('const HOME_CACHE_VERSION = 4') && workspace.includes('offset+=2') && workspace.includes('merged.length>=16'), 'Latest Finds must use multiple query batches and invalidate the old sparse cache.');
-check(pkg.version === '13.0.7' && changelog.version === pkg.version && read('VERSION').trim() === 'Machhar Beta v1.8', 'Version metadata must agree.');
-console.log('v13.0.7 checks passed: swipeable radio rail, one-line subtitle, restored player header, shared queue/playlist indicator and expanded latest shelf.');
+check(changelog.previous.entries.some(entry => entry.version === '13.0.7') || pkg.version === '13.0.7', 'Historical v13.0.7 release record must remain available.');
+console.log('v13.0.7 functional regression checks passed: swipeable radio rail, one-line subtitle, restored player header, shared queue/playlist indicator and expanded latest shelf.');

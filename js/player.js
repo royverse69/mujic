@@ -44,6 +44,7 @@
                 AudioAdapter.audio.addEventListener('play', () => { 
                     State.isPlaying = true; State.statsLastAudioTime = Number(AudioAdapter.audio.currentTime) || 0; UI.updatePlayPause(); AudioAdapter.startVisualizerLoop(); 
                     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+                    Player.syncNowPlaying?.();
                 });
                 AudioAdapter.audio.addEventListener('pause', () => { 
                     State.isPlaying = false;
@@ -72,6 +73,8 @@
                 });
                 AudioAdapter.setupMediaSession();
                 document.addEventListener('visibilitychange', () => { if (State.keepScreenAwake && document.visibilityState === 'visible') AudioAdapter.setWakeLock(true); });
+                window.addEventListener('focus', () => Player.syncNowPlaying?.());
+                document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Player.syncNowPlaying?.(); });
                 window.addEventListener('pagehide', () => { if (State.stopOnPageHide) AudioAdapter.pause(); });
                 AudioAdapter.setWakeLock(State.keepScreenAwake);
             },
@@ -537,6 +540,9 @@
                 
                 const isOnline = track.source === 'machhar-online';
                 if (isOnline && State.playbackSourceMode !== 'online') {
+                    // Stop the previous track and refresh the UI so the player never shows one song while state points at another.
+                    AudioAdapter.pause();
+                    UI.updatePlayerMeta(track).catch(() => {}); UI.showMiniPlayer(); UI.updatePlayPause(); UI.renderQueue();
                     UI.showToast('Switch to streaming playback to play catalogue tracks.', 'info');
                     return;
                 }
@@ -548,6 +554,7 @@
                 }
                 if (requestId !== State.playbackRequestId) return;
                 if (!isOnline && !blob) {
+                    UI.updatePlayerMeta(track).catch(() => {}); UI.showMiniPlayer(); UI.renderQueue();
                     UI.showToast('Audio file not found or unavailable offline.', 'error');
                     Player.pause();
                     return;
@@ -822,3 +829,34 @@
                 document.getElementById('st-status-label').innerText = State.sleepTimer.label; UI.closeSheets();
             }
         };
+
+        // Now-playing integrity: tracks in-flight starts and re-aligns state, queue and player UI to the audio that is really playing.
+        (() => {
+            const startTrack = Player.startCurrentTrack;
+            Player.startCurrentTrack = async (...args) => {
+                State.startsInFlight = (State.startsInFlight || 0) + 1;
+                try { return await startTrack(...args); }
+                finally { State.startsInFlight = Math.max(0, (State.startsInFlight || 1) - 1); }
+            };
+            Player.syncNowPlaying = () => {
+                if ((State.startsInFlight || 0) > 0 || !Array.isArray(State.playbackOrder) || !State.playbackOrder.length) return false;
+                let changed = false;
+                const audio = AudioAdapter.audio;
+                const loadedId = audio?.dataset?.mujicTrackId;
+                // The loaded, audibly playing track is the source of truth when state has drifted away from it.
+                if (loadedId && !audio.paused && String(loadedId) !== String(State.currentTrackId)) {
+                    const idx = State.playbackOrder.findIndex(id => String(id) === String(loadedId));
+                    if (idx > -1) { State.queueIndex = idx; State.currentTrackId = State.playbackOrder[idx]; changed = true; }
+                }
+                const current = Player.getCurrentTrack();
+                // A queue index that differs from currentTrackId is a legitimate transition (e.g. skipping to the next track); leave it alone.
+                if (!current || String(current.id) !== String(State.currentTrackId)) return changed;
+                const shown = String(document.getElementById('mini-title')?.textContent || '').trim();
+                if (changed || shown !== String(current.title || '').trim()) {
+                    UI.updatePlayerMeta(current).catch(() => {});
+                    UI.updateHighlights(false);
+                    changed = true;
+                }
+                return changed;
+            };
+        })();

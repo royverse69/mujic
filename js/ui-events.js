@@ -35,30 +35,58 @@
                 refreshPiPButtonVisibility();
                 window.addEventListener('resize', refreshPiPButtonVisibility, {passive:true});
                 // Desktop PiP uses a lightweight canvas video so audio playback remains on the existing audio engine.
+                // The canvas video is only a display surface: its play/pause state is kept in two-way sync with the real audio element.
                 const openPlayerPiP = async () => {
                     if (isMobilePiPContext()) { UI.showToast('Picture-in-Picture is available on supported desktop browsers.', 'info'); return; }
                     if (!('pictureInPictureEnabled' in document) || !document.pictureInPictureEnabled || !HTMLCanvasElement.prototype.captureStream) {
                         UI.showToast('Picture-in-Picture is not supported by this browser.', 'info'); return;
                     }
                     try {
+                        if (document.pictureInPictureElement?.id === 'mujic-pip-video') { await document.exitPictureInPicture(); return; }
                         let video = document.getElementById('mujic-pip-video');
                         if (!video) {
                             const canvas = document.createElement('canvas'); canvas.width=640; canvas.height=360;
                             const ctx=canvas.getContext('2d');
-                            video=document.createElement('video'); video.id='mujic-pip-video'; video.muted=true; video.playsInline=true; video.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px';
+                            video=document.createElement('video'); video.id='mujic-pip-video'; video.muted=true; video.playsInline=true; video.disablePictureInPicture=false; video.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px';
                             video.srcObject=canvas.captureStream(12); document.body.appendChild(video);
                             video.dataset.canvasReady='1';
-                            const paint=()=>{
-                                if(!document.getElementById('mujic-pip-video')||!video.isConnected)return;
+                            const fit=(text,maxWidth)=>{ let value=String(text||''); if(ctx.measureText(value).width<=maxWidth) return value; while(value.length>1&&ctx.measureText(value+'…').width>maxWidth) value=value.slice(0,-1); return value.trimEnd()+'…'; };
+                            video._pipPaint=()=>{
+                                if(!video.isConnected)return;
+                                // Read from player state (not the DOM) so the PiP card always shows the track that is actually current.
+                                const current=(()=>{ try { return Player.getCurrentTrack(); } catch(_) { return null; } })();
+                                const title=current?.title||document.getElementById('full-title')?.textContent||'Mujic';
+                                const artist=current?.artist||document.getElementById('full-artist')?.textContent||'Now Playing';
                                 ctx.fillStyle='#09090b';ctx.fillRect(0,0,640,360);
                                 const art=document.getElementById('full-art')||document.getElementById('mini-art');
                                 try { if(art?.complete&&art.naturalWidth){const size=250;ctx.save();ctx.beginPath();ctx.roundRect(36,55,size,size,22);ctx.clip();ctx.drawImage(art,36,55,size,size);ctx.restore();} } catch(_) {}
-                                ctx.fillStyle='#fff';ctx.font='600 25px system-ui';ctx.fillText(String(document.getElementById('full-title')?.textContent||'Mujic').slice(0,28),320,150);
-                                ctx.fillStyle='#b9b9c2';ctx.font='18px system-ui';ctx.fillText(String(document.getElementById('full-artist')?.textContent||'Now Playing').slice(0,32),320,185);
+                                ctx.textAlign='left';
+                                ctx.fillStyle='#fff';ctx.font='600 25px system-ui';ctx.fillText(fit(title,290),320,150);
+                                ctx.fillStyle='#b9b9c2';ctx.font='18px system-ui';ctx.fillText(fit(artist,290),320,185);
                                 ctx.fillStyle='#777';ctx.font='14px system-ui';ctx.fillText('MACHHAR BETA V1',320,225);
-                                video._pipFrame=requestAnimationFrame(paint);
-                            }; paint();
+                            };
+                            video._pipPaint();
+                            // Keep the display video mirrored to the audio engine in both directions.
+                            const syncVideoToAudio=()=>{
+                                if(!video.isConnected)return;
+                                if(State.isPlaying&&video.paused) video.play().catch(()=>{});
+                                else if(!State.isPlaying&&!video.paused) video.pause();
+                                if('mediaSession' in navigator) navigator.mediaSession.playbackState=State.isPlaying?'playing':'paused';
+                            };
+                            AudioAdapter.audio.addEventListener('play',syncVideoToAudio);
+                            AudioAdapter.audio.addEventListener('pause',syncVideoToAudio);
+                            video.addEventListener('pause',()=>{ if(document.pictureInPictureElement===video&&State.isPlaying) Player.pause(); });
+                            video.addEventListener('play',()=>{ if(document.pictureInPictureElement===video&&!State.isPlaying) Player.togglePlay(); });
+                            video.addEventListener('enterpictureinpicture',()=>{
+                                AudioAdapter.setupMediaSession(); AudioAdapter.updateMediaSessionPosition(); video._pipPaint();
+                                clearInterval(video._pipTimer);
+                                // A timer (not requestAnimationFrame) keeps the PiP frame updating while the main tab is in the background.
+                                video._pipTimer=setInterval(video._pipPaint,250);
+                                syncVideoToAudio();
+                            });
+                            video.addEventListener('leavepictureinpicture',()=>{ clearInterval(video._pipTimer); video._pipTimer=null; });
                         }
+                        video._pipPaint();
                         await new Promise((resolve, reject) => { if (video.readyState >= 2) return resolve(); const timer=setTimeout(()=>reject(new Error('PiP video frame not ready')),1800); video.addEventListener('loadeddata',()=>{clearTimeout(timer);resolve();},{once:true}); video.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('PiP video failed'));},{once:true}); });
                         await video.play();
                         await video.requestPictureInPicture();

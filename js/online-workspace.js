@@ -1048,7 +1048,7 @@
         UI.lazyLoadArtwork();
     };
     const renderQueue = () => {
-        saveQueueSnapshot('online');const c=document.getElementById('online-queue-content');if(!c)return;
+        Player.syncNowPlaying?.();saveQueueSnapshot('online');const c=document.getElementById('online-queue-content');if(!c)return;
         const ids=State.playbackOrder||[];const tracks=ids.map(trackById).filter(Boolean);const current=Player.getCurrentTrack();
         c.innerHTML=`${current?`<div class="online-current-track"><img src="${esc(current.artworkUrl||'./icons/icon-192.png')}" alt=""><div><strong>${esc(current.title)}</strong><span>${esc(current.artist)}</span></div></div>`:''}${renderTrackRows(tracks,'online-queue','')}`;
         UI.lazyLoadArtwork();
@@ -1356,7 +1356,7 @@
         if(entity?.kind==='category'&&(entity.data?.tracks||[]).some(item=>String(item.id)===trackId))return `${entity.data.title} Mix`;
         if(track?.source!=='machhar-online')return State.currentContextType==='playlist'?'From Playlist':'From Your Library';
         if(State.currentContextType==='playlist')return 'From Playlist';
-        return 'Online Music';
+        return 'Streaming';
     };
     const openRemoteEntity = async (kind,id) => {
         if(!['playlists','albums','artists'].includes(kind)||!id)return;

@@ -1,5 +1,5 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.0.7-machhar-beta-v1-8';
+const CACHE_NAME = 'mujic-pwa-v13.0.9-machhar-beta-v1-9-stability';
 const API_CACHE = 'mujic-api-v2';
 const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';

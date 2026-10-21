@@ -1438,7 +1438,7 @@ body.lyrics-mode.immersive-lyrics .player-lyrics-container { padding-bottom:calc
   body:not(.lyrics-mode) #full-player .player-body { display:grid !important; grid-template-columns:minmax(280px,min(39vw,500px)) minmax(360px,530px); align-items:center; justify-content:center; gap:clamp(36px,6vw,92px); width:100%; max-width:min(1320px,100vw) !important; margin:0 auto; padding:clamp(24px,4vw,58px) clamp(32px,5vw,76px); box-sizing:border-box; }
   body:not(.lyrics-mode) #full-player .player-art-container { width:100%; max-width:500px; min-width:0; flex:none; padding:0; justify-self:center; }
   body:not(.lyrics-mode) #full-player #full-art { display:block; width:100%; height:auto; max-height:min(64vh,500px); aspect-ratio:1; object-fit:cover; border-radius:clamp(14px,1.7vw,24px); box-shadow:0 24px 70px rgba(0,0,0,.28); }
-  body:not(.lyrics-mode) #full-player .player-controls-section { width:100%; min-width:0; max-width:530px; justify-self:center; padding:0; align-self:center; }
+  body:not(.lyrics-mode) #full-player .player-controls-section { box-sizing:border-box; width:100%; min-width:0; max-width:530px; justify-self:center; padding:clamp(24px,2.4vw,34px); align-self:center; }
   body:not(.lyrics-mode) #full-player .player-metadata-row { margin-bottom:clamp(18px,3vh,34px); align-items:center; }
   body:not(.lyrics-mode) #full-player .player-title { font-size:clamp(26px,2.7vw,38px); line-height:1.12; letter-spacing:-.045em; }
   body:not(.lyrics-mode) #full-player .player-artist { font-size:16px; line-height:1.4; }
@@ -1493,4 +1493,27 @@ body.lyrics-mode.immersive-lyrics .player-lyrics-container { padding-bottom:calc
 }
 @media(prefers-reduced-motion:reduce) {
   .track-now-playing-status .online-now-playing-bars i { animation:none!important; transform:none!important; }
+}
+
+
+/* Machhar Beta v1.9: restore high-contrast artwork ambience without changing player layout. */
+#full-player {
+  background: #08080a !important;
+}
+#full-player .player-bg {
+  opacity: .58 !important;
+  filter: blur(68px) saturate(1.28) brightness(.52) !important;
+  transform: scale(1.2) !important;
+}
+#full-player .player-bg::after {
+  background: linear-gradient(115deg, rgba(0,0,0,.58) 0%, rgba(0,0,0,.48) 48%, rgba(0,0,0,.66) 100%) !important;
+}
+@media (min-width: 900px) {
+  body:not(.lyrics-mode) #full-player .player-controls-section {
+    background: rgba(8,8,11,.72) !important;
+    border-color: rgba(255,255,255,.08) !important;
+    box-shadow: 0 24px 70px rgba(0,0,0,.38), inset 0 1px rgba(255,255,255,.035) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(110%);
+    backdrop-filter: blur(28px) saturate(110%);
+  }
 }
