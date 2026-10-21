@@ -3,7 +3,8 @@ const CACHE_NAME = 'mujic-pwa-v13.0.9-machhar-beta-v1-9-stability';
 const API_CACHE = 'mujic-api-v2';
 const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';
-const API_ORIGIN = 'https://gaana-suno-varna-machhar-aajayega.onrender.com';
+const API_ORIGIN = 'https://mujic.calverse.online';
+const FALLBACK_API_ORIGIN = 'https://gaana-suno-varna-machhar-aajayega.onrender.com';
 const CATALOGUE_API_ORIGIN = 'https://saavn.sumit.co';
 const API_FRESH_MS = 30 * 60 * 1000;
 const API_SONG_FRESH_MS = 10 * 60 * 1000;
@@ -14,13 +15,14 @@ const MAX_API_ENTRIES = 400;
 const MAX_ART_ENTRIES = 600;
 const MEDIA_CHUNK_CACHE = 'mujic-media-chunks-v4';
 const MEDIA_IMAGE_CACHE = 'mujic-media-images-v4';
-const BACKEND_MEDIA_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/media';
+const BACKEND_MEDIA_BASE = 'https://mujic.calverse.online/media';
+const BACKEND_MEDIA_BASES = [BACKEND_MEDIA_BASE, FALLBACK_API_ORIGIN + '/media'];
 const MAX_MEDIA_CHUNK_BYTES = 262144;
 const MAX_MEDIA_IMAGE_ENTRIES = 400;
 const MAX_MEDIA_IMAGE_BYTES = 80 * 1024 * 1024;
 const APP_SHELL = [
   './', './index.html', './VERSION', './manifest.webmanifest', './changlog.json', './css/app.css', './css/online-workspace.css',
-  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/discovery-catalog-data.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
+  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/backend-config.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/discovery-catalog-data.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
   './data/discovery-catalog.json', './icons/icon-192.png', './icons/icon-512.png'
 ];
 const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];
@@ -65,7 +67,14 @@ const fetchBackendMedia = (source, request, rangeOverride = '') => {
     if (value) headers.set(name, value);
   }
   if (rangeOverride) headers.set('Range', rangeOverride);
-  return fetch(target.href, { method:'GET', headers, credentials:'omit', cache:'no-store', redirect:'follow' });
+  return fetch(target.href, { method:'GET', headers, credentials:'omit', cache:'no-store', redirect:'follow' }).then(async response => {
+    if (response.ok || !([502,503,504].includes(response.status) || (response.status >= 520 && response.status <= 530))) return response;
+    const fallback = new URL(FALLBACK_API_ORIGIN + '/media'); fallback.searchParams.set('url', source);
+    return fetch(fallback.href, { method:'GET', headers, credentials:'omit', cache:'no-store', redirect:'follow' });
+  }).catch(async error => {
+    const fallback = new URL(FALLBACK_API_ORIGIN + '/media'); fallback.searchParams.set('url', source);
+    return fetch(fallback.href, { method:'GET', headers, credentials:'omit', cache:'no-store', redirect:'follow' });
+  });
 };
 const storeMediaChunk = async (cache, key, response) => {
   const range = response.headers.get('Content-Range') || '';
@@ -154,13 +163,17 @@ const storeApi = async (cache, url, response) => {
   if (!body.byteLength || body.byteLength > 1536 * 1024) return;
   const headers = new Headers(response.headers);
   headers.set('X-Mujic-Cached-At', String(Date.now()));
-  await cache.put(url, new Response(body, {status:200, headers}));
+  const cacheUrl = new URL(url); cacheUrl.searchParams.delete('__mujic_backend_origin');
+  if ([API_ORIGIN, FALLBACK_API_ORIGIN].includes(cacheUrl.origin)) cacheUrl.host = new URL(API_ORIGIN).host;
+  await cache.put(cacheUrl.href, new Response(body, {status:200, headers}));
   await trimEntries(cache, MAX_API_ENTRIES);
 };
 const handleApi = async (request, event) => {
   if (!(await cachingEnabled())) return fetch(request);
   const cache = await caches.open(API_CACHE);
-  const cached = await cache.match(request.url);
+  const cacheKey = new URL(request.url); cacheKey.searchParams.delete('__mujic_backend_origin');
+  if ([API_ORIGIN, FALLBACK_API_ORIGIN].includes(cacheKey.origin)) cacheKey.host = new URL(API_ORIGIN).host;
+  const cached = await cache.match(cacheKey.href);
   const age = cached ? Date.now() - Number(cached.headers.get('X-Mujic-Cached-At') || 0) : Infinity;
   const pathname = new URL(request.url).pathname;
   const isSearch = /\/api\/search(?:\/|$)/.test(pathname);
@@ -261,7 +274,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(handleMediaRoute(req).catch(() => new Response('Media proxy unavailable', {status:502,headers:{'Content-Type':'text/plain; charset=utf-8'}})));
     return;
   }
-  if ((url.origin === API_ORIGIN || url.origin === CATALOGUE_API_ORIGIN) && url.pathname.startsWith('/api/')) {
+  if (([API_ORIGIN, FALLBACK_API_ORIGIN, CATALOGUE_API_ORIGIN].includes(url.origin)) && url.pathname.startsWith('/api/')) {
     event.respondWith(handleApi(req, event).catch(() => Response.error()));
     return;
   }

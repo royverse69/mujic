@@ -1,5 +1,5 @@
 /* Copyright mujic@royverse69 */
-        const BACKEND_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
+        const BACKEND_BASE = `${window.MujicBackend.PRIMARY}/`;
 
         const LyricsFetcher = {
             cache: new Map(),
@@ -19,9 +19,14 @@
                 try {
                     const options = { ...(requestOptions || {}) };
                     if (controller) options.signal = controller.signal;
-                    const request = fetch(url, options);
+                    const parsedUrl = new URL(url, location.href);
+                    const isBackend = window.MujicBackend.isBackendOrigin(parsedUrl.origin);
+                    const request = isBackend
+                        ? window.MujicBackend.fetchWithFallback(parsedUrl.pathname + parsedUrl.search, options, { timeoutMs: timeout })
+                        : fetch(url, options);
                     const timeoutPromise = new Promise((_, reject) => {
-                        timer = setTimeout(() => {
+                        const parsedUrl = new URL(url, location.href);
+                        if (!window.MujicBackend.isBackendOrigin(parsedUrl.origin)) timer = setTimeout(() => {
                             try { if (controller) controller.abort(); } catch (e) { Utils.warn(e); }
                             reject(new Error('Timeout'));
                         }, timeout);

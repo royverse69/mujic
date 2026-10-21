@@ -35,7 +35,7 @@ const sandbox = {
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
 const assert = (condition, message) => { if (!condition) throw new Error(`Service worker check failed: ${message}`); };
-const API = 'https://gaana-suno-varna-machhar-aajayega.onrender.com';
+const API = 'https://mujic.calverse.online';
 const DIRECT_API = 'https://saavn.sumit.co';
 const dispatch = async (url, extra = {}) => {
   const request = Object.assign(new Request(url), {});

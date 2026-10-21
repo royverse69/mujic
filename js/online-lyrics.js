@@ -1,6 +1,6 @@
 /* Copyright mujic@royverse69 */
 (() => {
-    const LEGACY_BACKEND = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
+    const LEGACY_BACKEND = `${window.MujicBackend.PRIMARY}/`;
     const decode = value => {
         const el = document.createElement('textarea'); el.innerHTML = String(value || ''); return el.value.trim();
     };
@@ -31,13 +31,18 @@
     };
     const fetchJson = async (url, timeoutMs = 3500) => {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        const parsedForTimeout = new URL(url, location.href);
+        const timeout = window.MujicBackend.isBackendOrigin(parsedForTimeout.origin) ? null : setTimeout(() => controller.abort(), timeoutMs);
         try {
-            const response = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store', credentials: 'omit', signal: controller.signal });
+            const parsedUrl = new URL(url, location.href);
+            const init = { headers: { Accept: 'application/json' }, cache: 'no-store', credentials: 'omit', signal: controller.signal };
+            const response = window.MujicBackend.isBackendOrigin(parsedUrl.origin)
+                ? await window.MujicBackend.fetchWithFallback(parsedUrl.pathname + parsedUrl.search, init, { timeoutMs })
+                : await fetch(url, init);
             if (!response.ok) return null;
             const body = await response.text();
             try { return JSON.parse(body); } catch (_) { return { lyrics: body }; }
-        } finally { clearTimeout(timeout); }
+        } finally { if (timeout) clearTimeout(timeout); }
     };
     const fetchFromMusicSource = async track => {
         if (!track || track.source !== 'machhar-online' || !navigator.onLine) return null;

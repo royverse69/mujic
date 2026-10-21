@@ -1,6 +1,6 @@
 /* Copyright mujic@royverse69 */
 const OnlineMusic = (() => {
-    const LEGACY_BASE = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
+    const LEGACY_BASE = `${window.MujicBackend.PRIMARY}/`;
     const API_BASE = 'https://saavn.sumit.co/api';
     const LEGACY_API_BASE = `${LEGACY_BASE.replace(/\/$/, '')}/api`;
     const refreshingSearchCache = new Set();
@@ -36,7 +36,8 @@ const OnlineMusic = (() => {
             return ['https:', 'http:'].includes(u.protocol) ? u.href : '';
         } catch (_) { return ''; }
     };
-    const BACKEND_ORIGIN = new URL(LEGACY_BASE).origin;
+    const BACKEND_ORIGIN = window.MujicBackend.PRIMARY;
+    const BACKEND_ORIGINS = window.MujicBackend.origins();
     const isCatalogueMediaHost = hostname => {
         const host = String(hostname || '').toLowerCase();
         return host === 'saavncdn.com' || host.endsWith('.saavncdn.com') ||
@@ -47,9 +48,9 @@ const OnlineMusic = (() => {
         if (!normalized) return '';
         try {
             const url = new URL(normalized);
-            if (url.origin === BACKEND_ORIGIN && url.pathname === '/media') return normalized;
+            if (BACKEND_ORIGINS.includes(url.origin) && url.pathname === '/media') return normalized;
             if (!isCatalogueMediaHost(url.hostname)) return normalized;
-            if (typeof location !== 'undefined' && location.protocol !== 'file:' && location.origin !== BACKEND_ORIGIN && navigator.serviceWorker?.controller) {
+            if (typeof location !== 'undefined' && location.protocol !== 'file:' && !BACKEND_ORIGINS.includes(location.origin) && navigator.serviceWorker?.controller) {
                 const local = new URL('__mujic_media__', location.href);
                 local.searchParams.set('src', normalized);
                 return local.href;
@@ -206,14 +207,20 @@ const OnlineMusic = (() => {
         const relayAbort = () => controller.abort(signal?.reason);
         if (signal?.aborted) relayAbort();
         else signal?.addEventListener('abort', relayAbort, { once:true });
-        const timer = setTimeout(() => controller.abort(), Math.max(500, timeoutMs));
+        const parsedForTimeout = new URL(url, typeof location !== 'undefined' ? location.href : LEGACY_BASE);
+        const usesBackend = window.MujicBackend.isBackendOrigin(parsedForTimeout.origin);
+        const timer = usesBackend ? null : setTimeout(() => controller.abort(), Math.max(500, timeoutMs));
         try {
-            const response = await fetch(url, { method:'GET', headers:{ Accept:'application/json' }, cache:'no-store', credentials:'omit', signal:controller.signal });
+            const requestInit = { method:'GET', headers:{ Accept:'application/json' }, cache:'no-store', credentials:'omit', signal:controller.signal };
+            const parsedUrl = new URL(url, typeof location !== 'undefined' ? location.href : LEGACY_BASE);
+            const response = window.MujicBackend.isBackendOrigin(parsedUrl.origin)
+                ? await window.MujicBackend.fetchWithFallback(parsedUrl.pathname + parsedUrl.search, requestInit, { timeoutMs })
+                : await fetch(url, requestInit);
             if (!response.ok) throw new Error(`Music service returned HTTP ${response.status}`);
             const body = await response.text();
             try { return JSON.parse(body); } catch (_) { return body; }
         } finally {
-            clearTimeout(timer);
+            if (timer) clearTimeout(timer);
             signal?.removeEventListener('abort', relayAbort);
         }
     };
@@ -741,7 +748,7 @@ const OnlineMusic = (() => {
             if (controller.signal.aborted || State.playbackSourceMode !== 'online') return false;
             let url = new URL(mediaUrl, location.href), fetchCache='default', credentials='omit';
             if (swControlled) {
-                if (url.origin === BACKEND_ORIGIN && url.pathname === '/media') {
+                if (BACKEND_ORIGINS.includes(url.origin) && url.pathname === '/media') {
                     const source = safeHttpUrl(url.searchParams.get('url') || '');
                     if (!source || !isCatalogueMediaHost(new URL(source).hostname)) return false;
                     const local = new URL('__mujic_media__', location.href); local.searchParams.set('src', source); url = local;
@@ -749,10 +756,13 @@ const OnlineMusic = (() => {
                 if (url.origin !== location.origin || !url.pathname.endsWith('/__mujic_media__')) return false;
                 streamCache.set(next.id, {url:url.href, expiresAt:Date.now()+4*60*1000});
                 url.searchParams.set('_mujic_prefetch', '1'); fetchCache='no-store'; credentials='same-origin';
-            } else if (url.origin !== BACKEND_ORIGIN || url.pathname !== '/media') {
+            } else if (!BACKEND_ORIGINS.includes(url.origin) || url.pathname !== '/media') {
                 return false;
             }
-            const response = await fetch(url.href, { method:'GET', headers:{Range:'bytes=0-262143',Accept:'audio/*'}, cache:fetchCache, credentials, signal:controller.signal });
+            const mediaInit = { method:'GET', headers:{Range:'bytes=0-262143',Accept:'audio/*'}, cache:fetchCache, credentials, signal:controller.signal };
+            const response = window.MujicBackend.isBackendOrigin(url.origin)
+                ? await window.MujicBackend.fetchWithFallback(url.pathname + url.search, mediaInit, { timeoutMs: 15000 })
+                : await fetch(url.href, mediaInit);
             const contentRange=String(response.headers.get('Content-Range')||'').match(/^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i);
             const lengthHint=Number(response.headers.get('Content-Length'));
             if(response.status!==206 || !contentRange || Number(contentRange[1])!==0 || !Number.isFinite(Number(contentRange[3])) || Number(contentRange[2])-Number(contentRange[1])+1>262144 || (Number.isFinite(lengthHint)&&lengthHint>262144)) { try { await response.body?.cancel(); } catch (_) {} return false; }

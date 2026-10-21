@@ -36,7 +36,7 @@
 
                         if (title && !artist && navigator.onLine) {
                             try {
-                                const backend = 'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
+                                const backend = `${window.MujicBackend.PRIMARY}/`;
                                 const endpoint = `${backend}lyrics?track=${encodeURIComponent(title)}&artist=`;
                                 const res = await LyricsFetcher.fetchWithTimeout(endpoint, 5000, { headers: { Accept: 'application/json' }, cache: 'no-store', credentials: 'omit' });
                                 if (res.ok) {

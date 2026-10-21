@@ -11,6 +11,7 @@ const mkContext = fetchImpl => {
         URL, AbortController, setTimeout, clearTimeout, console, fetch: fetchImpl, Map, Set, String, Number, Array, Object, Math, Date, Error, Promise
     };
     vm.createContext(context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'js/backend-config.js'), 'utf8'), context, { filename: 'backend-config.js' });
     vm.runInContext(fs.readFileSync(path.join(root, 'js/online-provider.js'), 'utf8'), context, { filename: 'online-provider.js' });
     return { context, music: context.window.OnlineMusic };
 };
@@ -30,7 +31,7 @@ const mkContext = fetchImpl => {
     const source = await ctx2.music.resolveDownloadSource({ id: 'machhar:song-x', onlineTrackId: 'song-x' });
     if (source.url !== 'https://audio.example/high.m4a' || !/aac/i.test(source.codec)) throw new Error('Downloader did not select the highest-quality AAC source.');
     const proxiedMedia = ctx2.music.proxyMediaUrl('https://aac.saavncdn.com/test-track.m4a?token=fixture');
-    if (!proxiedMedia.startsWith('https://gaana-suno-varna-machhar-aajayega.onrender.com/media?url=') || !decodeURIComponent(proxiedMedia.split('url=')[1]).includes('aac.saavncdn.com/test-track.m4a')) throw new Error('Known catalogue media hosts must be proxied through Render.');
+    if (!proxiedMedia.startsWith('https://mujic.calverse.online/media?url=') || !decodeURIComponent(proxiedMedia.split('url=')[1]).includes('aac.saavncdn.com/test-track.m4a')) throw new Error('Known catalogue media hosts must be proxied through the primary backend.');
 
 
     const pageCalls = [];
