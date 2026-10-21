@@ -1,5 +1,5 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.0.17-machhar-beta-v1-9-lyrics-artwork-sync';
+const CACHE_NAME = 'mujic-pwa-v13.0.19-machhar-beta-v1-9-native-pip-control-bridge';
 const API_CACHE = 'mujic-api-v2';
 const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';

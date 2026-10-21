@@ -28,71 +28,266 @@
                         if (e.pointerType === 'touch') activateNav(e);
                     }, true);
                 }
-                // PiP is a desktop-only control; mobile browser support is inconsistent.
+                // PiP is desktop-first because browser support remains inconsistent on mobile.
                 const isMobilePiPContext = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.matchMedia('(max-width: 767px), (pointer: coarse)').matches;
+                const hasDocumentPiP = () => Boolean(window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === 'function');
+                const hasVideoPiP = () => Boolean(document.pictureInPictureEnabled && HTMLCanvasElement.prototype.captureStream);
                 const refreshPiPButtonVisibility = () => {
-                    const supported = Boolean(document.pictureInPictureEnabled && HTMLCanvasElement.prototype.captureStream);
+                    const supported = hasDocumentPiP() || hasVideoPiP();
                     document.querySelectorAll('[data-action="picture-in-picture"]').forEach(button => { button.hidden = isMobilePiPContext() || !supported; button.setAttribute('aria-hidden', String(button.hidden)); });
                 };
                 refreshPiPButtonVisibility();
                 window.addEventListener('resize', refreshPiPButtonVisibility, {passive:true});
-                // Desktop PiP uses a lightweight canvas video so audio playback remains on the existing audio engine.
-                // The canvas video is only a display surface: its play/pause state is kept in two-way sync with the real audio element.
+
+                // Document PiP has app-owned HTML controls. They operate directly on the same
+                // AudioAdapter/Player instance, avoiding the disconnected muted-canvas controls
+                // that can appear idle in native video PiP.
+                const openDocumentPlayerPiP = async () => {
+                    const api = window.documentPictureInPicture;
+                    if (!api?.requestWindow) return false;
+                    if (api.window && !api.window.closed) { api.window.focus(); return true; }
+                    // requestWindow must be called synchronously in the initiating click gesture.
+                    const pipWindow = await api.requestWindow({width:380, height:232, preferInitialWindowPlacement:true});
+                    const pipDoc = pipWindow.document;
+                    pipDoc.title = 'Mujic · Now Playing';
+                    const style = pipDoc.createElement('style');
+                    style.textContent = `
+                        :root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#09090b;color:#f8fafc}
+                        *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;background:#09090b;overflow:hidden}
+                        body{padding:12px}.pip{height:100%;display:flex;flex-direction:column;gap:10px}
+                        .track{display:flex;align-items:center;gap:11px;min-width:0;flex:1}
+                        .art{width:58px;height:58px;border-radius:9px;object-fit:cover;background:#19191f;flex:none}
+                        .meta{min-width:0;flex:1}.title{font-size:13px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
+                        .artist{font-size:11px;margin-top:4px;color:#a1a1aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+                        .status{font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:#a1a1aa;margin-top:5px}
+                        .timeline{display:flex;flex-direction:column;gap:3px}.seek{width:100%;height:16px;margin:0;accent-color:#f04452;cursor:pointer}
+                        .times{display:flex;justify-content:space-between;color:#a1a1aa;font-size:10px;font-variant-numeric:tabular-nums}
+                        .controls{display:flex;align-items:center;justify-content:space-between;gap:7px}
+                        button{border:0;color:#e4e4e7;background:transparent;min-width:34px;height:34px;border-radius:999px;font:inherit;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+                        button:hover{background:#242428}button:focus-visible,input:focus-visible{outline:2px solid #f04452;outline-offset:2px}
+                        button.primary{width:43px;height:43px;background:#fafafa;color:#111113;font-size:19px}
+                        button.primary:hover{background:#dedee3}.skip{font-size:11px;font-weight:750;width:42px}
+                        @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+                    `;
+                    pipDoc.head.appendChild(style);
+                    pipDoc.body.innerHTML = `<main class="pip" aria-label="Mujic mini player">
+                        <section class="track"><img class="art" id="mj-pip-art" alt="Album cover"><div class="meta"><div class="title" id="mj-pip-title">Mujic</div><div class="artist" id="mj-pip-artist">Ready to play</div><div class="status" id="mj-pip-status">NOW PLAYING</div></div></section>
+                        <section class="timeline"><input class="seek" id="mj-pip-seek" type="range" min="0" max="1" value="0" step="0.1" aria-label="Seek through song"><div class="times"><span id="mj-pip-current">0:00</span><span id="mj-pip-duration">0:00</span></div></section>
+                        <nav class="controls" aria-label="Playback controls"><button id="mj-pip-prev" title="Previous track" aria-label="Previous track">|◀</button><button id="mj-pip-back" class="skip" title="Back 10 seconds" aria-label="Back 10 seconds">−10s</button><button id="mj-pip-toggle" class="primary" title="Play" aria-label="Play">▶</button><button id="mj-pip-forward" class="skip" title="Forward 10 seconds" aria-label="Forward 10 seconds">+10s</button><button id="mj-pip-next" title="Next track" aria-label="Next track">▶|</button></nav>
+                    </main>`;
+                    const get = id => pipDoc.getElementById(id);
+                    const audio = AudioAdapter.audio;
+                    let lastTrackKey = null;
+                    let seekWasChanged = false;
+                    let syncTimer = null;
+                    const fmt = value => { const n=Math.max(0,Math.floor(Number(value)||0)); return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`; };
+                    const imageFor = track => {
+                        try {
+                            if (track?.source === 'machhar-online' || window.OnlineMusic?.isOnlineTrack?.(track)) {
+                                const proxied=window.OnlineMusic?.getImage?.(track?.raw||{}, {renderProxy:true});
+                                if (proxied) return String(proxied);
+                            }
+                        } catch (_) {}
+                        const value = track?.artworkUrl || track?.artwork || track?.imageUrl || track?.image_url || track?.image;
+                        if (typeof value === 'string' && value) return value;
+                        const loaded = document.getElementById('full-art') || document.getElementById('mini-art');
+                        return loaded?.currentSrc || loaded?.src || window.Utils?.defaultArt || '';
+                    };
+                    const sync = () => {
+                        if (pipWindow.closed) return;
+                        const track = Player.getCurrentTrack();
+                        const trackKey = String(track?.id ?? State.currentTrackId ?? '');
+                        const title = String(track?.title || document.getElementById('full-title')?.textContent || 'Mujic');
+                        const artist = String(track?.artist || document.getElementById('full-artist')?.textContent || 'Now Playing');
+                        if (trackKey !== lastTrackKey) {
+                            lastTrackKey = trackKey;
+                            get('mj-pip-title').textContent = title;
+                            get('mj-pip-artist').textContent = artist;
+                            pipDoc.title = `${title} · Mujic`;
+                            const cover = get('mj-pip-art');
+                            const src = imageFor(track);
+                            if (src && cover.src !== src) cover.src = src;
+                            cover.onerror = () => { const fallback=window.Utils?.defaultArt||''; if (fallback && cover.src !== fallback) cover.src=fallback; };
+                        }
+                        const duration = Number(audio.duration);
+                        const current = Math.max(0, Number(audio.currentTime) || Number(State.currentTime) || 0);
+                        const durationKnown = Number.isFinite(duration) && duration > 0;
+                        const max = durationKnown ? duration : Math.max(1, Number(State.duration)||1);
+                        const slider = get('mj-pip-seek');
+                        slider.max = String(max);
+                        slider.disabled = !durationKnown;
+                        if (!seekWasChanged && pipDoc.activeElement !== slider) slider.value = String(Math.min(current, max));
+                        get('mj-pip-current').textContent = fmt(current);
+                        get('mj-pip-duration').textContent = durationKnown ? fmt(duration) : '—:—';
+                        const playing = !audio.paused && !audio.ended;
+                        const toggle = get('mj-pip-toggle');
+                        toggle.textContent = playing ? 'Ⅱ' : '▶';
+                        toggle.title = playing ? 'Pause' : 'Play';
+                        toggle.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+                        get('mj-pip-status').textContent = playing ? 'NOW PLAYING' : (track ? 'PAUSED' : 'READY');
+                    };
+                    const seekTo = value => {
+                        AudioAdapter.seek(Number(value));
+                        State.currentTime = Number(audio.currentTime) || 0;
+                        AudioAdapter.updateMediaSessionPosition();
+                        UI.updateProgress();
+                        sync();
+                    };
+                    get('mj-pip-toggle').addEventListener('click', async () => {
+                        if (!audio.paused) Player.pause();
+                        else await Player.togglePlay();
+                        sync();
+                    });
+                    get('mj-pip-prev').addEventListener('click', () => { Promise.resolve(Player.previous()).finally(sync); });
+                    get('mj-pip-next').addEventListener('click', () => { Promise.resolve(Player.next()).finally(sync); });
+                    get('mj-pip-back').addEventListener('click', () => seekTo((Number(audio.currentTime)||0)-10));
+                    get('mj-pip-forward').addEventListener('click', () => seekTo((Number(audio.currentTime)||0)+10));
+                    get('mj-pip-seek').addEventListener('input', e => { seekWasChanged=true; get('mj-pip-current').textContent=fmt(e.target.value); });
+                    get('mj-pip-seek').addEventListener('change', e => { seekTo(e.target.value); seekWasChanged=false; });
+                    const audioEvents = ['play','playing','pause','timeupdate','loadedmetadata','durationchange','seeking','seeked','ratechange','ended','emptied'];
+                    const onAudioChange = () => sync();
+                    audioEvents.forEach(type => audio.addEventListener(type, onAudioChange));
+                    window.MujicPiP = { sync };
+                    sync();
+                    syncTimer = setInterval(sync, 300);
+                    pipWindow.addEventListener('pagehide', () => {
+                        if (syncTimer) clearInterval(syncTimer);
+                        audioEvents.forEach(type => audio.removeEventListener(type, onAudioChange));
+                        if (window.MujicPiP?.sync === sync) window.MujicPiP = null;
+                    }, {once:true});
+                    return true;
+                };
+
+                // Native video PiP fallback for browsers without Document PiP. Native buttons are
+                // driven by Media Session actions; the canvas video is only a display surface.
+                const openNativeVideoPiP = async () => {
+                    if (!hasVideoPiP()) throw new Error('This browser does not support video Picture-in-Picture.');
+                    if (document.pictureInPictureElement?.id === 'mujic-pip-video') { await document.exitPictureInPicture(); return; }
+                    let video = document.getElementById('mujic-pip-video');
+                    if (!video) {
+                        const canvas=document.createElement('canvas'); canvas.width=640; canvas.height=360;
+                        const ctx=canvas.getContext('2d');
+                        video=document.createElement('video'); video.id='mujic-pip-video'; video.muted=true; video.playsInline=true; video.disablePictureInPicture=false; video.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px';
+                        video.srcObject=canvas.captureStream(12); document.body.appendChild(video);
+                        const fit=(text,maxWidth)=>{let value=String(text||'');if(ctx.measureText(value).width<=maxWidth)return value;while(value.length>1&&ctx.measureText(value+'…').width>maxWidth)value=value.slice(0,-1);return value.trimEnd()+'…';};
+                        let lastCanvasPaintKey='';
+                        video._pipPaint=(force=false)=>{
+                            if(!video.isConnected)return;
+                            const current=(()=>{try{return Player.getCurrentTrack();}catch(_){return null;}})();
+                            const title=current?.title||document.getElementById('full-title')?.textContent||'Mujic';
+                            const artist=current?.artist||document.getElementById('full-artist')?.textContent||'Now Playing';
+                            const art=document.getElementById('full-art')||document.getElementById('mini-art');
+                            const artSrc=art?.currentSrc||art?.src||'';
+                            const paintKey=[current?.id||State.currentTrackId||'',title,artist,artSrc,art?.naturalWidth||0].join('|');
+                            if(!force&&paintKey===lastCanvasPaintKey)return;
+                            lastCanvasPaintKey=paintKey;
+                            ctx.fillStyle='#09090b';ctx.fillRect(0,0,640,360);
+                            try{if(art?.complete&&art.naturalWidth){const size=250;ctx.save();ctx.beginPath();ctx.roundRect(36,55,size,size,22);ctx.clip();ctx.drawImage(art,36,55,size,size);ctx.restore();}}catch(_){}
+                            ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='600 25px system-ui';ctx.fillText(fit(title,290),320,150);
+                            ctx.fillStyle='#b9b9c2';ctx.font='18px system-ui';ctx.fillText(fit(artist,290),320,185);
+                            ctx.fillStyle='#777';ctx.font='14px system-ui';ctx.fillText('MUJIC · NOW PLAYING',320,225);
+                        };
+                        video._pipPaint(true);
+                        const pipAudioEvents=['play','playing','pause','timeupdate','loadedmetadata','durationchange','seeking','seeked','ratechange','ended','emptied','loadstart','canplay'];
+                        let audioListenersAttached=false;
+                        let syncingVideoFromAudio=false;
+                        const clearPipAction=(action)=>{
+                            if(video._pipPendingAction!==action)return;
+                            clearTimeout(video._pipPendingTimer);video._pipPendingTimer=null;video._pipPendingAction=null;video._pipPendingPromise=null;
+                        };
+                        const syncMediaState=()=>{
+                            video._pipPaint();
+                            try{if('mediaSession' in navigator)navigator.mediaSession.playbackState=(AudioAdapter.audio.paused||AudioAdapter.audio.ended)?'paused':'playing';}catch(_){}
+                            AudioAdapter.updateMediaSessionPosition();
+                            if(document.pictureInPictureElement!==video)return;
+                            const shouldVideoPlay=(!AudioAdapter.audio.paused&&!AudioAdapter.audio.ended)||video._pipPendingAction==='play';
+                            if(shouldVideoPlay&&video.paused&&!video._pipVideoPlayPending&&!video._pipVideoPlayFailed){
+                                syncingVideoFromAudio=true;video._pipVideoPlayPending=true;
+                                try{
+                                    Promise.resolve(video.play()).then(()=>{video._pipVideoPlayFailed=false;},()=>{video._pipVideoPlayFailed=true;}).finally(()=>{video._pipVideoPlayPending=false;syncingVideoFromAudio=false;});
+                                }catch(_){video._pipVideoPlayPending=false;video._pipVideoPlayFailed=true;syncingVideoFromAudio=false;}
+                            }else if(!shouldVideoPlay){
+                                video._pipVideoPlayFailed=false;
+                                if(!video.paused){syncingVideoFromAudio=true;try{video.pause();}finally{syncingVideoFromAudio=false;}}
+                            }
+                        };
+                        const requestPipPlay=()=>{
+                            const audio=AudioAdapter.audio;
+                            if(!audio.paused&&!audio.ended)return Promise.resolve(true);
+                            if(video._pipPendingAction==='play')return video._pipPendingPromise||Promise.resolve(false);
+                            clearTimeout(video._pipPendingTimer);video._pipPendingAction='play';
+                            try{video._pipPendingPromise=Promise.resolve(Player.togglePlay());}catch(error){video._pipPendingPromise=Promise.reject(error);}
+                            video._pipPendingPromise.catch(error=>console.warn('[Mujic PiP] Play request failed',error));
+                            video._pipPendingTimer=setTimeout(()=>{clearPipAction('play');syncMediaState();},9000);
+                            video._pipPendingPromise.then(()=>{if(!audio.paused)clearPipAction('play');syncMediaState();},()=>{clearPipAction('play');syncMediaState();});
+                            return video._pipPendingPromise;
+                        };
+                        const requestPipPause=()=>{
+                            const audio=AudioAdapter.audio;
+                            if(audio.paused||audio.ended)return Promise.resolve(true);
+                            if(video._pipPendingAction==='pause')return video._pipPendingPromise||Promise.resolve(false);
+                            clearTimeout(video._pipPendingTimer);video._pipPendingAction='pause';
+                            try{video._pipPendingPromise=Promise.resolve(Player.pause());}catch(error){video._pipPendingPromise=Promise.reject(error);}
+                            video._pipPendingPromise.catch(error=>console.warn('[Mujic PiP] Pause request failed',error));
+                            video._pipPendingTimer=setTimeout(()=>{clearPipAction('pause');syncMediaState();},1800);
+                            video._pipPendingPromise.then(()=>{if(audio.paused)clearPipAction('pause');syncMediaState();},()=>{clearPipAction('pause');syncMediaState();});
+                            return video._pipPendingPromise;
+                        };
+                        const attachAudioListeners=()=>{
+                            if(audioListenersAttached)return;
+                            pipAudioEvents.forEach(type=>AudioAdapter.audio.addEventListener(type,video._pipAudioHandlers[type]));
+                            audioListenersAttached=true;
+                        };
+                        // Native video-PiP buttons manipulate the canvas video, not the separate
+                        // music Audio element. Bridge both events back to Player and deduplicate
+                        // them against Media Session actions so a single click starts one request.
+                        video.addEventListener('play',()=>{if(!syncingVideoFromAudio&&document.pictureInPictureElement===video)requestPipPlay();});
+                        video.addEventListener('pause',()=>{if(!syncingVideoFromAudio&&document.pictureInPictureElement===video)requestPipPause();});
+                        video.addEventListener('loadeddata',()=>video._pipPaint(true));
+                        video._pipSyncCleanup=()=>{
+                            pipAudioEvents.forEach(type=>AudioAdapter.audio.removeEventListener(type,video._pipAudioHandlers?.[type]));
+                            audioListenersAttached=false;clearTimeout(video._pipPendingTimer);video._pipPendingTimer=null;video._pipPendingAction=null;video._pipPendingPromise=null;
+                            if(window.MujicNativePiP?.video===video)window.MujicNativePiP=null;
+                        };
+                        // Keep handler references stable so PiP can be closed/reopened without leaks.
+                        video._pipAudioHandlers={};
+                        pipAudioEvents.forEach(type=>{video._pipAudioHandlers[type]=()=>{
+                            if(type==='play'||type==='playing')clearPipAction('play');
+                            if(type==='pause'||type==='ended')clearPipAction('pause');
+                            syncMediaState();
+                        };});
+                        video.addEventListener('enterpictureinpicture',()=>{
+                            AudioAdapter.setupMediaSession();
+                            AudioAdapter.updateMediaSessionMeta(Player.getCurrentTrack());
+                            AudioAdapter.updateMediaSessionPosition();
+                            video._pipVideoPlayFailed=false;video._pipVideoPlayPending=false;
+                            attachAudioListeners();
+                            window.MujicNativePiP={video,requestPlay:requestPipPlay,requestPause:requestPipPause,sync:syncMediaState};
+                            video._pipPaint(true);
+                            clearInterval(video._pipTimer);video._pipTimer=setInterval(syncMediaState,200);
+                            syncMediaState();
+                        });
+                        video.addEventListener('leavepictureinpicture',()=>{clearInterval(video._pipTimer);video._pipTimer=null;video._pipSyncCleanup?.();});
+                    }
+                    video._pipPaint();
+                    await new Promise((resolve,reject)=>{
+                        if(video.readyState>=2)return resolve();
+                        const timer=setTimeout(()=>reject(new Error('PiP video frame not ready')),1800);
+                        video.addEventListener('loadeddata',()=>{clearTimeout(timer);resolve();},{once:true});
+                        video.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('PiP video failed'));},{once:true});
+                    });
+                    await video.play();
+                    await video.requestPictureInPicture();
+                };
+
                 const openPlayerPiP = async () => {
                     if (isMobilePiPContext()) { UI.showToast('Picture-in-Picture is available on supported desktop browsers.', 'info'); return; }
-                    if (!('pictureInPictureEnabled' in document) || !document.pictureInPictureEnabled || !HTMLCanvasElement.prototype.captureStream) {
-                        UI.showToast('Picture-in-Picture is not supported by this browser.', 'info'); return;
+                    if (hasDocumentPiP()) {
+                        try { await openDocumentPlayerPiP(); return; }
+                        catch (error) { console.warn('Document PiP unavailable; falling back to native video PiP.', error); }
                     }
-                    try {
-                        if (document.pictureInPictureElement?.id === 'mujic-pip-video') { await document.exitPictureInPicture(); return; }
-                        let video = document.getElementById('mujic-pip-video');
-                        if (!video) {
-                            const canvas = document.createElement('canvas'); canvas.width=640; canvas.height=360;
-                            const ctx=canvas.getContext('2d');
-                            video=document.createElement('video'); video.id='mujic-pip-video'; video.muted=true; video.playsInline=true; video.disablePictureInPicture=false; video.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px';
-                            video.srcObject=canvas.captureStream(12); document.body.appendChild(video);
-                            video.dataset.canvasReady='1';
-                            const fit=(text,maxWidth)=>{ let value=String(text||''); if(ctx.measureText(value).width<=maxWidth) return value; while(value.length>1&&ctx.measureText(value+'…').width>maxWidth) value=value.slice(0,-1); return value.trimEnd()+'…'; };
-                            video._pipPaint=()=>{
-                                if(!video.isConnected)return;
-                                // Read from player state (not the DOM) so the PiP card always shows the track that is actually current.
-                                const current=(()=>{ try { return Player.getCurrentTrack(); } catch(_) { return null; } })();
-                                const title=current?.title||document.getElementById('full-title')?.textContent||'Mujic';
-                                const artist=current?.artist||document.getElementById('full-artist')?.textContent||'Now Playing';
-                                ctx.fillStyle='#09090b';ctx.fillRect(0,0,640,360);
-                                const art=document.getElementById('full-art')||document.getElementById('mini-art');
-                                try { if(art?.complete&&art.naturalWidth){const size=250;ctx.save();ctx.beginPath();ctx.roundRect(36,55,size,size,22);ctx.clip();ctx.drawImage(art,36,55,size,size);ctx.restore();} } catch(_) {}
-                                ctx.textAlign='left';
-                                ctx.fillStyle='#fff';ctx.font='600 25px system-ui';ctx.fillText(fit(title,290),320,150);
-                                ctx.fillStyle='#b9b9c2';ctx.font='18px system-ui';ctx.fillText(fit(artist,290),320,185);
-                                ctx.fillStyle='#777';ctx.font='14px system-ui';ctx.fillText('MUJIC  ·  NOW PLAYING',320,225);
-                            };
-                            video._pipPaint();
-                            // Keep the display video mirrored to the audio engine in both directions.
-                            const syncVideoToAudio=()=>{
-                                if(!video.isConnected)return;
-                                if(State.isPlaying&&video.paused) video.play().catch(()=>{});
-                                else if(!State.isPlaying&&!video.paused) video.pause();
-                                if('mediaSession' in navigator) navigator.mediaSession.playbackState=State.isPlaying?'playing':'paused';
-                            };
-                            AudioAdapter.audio.addEventListener('play',syncVideoToAudio);
-                            AudioAdapter.audio.addEventListener('pause',syncVideoToAudio);
-                            video.addEventListener('pause',()=>{ if(document.pictureInPictureElement===video&&State.isPlaying) Player.pause(); });
-                            video.addEventListener('play',()=>{ if(document.pictureInPictureElement===video&&!State.isPlaying) Player.togglePlay(); });
-                            video.addEventListener('enterpictureinpicture',()=>{
-                                AudioAdapter.setupMediaSession(); AudioAdapter.updateMediaSessionPosition(); video._pipPaint();
-                                clearInterval(video._pipTimer);
-                                // A timer (not requestAnimationFrame) keeps the PiP frame updating while the main tab is in the background.
-                                video._pipTimer=setInterval(video._pipPaint,250);
-                                syncVideoToAudio();
-                            });
-                            video.addEventListener('leavepictureinpicture',()=>{ clearInterval(video._pipTimer); video._pipTimer=null; });
-                        }
-                        video._pipPaint();
-                        await new Promise((resolve, reject) => { if (video.readyState >= 2) return resolve(); const timer=setTimeout(()=>reject(new Error('PiP video frame not ready')),1800); video.addEventListener('loadeddata',()=>{clearTimeout(timer);resolve();},{once:true}); video.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('PiP video failed'));},{once:true}); });
-                        await video.play();
-                        await video.requestPictureInPicture();
-                    } catch(error) { console.warn('PiP unavailable',error); UI.showToast('Could not open Picture-in-Picture. Use HTTPS or a supported desktop browser.', 'error'); }
+                    try { await openNativeVideoPiP(); }
+                    catch(error) { console.warn('PiP unavailable',error); UI.showToast('Could not open Picture-in-Picture. Use HTTPS or a supported desktop browser.', 'error'); }
                 };
 
                 const art = document.getElementById('player-art-container');

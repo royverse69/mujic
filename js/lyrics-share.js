@@ -380,6 +380,17 @@
         });
     }
 
+
+    async function loadMujicLogo() {
+        const localUrl = new URL('./icons/icon-512.png', location.href).href;
+        return new Promise(resolve => {
+            const img = new Image(); let settled = false;
+            const finish = value => { if (settled) return; settled = true; clearTimeout(timer); resolve(value); };
+            const timer = setTimeout(() => finish(null), 1000);
+            img.decoding = 'async'; img.onload = () => finish(img); img.onerror = () => finish(null); img.src = localUrl;
+        });
+    }
+
     function paletteFromArtwork(image, track) {
         const hashHue = () => {
             const key = `${track?.id || ''}|${track?.title || ''}|${track?.artist || ''}`;
@@ -469,109 +480,89 @@
         if (!canvas) return null;
         const ctx = canvas.getContext('2d', { alpha: false });
         if (!ctx) throw new Error('Canvas is not available.');
-        canvas.width = CARD_W;
-        canvas.height = CARD_H;
+        canvas.width = CARD_W; canvas.height = CARD_H;
         const art = await loadArtwork(track);
         if (token !== cardRenderToken) return null;
         try { await Promise.race([document.fonts?.ready || Promise.resolve(), new Promise(resolve => setTimeout(resolve, 220))]); } catch (_) {}
 
-        const palette = paletteFromArtwork(art, track);
+        const shareStyle = State.lyricsShareStyle === 'mujic' ? 'mujic' : 'spotify';
+        const artworkPalette = paletteFromArtwork(art, track);
+        // The Spotify card uses the RGB negative of the dominant cover palette so the artwork
+        // visibly separates from its background. Mujic keeps the art-derived accent palette.
+        const palette = shareStyle === 'spotify'
+            ? { r:255-artworkPalette.r, g:255-artworkPalette.g, b:255-artworkPalette.b }
+            : artworkPalette;
         const linearChannel = value => { const channel = Math.max(0, Math.min(255, Number(value) || 0)) / 255; return channel <= .04045 ? channel / 12.92 : Math.pow((channel + .055) / 1.055, 2.4); };
         const luminance = .2126 * linearChannel(palette.r) + .7152 * linearChannel(palette.g) + .0722 * linearChannel(palette.b);
-        // WCAG-style relative luminance decides which uploaded logo has stronger contrast.
         const lightBackground = luminance > .179;
         const foreground = lightBackground ? '#111216' : '#ffffff';
         const secondary = lightBackground ? 'rgba(12,13,17,.72)' : 'rgba(255,255,255,.76)';
-        const gradientEnd = {
-            r: Math.round(palette.r * (lightBackground ? .90 : .68)),
-            g: Math.round(palette.g * (lightBackground ? .90 : .68)),
-            b: Math.round(palette.b * (lightBackground ? .90 : .68))
-        };
-        // Flat, art-derived colour fields avoid the expensive full-canvas blur that stuttered on mobile.
-        const background = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
-        background.addColorStop(0, colorString(palette));
-        background.addColorStop(1, colorString(gradientEnd));
-        ctx.fillStyle = background; ctx.fillRect(0, 0, CARD_W, CARD_H);
-        roundedRect(ctx, 20, 20, CARD_W - 40, CARD_H - 40, 26, null, lightBackground ? 'rgba(0,0,0,.10)' : 'rgba(255,255,255,.13)');
+        const gradientEnd = { r:Math.round(palette.r*(lightBackground ? .90 : .68)), g:Math.round(palette.g*(lightBackground ? .90 : .68)), b:Math.round(palette.b*(lightBackground ? .90 : .68)) };
+        const background = ctx.createLinearGradient(0,0,CARD_W,CARD_H);
+        background.addColorStop(0,colorString(palette)); background.addColorStop(1,colorString(gradientEnd));
+        ctx.fillStyle=background;ctx.fillRect(0,0,CARD_W,CARD_H);
+        roundedRect(ctx,20,20,CARD_W-40,CARD_H-40,26,null,lightBackground?'rgba(0,0,0,.10)':'rgba(255,255,255,.13)');
 
-        // Track identity row: cover art on the left, title and artist on the right.
-        const artX = 72, artY = 72, artSize = 126;
-        ctx.save();
-        ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') ctx.roundRect(artX, artY, artSize, artSize, 15);
-        else roundedRect(ctx, artX, artY, artSize, artSize, 15, null);
-        ctx.clip();
-        if (art) drawImageCover(ctx, art, artX, artY, artSize, artSize);
-        else {
-            ctx.fillStyle = lightBackground ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.12)';
-            ctx.fillRect(artX, artY, artSize, artSize);
-            ctx.fillStyle = foreground; ctx.font = '700 68px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('♫', artX + artSize / 2, artY + 88);
-        }
-        ctx.restore();
-        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillStyle = foreground;
-        const titleText = String(track?.title || 'Unknown song');
-        const titleFont = titleText.length > 35 ? 36 : titleText.length > 25 ? 40 : 46;
-        ctx.font = `750 ${titleFont}px Inter, system-ui, sans-serif`;
-        const title = wrapText(ctx, titleText, 792, 1)[0] || 'Unknown song';
-        ctx.fillText(title, 230, 125, 792);
-        ctx.fillStyle = secondary; ctx.font = '600 32px Inter, system-ui, sans-serif';
-        const artist = wrapText(ctx, String(track?.artist || 'Unknown artist'), 792, 1)[0] || 'Unknown artist';
-        ctx.fillText(artist, 230, 174, 792);
-
-        // Selected lyric lines form the hero; wrap each selected line together as a group.
-        const chosen = (Array.isArray(lines) ? lines : []).slice(0, MAX_LINES).map(line => String(line?.text || '').trim()).filter(Boolean);
-        let fontSize = chosen.length >= 5 ? 66 : chosen.length === 4 ? 72 : chosen.length === 3 ? 78 : chosen.length === 2 ? 84 : 90;
-        const sidePadding = 76;
-        const availableWidth = CARD_W - sidePadding * 2;
-        const lyricAreaTop = 254;
-        const lyricAreaHeight = 600;
-        let wrappedGroups = [];
-        let totalHeight = 0;
-        const layoutLyrics = () => {
-            ctx.font = `750 ${fontSize}px Inter, system-ui, sans-serif`;
-            wrappedGroups = chosen.map(text => wrapText(ctx, text, availableWidth, 2));
-            const lineHeight = Math.round(fontSize * 1.12);
-            const groupGap = Math.round(fontSize * .23);
-            totalHeight = wrappedGroups.reduce((sum, parts) => sum + parts.length * lineHeight, 0) + Math.max(0, wrappedGroups.length - 1) * groupGap;
-            return { lineHeight, groupGap };
-        };
-        let { lineHeight, groupGap } = layoutLyrics();
-        while (totalHeight > lyricAreaHeight && fontSize > 34) {
-            fontSize -= 2;
-            ({ lineHeight, groupGap } = layoutLyrics());
-        }
-        // Extra safety for five long lines on compact devices: always stay inside the export's content box.
-        if (totalHeight > lyricAreaHeight) {
-            ctx.font = `700 34px Inter, system-ui, sans-serif`;
-            wrappedGroups = chosen.map(text => wrapText(ctx, text, availableWidth, 1));
-            lineHeight = 39; groupGap = 9;
-            totalHeight = wrappedGroups.reduce((sum, parts) => sum + parts.length * lineHeight, 0) + Math.max(0, wrappedGroups.length - 1) * groupGap;
-        }
-        let y = lyricAreaTop + Math.max(0, (lyricAreaHeight - totalHeight) / 2) + lineHeight;
-        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = foreground;
-        // Crisp typography without neon, blur or heavy text shadows.
-        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
-        wrappedGroups.forEach((parts, index) => {
-            for (const part of parts) {
-                ctx.fillText(part, sidePadding, y, availableWidth);
-                y += lineHeight;
-            }
-            if (index < wrappedGroups.length - 1) y += groupGap;
-        });
-
-        // Use the user's uploaded official repository logo variant chosen for the card's luminance.
-        const spotifyLogo = await loadSpotifyLogo(lightBackground);
-        if (token !== cardRenderToken) return null;
-        const logoX = 72, logoY = 958, logoMaxWidth = 190, logoMaxHeight = 48;
-        if (spotifyLogo && spotifyLogo.naturalWidth && spotifyLogo.naturalHeight) {
-            const scale = Math.min(logoMaxWidth / spotifyLogo.naturalWidth, logoMaxHeight / spotifyLogo.naturalHeight);
-            const logoWidth = spotifyLogo.naturalWidth * scale, logoHeight = spotifyLogo.naturalHeight * scale;
-            ctx.drawImage(spotifyLogo, logoX, logoY + (logoMaxHeight - logoHeight) / 2, logoWidth, logoHeight);
+        const titleText=String(track?.title||'Unknown song');
+        const artistText=String(track?.artist||'Unknown artist');
+        if (shareStyle === 'spotify') {
+            // Spotify-inspired card: album art and metadata form one compact identity row.
+            const artX=72,artY=72,artSize=126;
+            ctx.save();ctx.beginPath();if(typeof ctx.roundRect==='function')ctx.roundRect(artX,artY,artSize,artSize,15);else roundedRect(ctx,artX,artY,artSize,artSize,15,null);ctx.clip();
+            if(art)drawImageCover(ctx,art,artX,artY,artSize,artSize);else{ctx.fillStyle=lightBackground?'rgba(0,0,0,.08)':'rgba(255,255,255,.12)';ctx.fillRect(artX,artY,artSize,artSize);ctx.fillStyle=foreground;ctx.font='700 68px Arial,sans-serif';ctx.textAlign='center';ctx.fillText('♫',artX+artSize/2,artY+88);}ctx.restore();
+            ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.fillStyle=foreground;
+            const titleFont=titleText.length>35?36:titleText.length>25?40:46;ctx.font=`750 ${titleFont}px Inter,system-ui,sans-serif`;
+            ctx.fillText(wrapText(ctx,titleText,792,1)[0]||'Unknown song',230,125,792);
+            ctx.fillStyle=secondary;ctx.font='600 32px Inter,system-ui,sans-serif';ctx.fillText(wrapText(ctx,artistText,792,1)[0]||'Unknown artist',230,174,792);
         } else {
-            fallbackSpotifyMark(ctx, logoX, logoY + 2, foreground, colorString(gradientEnd));
+            // Original Mujic card: centered cover, track metadata, lyric quote, and app mark.
+            const artSize=132,artX=(CARD_W-artSize)/2,artY=52;
+            ctx.save();ctx.beginPath();if(typeof ctx.roundRect==='function')ctx.roundRect(artX,artY,artSize,artSize,18);else roundedRect(ctx,artX,artY,artSize,artSize,18,null);ctx.clip();
+            if(art)drawImageCover(ctx,art,artX,artY,artSize,artSize);else{ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(artX,artY,artSize,artSize);ctx.fillStyle=foreground;ctx.font='700 68px Arial,sans-serif';ctx.textAlign='center';ctx.fillText('♫',CARD_W/2,artY+88);}ctx.restore();
+            ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillStyle=foreground;
+            ctx.font=`750 ${titleText.length>38?34:titleText.length>26?38:43}px Inter,system-ui,sans-serif`;
+            ctx.fillText(wrapText(ctx,titleText,870,1)[0]||'Unknown song',CARD_W/2,224,870);
+            ctx.fillStyle=secondary;ctx.font='600 30px Inter,system-ui,sans-serif';ctx.fillText(wrapText(ctx,artistText,870,1)[0]||'Unknown artist',CARD_W/2,267,870);
+            ctx.fillStyle=lightBackground?'rgba(0,0,0,.22)':'rgba(255,255,255,.5)';ctx.font='700 100px Georgia,serif';ctx.fillText('“',94,381);
         }
-        return new Promise(resolve => canvas.toBlob(blob => resolve(blob || null), 'image/png'));
+
+        const chosen=(Array.isArray(lines)?lines:[]).slice(0,MAX_LINES).map(line=>String(line?.text||'').trim()).filter(Boolean);
+        let fontSize=chosen.length>=5?66:chosen.length===4?72:chosen.length===3?78:chosen.length===2?84:90;
+        const sidePadding=shareStyle==='spotify'?76:108;
+        const availableWidth=CARD_W-sidePadding*2;
+        const lyricAreaTop=shareStyle==='spotify'?254:320;
+        const lyricAreaHeight=shareStyle==='spotify'?600:520;
+        let wrappedGroups=[],totalHeight=0;
+        const layoutLyrics=()=>{
+            ctx.font=`750 ${fontSize}px Inter,system-ui,sans-serif`;
+            wrappedGroups=chosen.map(text=>wrapText(ctx,text,availableWidth,2));
+            const lineHeight=Math.round(fontSize*1.12),groupGap=Math.round(fontSize*.23);
+            totalHeight=wrappedGroups.reduce((sum,parts)=>sum+parts.length*lineHeight,0)+Math.max(0,wrappedGroups.length-1)*groupGap;
+            return {lineHeight,groupGap};
+        };
+        let {lineHeight,groupGap}=layoutLyrics();
+        while(totalHeight>lyricAreaHeight&&fontSize>34){fontSize-=2;({lineHeight,groupGap}=layoutLyrics());}
+        if(totalHeight>lyricAreaHeight){ctx.font='700 34px Inter,system-ui,sans-serif';wrappedGroups=chosen.map(text=>wrapText(ctx,text,availableWidth,1));lineHeight=39;groupGap=9;totalHeight=wrappedGroups.reduce((sum,parts)=>sum+parts.length*lineHeight,0)+Math.max(0,wrappedGroups.length-1)*groupGap;}
+        let y=lyricAreaTop+Math.max(0,(lyricAreaHeight-totalHeight)/2)+lineHeight;
+        ctx.textAlign=shareStyle==='spotify'?'left':'center';ctx.textBaseline='alphabetic';ctx.fillStyle=foreground;
+        ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
+        wrappedGroups.forEach((parts,index)=>{for(const part of parts){ctx.fillText(part,shareStyle==='spotify'?sidePadding:CARD_W/2,y,availableWidth);y+=lineHeight;}if(index<wrappedGroups.length-1)y+=groupGap;});
+
+        if (shareStyle === 'spotify') {
+            const spotifyLogo=await loadSpotifyLogo(lightBackground);
+            if(token!==cardRenderToken)return null;
+            const logoX=72,logoY=958,logoMaxWidth=190,logoMaxHeight=48;
+            if(spotifyLogo&&spotifyLogo.naturalWidth&&spotifyLogo.naturalHeight){const scale=Math.min(logoMaxWidth/spotifyLogo.naturalWidth,logoMaxHeight/spotifyLogo.naturalHeight);const logoWidth=spotifyLogo.naturalWidth*scale,logoHeight=spotifyLogo.naturalHeight*scale;ctx.drawImage(spotifyLogo,logoX,logoY+(logoMaxHeight-logoHeight)/2,logoWidth,logoHeight);}
+            else fallbackSpotifyMark(ctx,logoX,logoY+2,foreground,colorString(gradientEnd));
+        } else {
+            const brand=await loadMujicLogo();
+            if(token!==cardRenderToken)return null;
+            const size=42,x=CARD_W/2-80,yBrand=965;
+            if(brand)ctx.drawImage(brand,x,yBrand,size,size);
+            ctx.fillStyle=foreground;ctx.font='800 34px Inter,system-ui,sans-serif';ctx.textAlign='left';ctx.fillText('MUJIC',x+52,yBrand+30);
+            ctx.fillStyle=secondary;ctx.font='500 19px Inter,system-ui,sans-serif';ctx.textAlign='center';ctx.fillText('royverse69.github.io/mujic',CARD_W/2,1030);
+        }
+        return new Promise(resolve=>canvas.toBlob(blob=>resolve(blob||null),'image/png'));
     }
 
     async function openCard() {

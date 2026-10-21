@@ -1,6 +1,6 @@
 /* Copyright mujic@royverse69 */
         const AudioAdapter = {
-            audio: new Audio(), ctx: null, source: null, analyser:null, eqFilters:[], compressor:null, masterGain:null,
+            audio: new Audio(), ctx: null, source: null, analyser:null, eqFilters:[], compressor:null, masterGain:null, mediaMetadataRequestId:0,
             currentObjectUrl:null, visualizerRAF:0, visualizerLastFrameAt:0, visualizerFreqData:null, silenceStart:0, lastSilenceCheck:0, wakeLock:null, lastMediaSeekAt:0, progressiveSeekCount:0,
             remoteAttemptInProgress:false, remoteAttemptToken:0, lastRemoteError:null, remoteRecoveryTrackId:null, remoteRecoveryAttempted:false,
             init: () => {
@@ -10,6 +10,7 @@
                     Stats.consumeAudioDelta(State.currentTime);
                     UI.updateProgress();
                     AudioAdapter.updateMediaSessionPosition();
+                    window.MujicPiP?.sync?.();
                     if (State.currentTrackId && Date.now() - State.lastPositionSave > 5000) {
                         State.lastPositionSave = Date.now();
                         if(State.resumePlayback)StorageAdapter.saveSettings();
@@ -30,7 +31,7 @@
                         State.currentTime = resume;
                         if (switchingResume) State.modeResumePendingTrackId = null;
                     }
-                    UI.updateDuration(); UI.updateProgress(); AudioAdapter.updateMediaSessionPosition();
+                    UI.updateDuration(); UI.updateProgress(); AudioAdapter.updateMediaSessionPosition(); window.MujicPiP?.sync?.();
                     if(t && (!t.duration || Math.abs(t.duration - State.duration) > 2)) {
                         t.duration = State.duration;
                         if (t.source !== 'machhar-online') StorageAdapter.saveTrackMeta(t);
@@ -45,14 +46,14 @@
                 AudioAdapter.audio.addEventListener('play', () => { 
                     State.isPlaying = true; State.statsLastAudioTime = Number(AudioAdapter.audio.currentTime) || 0; UI.updatePlayPause(); AudioAdapter.startVisualizerLoop(); 
                     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-                    Player.syncNowPlaying?.();
+                    Player.syncNowPlaying?.(); window.MujicPiP?.sync?.();
                 });
                 AudioAdapter.audio.addEventListener('pause', () => { 
                     State.isPlaying = false;
                     const pausedTime=Number(AudioAdapter.audio.currentTime);
                     if(Number.isFinite(pausedTime)&&pausedTime>=0)State.currentTime=pausedTime;
                     State.resumePosition = State.currentTime;
-                    UI.updatePlayPause(); AudioAdapter.stopVisualizerLoop();
+                    UI.updatePlayPause(); AudioAdapter.stopVisualizerLoop(); window.MujicPiP?.sync?.();
                     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
                     Stats.flush();
                     if (State.resumePlayback && State.currentTrackId) { State.lastPositionSave = Date.now(); StorageAdapter.saveSettings(); }
@@ -309,7 +310,20 @@
             },
             pause: () => { AudioAdapter.audio.pause(); },
             play: async () => { try { if (AudioAdapter.requiresWebAudio()) await AudioAdapter.initWebAudio(); if (AudioAdapter.masterGain) { const p=AudioAdapter.masterGain.gain; p.cancelScheduledValues(AudioAdapter.ctx.currentTime); p.setTargetAtTime(1,AudioAdapter.ctx.currentTime,.025); } await AudioAdapter.audio.play(); } catch(e) { console.error("Play resume failed", e); } },
-            seek: (time) => { if(!isNaN(time) && isFinite(time)) AudioAdapter.audio.currentTime = Math.max(0, Math.min(time, State.duration || 0)); },
+            seek: (time) => {
+                const target = Number(time);
+                if (!Number.isFinite(target)) return;
+                const audio = AudioAdapter.audio;
+                const actualDuration = Number(audio.duration);
+                const stateDuration = Number(State.duration);
+                const duration = Number.isFinite(actualDuration) && actualDuration > 0 ? actualDuration : stateDuration;
+                const clamped = Math.max(0, Number.isFinite(duration) && duration > 0 ? Math.min(target, Math.max(0, duration - 0.05)) : target);
+                try { audio.currentTime = clamped; } catch (_) { return; }
+                State.currentTime = Number(audio.currentTime) || clamped;
+                State.resumePosition = State.currentTime;
+                AudioAdapter.updateMediaSessionPosition();
+                window.MujicPiP?.sync?.();
+            },
             setVolume: (v) => { 
                 State.volume = v; if (v > 0) State.previousVolume = v; State.muted = v === 0;
                 AudioAdapter.audio.volume = v; StorageAdapter.saveSettings(); UI.updateVolumeUI();
@@ -540,34 +554,52 @@
             },
             updateMediaSessionPosition: () => {
                 if (!('mediaSession' in navigator) || typeof navigator.mediaSession.setPositionState !== 'function') return;
-                const duration = Number(State.duration); const currentTime = Number(State.currentTime); const playbackRate = Number(State.playbackRate) || 1;
-                if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(currentTime) || currentTime < 0) return;
+                const audio = AudioAdapter.audio;
+                const rawDuration = Number(audio.duration);
+                const duration = Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : Number(State.duration);
+                const currentTime = Number(audio.currentTime);
+                const playbackRate = Number(audio.playbackRate) || Number(State.playbackRate) || 1;
+                if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(currentTime) || currentTime < 0 || playbackRate <= 0) return;
                 try { navigator.mediaSession.setPositionState({ duration, playbackRate, position: Math.min(currentTime, Math.max(0, duration - 0.001)) }); } catch (e) { Utils.warn(e); }
             },
             setupMediaSession: () => {
                 if (!('mediaSession' in navigator) || typeof navigator.mediaSession.setActionHandler !== 'function') return;
-                // Register each action separately: one unsupported action must not disable the rest of PiP/OS controls.
+                // The OS/native PiP controls must call Player so UI state, queue state and audio stay in lockstep.
                 const bind = (action, handler) => { try { navigator.mediaSession.setActionHandler(action, handler); } catch (_) {} };
-                const seekBy = (offset) => {
+                const seekBy = offset => {
                     const current = Number(AudioAdapter.audio.currentTime) || 0;
                     AudioAdapter.seek(current + offset);
                     State.currentTime = Number(AudioAdapter.audio.currentTime) || 0;
-                    AudioAdapter.updateMediaSessionPosition();
-                    UI.updateProgress();
+                    AudioAdapter.updateMediaSessionPosition(); UI.updateProgress(); window.MujicPiP?.sync?.();
                 };
-                bind('play', () => AudioAdapter.play());
-                bind('pause', () => AudioAdapter.pause());
-                bind('stop', () => AudioAdapter.pause());
-                bind('previoustrack', () => Player.previous());
-                bind('nexttrack', () => Player.next());
+                bind('play', () => {
+                    const pip = window.MujicNativePiP;
+                    if (pip?.requestPlay) return pip.requestPlay();
+                    if (AudioAdapter.audio.paused || AudioAdapter.audio.ended) return Player.togglePlay();
+                });
+                bind('pause', () => {
+                    const pip = window.MujicNativePiP;
+                    if (pip?.requestPause) return pip.requestPause();
+                    return Player.pause();
+                });
+                bind('stop', () => Player.pause());
+                bind('previoustrack', () => Promise.resolve(Player.previous()).finally(() => window.MujicPiP?.sync?.()));
+                bind('nexttrack', () => Promise.resolve(Player.next()).finally(() => window.MujicPiP?.sync?.()));
                 bind('seekbackward', d => { const offset = State.progressiveSeek ? AudioAdapter.getMediaSeekOffset() : (Number(d?.seekOffset) || Number(State.seekStep) || 10); seekBy(-offset); });
                 bind('seekforward', d => { const offset = State.progressiveSeek ? AudioAdapter.getMediaSeekOffset() : (Number(d?.seekOffset) || Number(State.seekStep) || 10); seekBy(offset); });
-                bind('seekto', d => { if (Number.isFinite(Number(d?.seekTime))) { AudioAdapter.seek(Number(d.seekTime)); State.currentTime = Number(AudioAdapter.audio.currentTime) || 0; AudioAdapter.updateMediaSessionPosition(); UI.updateProgress(); } });
+                bind('seekto', d => { if (Number.isFinite(Number(d?.seekTime))) { AudioAdapter.seek(Number(d.seekTime)); State.currentTime = Number(AudioAdapter.audio.currentTime) || 0; AudioAdapter.updateMediaSessionPosition(); UI.updateProgress(); window.MujicPiP?.sync?.(); } });
             },
             updateMediaSessionMeta: async (track) => {
                 if (!('mediaSession' in navigator) || !track) return;
+                const requestId = ++AudioAdapter.mediaMetadataRequestId;
+                const trackId = String(track.id || '');
                 try {
                     let artworkSrc = await ArtworkCache.getUrl(track, track.title);
+                    // Artwork cache lookups can finish out of order. Never let an older track
+                    // overwrite the Media Session metadata after the queue has moved on.
+                    if (requestId !== AudioAdapter.mediaMetadataRequestId) return;
+                    const current = Player.getCurrentTrack();
+                    if (current && trackId && String(current.id) !== trackId) return;
                     const mime = track.pictureType || 'image/svg+xml';
                     navigator.mediaSession.metadata = new MediaMetadata({
                         title: track.title, artist: track.artist, album: track.album,
@@ -645,7 +677,7 @@
                 State.currentTrackId = track.id;
                 const restorePosition=restored?Math.max(0,Number(restored.position)||0):0;
                 State.currentTime = restorePosition; State.duration = restored?Math.max(0,Number(restored.duration)||0):0; State.resumePosition = restorePosition; State.statsLastAudioTime = null; AudioAdapter._wf = null;
-                UI.updateProgress(); UI.updateDuration();
+                UI.updateProgress(); UI.updateDuration(); AudioAdapter.updateMediaSessionMeta(track); window.MujicPiP?.sync?.();
                 
                 const isOnline = track.source === 'machhar-online';
                 if (isOnline && State.playbackSourceMode !== 'online') {

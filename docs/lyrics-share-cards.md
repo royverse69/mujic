@@ -1,4 +1,4 @@
-# Mujic lyric share cards (v13.0.16)
+# Mujic lyric share cards (v13.0.19)
 
 ## How to use it
 
@@ -15,3 +15,12 @@ The share card follows the interaction pattern documented by Spotify: highlight 
 - The Spotify logo files `icons/Spotify Logo - Black.png` and `icons/Spotify Logo - White.png` must remain in the deployed repository. The app references and pre-caches these exact same-origin assets.
 - Web Share API support varies by browser and OS. When file sharing is not available, **Share card** saves the PNG instead.
 - PiP availability and the exact native controls are browser-specific. The browser/OS owns the PiP controls and can expose a different set across platforms.
+
+
+### Card appearance
+
+Open **Settings → Lyrics → Share-card style** to choose **Mujic Style** or **Spotify Style**. Spotify Style uses the RGB negative of the dominant album-cover accent to make the cover stand out; Mujic Style keeps the cover-derived accent colour and uses the original Mujic app icon. The setting is saved with your other preferences.
+
+## Picture-in-Picture playback controls (v13.0.19)
+
+The Document PiP window uses direct Player/AudioAdapter actions. For browsers that only support video PiP, the silent canvas video’s play/pause events are bridged to the same audio player, while Media Session actions use a shared deduplicated request path. Track/position metadata follows the active audio element. Exact native controls are controlled by browser and operating-system support.

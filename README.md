@@ -24,3 +24,20 @@ Run `npm run check`. The Render route tests stub the backend and verify that Qui
 - Redundant share-dialog subtitle and preview caption removed.
 - Smaller/low-end devices skip expensive glass blur layers and the card’s blurred full-canvas background.
 - Keep the existing `icons/Spotify Logo - Black.png` and `icons/Spotify Logo - White.png` files in the repository; the app references and service-worker caches those exact assets.
+
+
+## v13.0.18 changes
+
+- Document PiP is preferred when available and contains directly connected play/pause, previous/next, ±10-second seek and a seek bar. Browser-native video PiP remains as a fallback.
+- Media Session actions use the shared Player and current audio element to keep external controls and player state synchronized.
+- Settings → Lyrics now includes a persistent share-card style selector (Mujic or Spotify). Spotify cards use a complementary negative of the artwork palette.
+
+Document PiP requires a secure context (typically HTTPS) and a supporting browser. The fallback uses Media Session action handlers; exact native controls depend on browser/OS support.
+
+
+## v13.0.19 — PiP control synchronization
+
+- Native video PiP play/pause controls now operate the real music player; duplicate browser Media Session requests are deduplicated.
+- PiP playback state and metadata follow the audio element, with event listeners safely attached when PiP opens and removed when it closes.
+- PiP canvas drawing is cached by track/artwork so the background sync does not redraw unchanged pixels.
+- Settings → Lyrics continues to offer Mujic Style and Spotify Style share cards; Spotify backgrounds use the RGB negative of the sampled album-art palette.

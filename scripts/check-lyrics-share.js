@@ -18,7 +18,7 @@ check(html.includes('id="player-more-share-lyrics"') && /id="player-more-share-l
 check(/id="player-more-share-lyrics"[\s\S]*?<span>Share lyrics<\/span>/.test(html), 'The menu option must be visibly labelled Share lyrics.');
 check(html.includes('./js/lyrics-share.js') && sw.includes('./js/lyrics-share.js') && sw.includes(`mujic-pwa-v${pkg.version}-`), 'The card renderer must be pre-cached by the versioned service worker.');
 check(lyricsShare.includes('const MAX_LINES = 5') && lyricsShare.includes('const CARD_H = 1080'), 'The share card must allow five lines and use a vertical 9:16 canvas.');
-check(lyricsShare.includes('paletteFromArtwork') && lyricsShare.includes('Spotify%20Logo%20-%20Black.png') && lyricsShare.includes('Spotify%20Logo%20-%20White.png') && lyricsShare.includes('drawImageCover(ctx, art, artX, artY, artSize, artSize)'), 'The card must use album-derived colour, contrast-matched repository Spotify logos and actual track artwork.');
+check(lyricsShare.includes('paletteFromArtwork') && lyricsShare.includes('Spotify%20Logo%20-%20Black.png') && lyricsShare.includes('Spotify%20Logo%20-%20White.png') && /drawImageCover\(ctx,art,artX,artY,artSize,artSize\)/.test(lyricsShare) && lyricsShare.includes('loadMujicLogo()'), 'Both card styles must use album-derived colour, matching brand marks and actual track artwork.');
 check(!lyricsShare.includes('paintQr') && !lyricsShare.includes('MujicQRCode') && !html.includes('The QR code opens'), 'The exported card must not contain a QR code or QR instructions.');
 check(lyricsShare.includes('isOnlineTrack(stableTrack) && window.TrackActions?.shortShareUrl'), 'Streaming timestamp links may remain in the share message, without putting a QR in the image.');
 check(lyricsShare.includes("if (!isOnlineTrack(track))") === false, 'Local tracks must also be eligible for lyric share cards.');
@@ -26,6 +26,6 @@ check(trackActions.includes("url.searchParams.set('t'") && trackActions.includes
 check(player.includes('position: Math.min(currentTime') && !player.includes('setPositionState({ duration, playbackRate, currentTime:'), 'Media Session position state must use the standard position property.');
 check(player.includes('Lyrics-share cleanup failed; continuing playback.'), 'Optional lyrics UI cleanup must not abort track startup.');
 check(read('js/ui-events.js').includes('Lyrics-share setup failed; player controls remain enabled.'), 'Optional lyrics UI initialization must not block global player event wiring.');
-check(events.includes('MUJIC  ·  NOW PLAYING') && events.includes("case 'lyrics-share-share'"), 'PiP branding and share actions must be wired.');
+check(events.includes('MUJIC · NOW PLAYING') && events.includes("case 'lyrics-share-share'") && events.includes('openDocumentPlayerPiP'), 'PiP branding, Document PiP controls and share actions must be wired.');
 check(html.includes('data-setting="lyricsShareEnabled"') && !html.includes('Up to four synced lines') && !html.includes('Album-art colours, your selected lyrics'), 'Lyrics sharing setting must be visible and redundant explanatory lines removed.');
 console.log('Lyrics-share checks passed: configurable More Options entry, five-line square Spotify-style artwork card, matching logo variants, no QR, timestamp links and versioned PWA precache.');

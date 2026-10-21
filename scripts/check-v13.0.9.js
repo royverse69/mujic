@@ -25,6 +25,6 @@ check(player.includes('Player.syncNowPlaying') && player.includes('startsInFligh
 check(read('js/ui-player.js').includes('Player.syncNowPlaying?.();') && read('js/online-workspace.js').includes('Player.syncNowPlaying?.();'), 'Both queue renderers must resync now-playing.');
 
 // Picture-in-Picture.
-check(events.includes("video.addEventListener('pause'") && events.includes("video.addEventListener('play'"), 'PiP play/pause must control the real audio.');
-check(events.includes('setInterval(video._pipPaint') && !events.includes('video._pipFrame=requestAnimationFrame'), 'PiP canvas must be painted by a timer so it stays live in the background.');
+check(events.includes('openDocumentPlayerPiP') && events.includes('mj-pip-toggle') && player.includes("if (pip?.requestPlay) return pip.requestPlay();"), 'PiP controls must use direct Document PiP actions and bridge native video controls to the audio player.');
+check(events.includes('setInterval(syncMediaState,200)') && events.includes('setInterval(sync, 300)') && events.includes('video._pipPaint=(force=false)') && !events.includes('video._pipFrame=requestAnimationFrame'), 'Native PiP state must refresh frequently without repainting the canvas unnecessarily.');
 console.log('v13.0.9 checks passed: update checker metadata, desktop player card, now-playing sync and PiP controls.');

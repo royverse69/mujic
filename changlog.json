@@ -1,15 +1,37 @@
 {
-  "version": "13.0.17",
-  "name": "Mujic v13.0.17 — Lyrics Artwork & Sync Fix",
+  "version": "13.0.19",
+  "name": "Mujic v13.0.19 — PiP Control Sync & Lyrics Card Styles",
   "date": "2026-10-21",
   "changes": [
-    "Fixed missing Spotify-style album cover art by resolving high-quality artwork candidates through Render /media, retrying actual player artwork sources and safely handling CORS before canvas export.",
-    "Replaced averaged, mostly dark card colours with a saturated dominant-hue palette sampled from the selected album artwork; use stable per-track colours when artwork is unavailable.",
-    "Made lyric sharing an explicit opt-in for new installs in Settings → Lyrics; existing saved choices are preserved, and turning the toggle off hides Share lyrics and cancels selection.",
-    "Pause lyric auto-follow and word reveal while selecting/sharing. On card dismissal, image save, or completed native share, restore the active lyric and scroll position from the audio element’s live currentTime.",
-    "Bumped the PWA cache/version and added regression checks for artwork fallbacks, palette variation, explicit opt-in and playback-time lyric resynchronization."
+    "Bridge native video-PiP play/pause buttons to the actual audio player instead of force-restarting the silent canvas video; share a deduplicated action path with Media Session controls to prevent double-start races.",
+    "Synchronize native PiP state, position, track artwork and metadata from the real audio element; attach and detach audio listeners on each PiP open/close so realtime events keep working after reopening.",
+    "Update native PiP seek and play/pause state every 200 ms while open, but repaint the 640×360 canvas only when track metadata or artwork changes to reduce CPU use.",
+    "Keep Document PiP custom controls linked directly to Player/AudioAdapter, and retain the Settings → Lyrics selector for Mujic Style versus Spotify Style cards with an inverted artwork palette in Spotify Style."
   ],
   "entries": [
+    {
+      "version": "13.0.19",
+      "date": "2026-10-21",
+      "title": "Mujic v13.0.19 — PiP Control Sync & Lyrics Card Styles",
+      "changes": [
+        "Bridge native video-PiP play/pause buttons to the actual audio player instead of force-restarting the silent canvas video; share a deduplicated action path with Media Session controls to prevent double-start races.",
+        "Synchronize native PiP state, position, track artwork and metadata from the real audio element; attach and detach audio listeners on each PiP open/close so realtime events keep working after reopening.",
+        "Update native PiP seek and play/pause state every 200 ms while open, but repaint the 640×360 canvas only when track metadata or artwork changes to reduce CPU use.",
+        "Keep Document PiP custom controls linked directly to Player/AudioAdapter, and retain the Settings → Lyrics selector for Mujic Style versus Spotify Style cards with an inverted artwork palette in Spotify Style."
+      ]
+    },
+    {
+      "version": "13.0.18",
+      "date": "2026-10-21",
+      "title": "Mujic v13.0.18 — Live PiP Controls & Lyrics Card Styles",
+      "changes": [
+        "Prefer Document Picture-in-Picture with app-owned controls connected directly to Player/AudioAdapter; native-video PiP remains as a Media Session fallback.",
+        "Sync PiP title, artist, artwork, play/pause state, seek position and duration from the active audio element on media events and a lightweight background interval.",
+        "Bind Media Session play, pause, previous, next and seek actions to the Player source of truth, and derive position state from the real audio element instead of potentially stale UI state.",
+        "Fix a duplicate Player.startCurrentTrack() call in playContext that could race its own playback requests.",
+        "Add Settings → Lyrics → Share-card style with persistent Mujic Style and Spotify Style options; Spotify cards use the RGB negative of the dominant album-art palette, while Mujic cards retain the artwork-derived palette and actual Mujic app icon."
+      ]
+    },
     {
       "version": "13.0.17",
       "date": "2026-10-21",
