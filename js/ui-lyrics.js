@@ -1,4 +1,19 @@
 /* Copyright mujic@royverse69 */
+        // Precomputed timing models avoid allocating arrays and recalculating syllable weights
+        // on every audio timeupdate (normally 4+ times per second).
+        const lyricWordTimingCache = new WeakMap();
+        const setLyricRevealCount = (model, requestedCount) => {
+            if (!model) return;
+            const count = Math.max(0, Math.min(model.words.length, Math.floor(Number(requestedCount) || 0)));
+            const previous = model.revealCount;
+            if (count === previous) return;
+            if (count > previous) {
+                for (let i = Math.max(0, previous); i < count; i++) model.words[i]?.classList.add('is-revealed');
+            } else {
+                for (let i = count; i < previous; i++) model.words[i]?.classList.remove('is-revealed');
+            }
+            model.revealCount = count;
+        };
         Object.assign(UI, {
             renderSyncedLyrics: (lyricsData = State.currentLyrics) => {
                 const container = document.getElementById('lyrics-content');
@@ -18,6 +33,20 @@
                         : escape(line.text);
                     return `<div class="lyric-line${State.lyricsWordByWord ? ' lyric-wordwise' : ''}" id="lyric-line-${index}" data-line-index="${index}" data-time="${Number(line.time) || 0}" data-action="seek-lyric">${content}</div>`;
                 }).join('');
+                if (State.lyricsWordByWord) {
+                    const rows = container.querySelectorAll('.lyric-line.lyric-wordwise');
+                    rows.forEach((row, index) => {
+                        const words = Array.from(row.querySelectorAll('.lyric-word'));
+                        const weights = words.map(word => Math.max(0.7, Number(word.dataset.wordWeight) || 0.7));
+                        const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+                        const start = Math.max(0, Number(lines[index]?.time) || 0);
+                        const next = index + 1 < lines.length ? Number(lines[index + 1]?.time) : NaN;
+                        const gap = Number.isFinite(next) && next > start ? next - start : 0;
+                        const estimate = Math.max(0.75, Math.min(7.5, totalWeight * 0.31 + words.length * 0.035));
+                        const duration = gap > 0 ? Math.min(gap, estimate * 1.35) : estimate;
+                        lyricWordTimingCache.set(row, {words, weights, totalWeight, start, duration, gap, revealCount:0});
+                    });
+                }
                 State.activeLyricIndex = -1;
                 UI.syncLyrics(State.currentTime);
                 window.LyricsShare?.refreshSelectionMarks();
@@ -45,79 +74,77 @@
                 return Math.max(0.7, Math.min(3.6, weight));
             },
             syncLyrics: time => {
+                // Do not auto-scroll or animate word cues while the user is selecting/sharing
+                // lyrics. Lyrics keep using the live playback clock; closeCard forces a resync.
+                if (window.LyricsShare?.shouldPauseAutoFollow?.()) return;
                 if (!State.currentLyrics || !State.currentLyrics.isSynced) return;
                 const lines = State.currentLyrics.parsed;
                 if (!Array.isArray(lines) || !lines.length) return;
                 const offset = Number(State.lyricsTimingOffset) || 0;
                 const clock = Math.max(0, Number(time) + offset);
-                let index = -1;
-                // Use the exact LRC cue boundary. An early boundary (previously -0.3s)
-                // cut the final word off every line before its next cue arrived.
-                for (let i = 0; i < lines.length; i++) {
-                    if (clock >= (Number(lines[i].time) || 0)) index = i;
-                    else break;
+                // Parsed LRC timestamps are ordered. Binary search avoids rescanning a full
+                // lyric file on each audio timeupdate, especially for long tracks.
+                let low = 0, high = lines.length - 1, index = -1;
+                while (low <= high) {
+                    const mid = (low + high) >> 1;
+                    if (clock >= (Number(lines[mid]?.time) || 0)) { index = mid; low = mid + 1; }
+                    else high = mid - 1;
                 }
                 const container = document.getElementById('lyrics-content');
                 if (!container) return;
-                const changed = index !== State.activeLyricIndex;
+                const previousIndex = Number.isInteger(State.activeLyricIndex) ? State.activeLyricIndex : -1;
+                const changed = index !== previousIndex;
                 if (changed) {
+                    if (previousIndex >= 0) document.getElementById(`lyric-line-${previousIndex}`)?.classList.remove('active');
                     State.activeLyricIndex = index;
-                    container.querySelectorAll('.lyric-line.active').forEach(node => node.classList.remove('active'));
                     if (State.lyricsWordByWord) {
-                        // Finish previous lines completely, even when the user seeks forward.
-                        container.querySelectorAll('.lyric-line.lyric-wordwise').forEach(node => {
-                            const lineIndex = Number(node.dataset.lineIndex);
-                            node.querySelectorAll('.lyric-word').forEach(word => {
-                                word.classList.toggle('is-revealed', index >= 0 && lineIndex < index);
-                            });
-                        });
+                        // Only the lines crossed by a seek/cue transition need their word state changed.
+                        const rangeStart = index < 0 ? 0 : Math.max(0, Math.min(previousIndex < 0 ? 0 : previousIndex, index));
+                        const rangeEnd = index < 0 ? Math.max(previousIndex, 0) : Math.min(lines.length - 1, Math.max(previousIndex, index));
+                        for (let lineIndex = rangeStart; lineIndex <= rangeEnd; lineIndex++) {
+                            const row = document.getElementById(`lyric-line-${lineIndex}`);
+                            const model = row && lyricWordTimingCache.get(row);
+                            if (!model) continue;
+                            const completed = index >= 0 && lineIndex < index ? model.words.length : 0;
+                            setLyricRevealCount(model, completed);
+                        }
                     }
                     if (index >= 0) {
                         const active = document.getElementById(`lyric-line-${index}`);
                         if (active) {
                             active.classList.add('active');
-                            // Center the cue inside the scrollport and clamp to a valid range.
                             const containerRect = container.getBoundingClientRect();
                             const activeRect = active.getBoundingClientRect();
                             const desired = container.scrollTop + activeRect.top - containerRect.top - (container.clientHeight - activeRect.height) / 2;
                             const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
                             const top = Math.max(0, Math.min(maxScroll, desired));
                             if (Math.abs(container.scrollTop - top) > 10) {
-                                container.scrollTo({ top, behavior: document.body.classList.contains('reduced-motion') ? 'auto' : 'smooth' });
+                                container.scrollTo({top, behavior:document.body.classList.contains('reduced-motion') ? 'auto' : 'smooth'});
                             }
                         }
                     }
                 }
                 if (!State.lyricsWordByWord || index < 0) return;
-                const line = lines[index];
-                const wordLine = document.getElementById(`lyric-line-${index}`);
-                if (!wordLine) return;
-                const words = [...wordLine.querySelectorAll('.lyric-word')];
-                if (!words.length) return;
-                const start = Math.max(0, Number(line.time) || 0);
-                const nextTime = index + 1 < lines.length ? Number(lines[index + 1].time) : NaN;
-                const gap = Number.isFinite(nextTime) && nextTime > start ? nextTime - start : 0;
-                const weights = words.map(word => Math.max(0.7, Number(word.dataset.wordWeight) || UI.lyricWordWeight(word.textContent)));
-                const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-                const estimate = Math.max(0.75, Math.min(7.5, totalWeight * 0.31 + words.length * 0.035));
-                // Prefer a real line interval for fast phrases, but do not stretch a short
-                // phrase across a long instrumental gap. Very rapid cues reveal together.
-                const duration = gap > 0 ? Math.min(gap, estimate * 1.35) : estimate;
-                const elapsed = Math.max(0, clock - start);
-                const progress = duration <= 0 ? 1 : Math.max(0, Math.min(1, elapsed / duration));
-                const revealCount = gap > 0 && gap < 0.48
-                    ? words.length
-                    : progress >= 0.94 ? words.length : (() => {
-                        let cumulative = 0;
-                        let count = 0;
-                        const target = progress * totalWeight;
-                        for (const weight of weights) {
-                            if (cumulative <= target + 0.02) count++;
-                            cumulative += weight;
-                        }
-                        return Math.max(progress > 0 ? 1 : 0, Math.min(words.length, count));
-                    })();
-                words.forEach((word, wordIndex) => word.classList.toggle('is-revealed', wordIndex < revealCount));
+                const row = document.getElementById(`lyric-line-${index}`);
+                const model = row && lyricWordTimingCache.get(row);
+                if (!model || !model.words.length) return;
+                const elapsed = Math.max(0, clock - model.start);
+                const progress = model.duration <= 0 ? 1 : Math.max(0, Math.min(1, elapsed / model.duration));
+                let revealCount;
+                if (model.gap > 0 && model.gap < 0.48 || progress >= 0.94) {
+                    revealCount = model.words.length;
+                } else {
+                    const target = progress * model.totalWeight;
+                    let cumulative = 0;
+                    revealCount = 0;
+                    // Walk only cached numbers; toggle DOM classes only when count changes.
+                    for (const weight of model.weights) {
+                        if (cumulative <= target + 0.02) revealCount++;
+                        cumulative += weight;
+                    }
+                    revealCount = Math.max(progress > 0 ? 1 : 0, Math.min(model.words.length, revealCount));
+                }
+                setLyricRevealCount(model, revealCount);
             },
             loadCurrentLyrics: async () => {
                 if (!State.isLyricsMode) return;

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic — Music Player</title>
-    <meta name="application-version" content="13.0.14">
+    <meta name="application-version" content="13.0.17">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -549,6 +549,10 @@
                 <div class="settings-section">
                     <h2 class="section-title">Lyrics Display</h2>
                     <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Enable lyric sharing</div><div class="settings-desc">Opt in to lyric share cards. When enabled, select up to five synced lines from the full-screen lyrics and share a card from More Options.</div></div>
+                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsShareEnabled" aria-label="Enable lyric sharing"></div>
+                    </div>
+                    <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Lyrics Style</div><div class="settings-desc">Animation and visual style</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
@@ -887,8 +891,8 @@
         <div class="sheet-option" id="more-immersive-lyrics-btn" data-action="toggle-immersive-lyrics">
             <span class="material-symbols-rounded" id="more-immersive-lyrics-icon">fullscreen</span><span id="more-immersive-lyrics-text">Immersive Lyrics</span>
         </div>
-        <div class="sheet-option" id="player-more-share-lyrics" data-action="lyrics-share-start" title="Select up to four synced lyric lines and create a custom share card">
-            <span class="material-symbols-rounded">format_quote</span><span>Share lyrics</span><span class="sheet-option-right">Up to 4 lines</span>
+        <div class="sheet-option" id="player-more-share-lyrics" data-action="lyrics-share-start" title="Select up to five synced lyric lines and create a Spotify-style share card">
+            <span class="material-symbols-rounded">format_quote</span><span>Share lyrics</span><span class="sheet-option-right">Up to 5 lines</span>
         </div>
         <div class="sheet-divider" aria-hidden="true"></div>
         <div class="sheet-option" data-action="current-song-playlist"><span class="material-symbols-rounded">playlist_add</span><span>Add to Playlist</span></div>
@@ -1039,17 +1043,14 @@
         <section class="lyrics-share-dialog" role="dialog" aria-modal="true" aria-labelledby="lyrics-share-dialog-title">
             <header class="lyrics-share-dialog-header">
                 <div class="lyrics-share-dialog-heading">
-                    <span class="lyrics-share-dialog-eyebrow">MAKE IT YOURS</span>
-                    <h2 id="lyrics-share-dialog-title">Share this lyric</h2>
-                    <p>Up to four synced lines, framed by the artwork that belongs to this song.</p>
+                    <h2 id="lyrics-share-dialog-title">Share lyrics</h2>
                 </div>
                 <button type="button" class="lyrics-share-close" data-action="lyrics-share-close" aria-label="Close share card" title="Close"><span class="material-symbols-rounded">close</span></button>
             </header>
             <div class="lyrics-share-canvas-wrap">
-                <canvas id="lyrics-share-card-canvas" class="lyrics-share-card-canvas" width="1080" height="1920" aria-label="Preview of the Mujic lyric share card"></canvas>
+                <canvas id="lyrics-share-card-canvas" class="lyrics-share-card-canvas" width="1080" height="1080" aria-label="Preview of the lyric share card"></canvas>
                 <div class="lyrics-share-rendering" aria-live="polite"><span class="lyrics-share-spinner"></span><span>Preparing your card…</span></div>
             </div>
-            <p class="lyrics-share-caption">Album-art colours, your selected lyrics, and the official Mujic app mark.</p>
             <div class="lyrics-share-dialog-actions">
                 <button type="button" class="lyrics-share-save" data-action="lyrics-share-download"><span class="material-symbols-rounded">download</span> Save image</button>
                 <button type="button" class="lyrics-share-send" data-action="lyrics-share-share"><span class="material-symbols-rounded">ios_share</span> Share card</button>

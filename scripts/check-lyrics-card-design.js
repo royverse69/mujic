@@ -8,9 +8,9 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifes
 const ok = (condition, message) => { if (!condition) throw new Error(message); };
 ok(html.includes('id="player-more-share-lyrics"'), 'More Options must expose Share lyrics.');
 ok(!html.includes('id="lyrics-share-start-btn"'), 'Fullscreen transport row must not expose Share lyrics.');
-ok(share.includes('const CARD_W = 1080;') && share.includes('const CARD_H = 1920;'), 'Card dimensions must be 9:16 portrait.');
-ok(share.includes('paletteFromArtwork') && share.includes("'./icons/icon-512.png'"), 'Card palette and brand must use artwork and the official repository icon.');
+ok(share.includes('const CARD_W = 1080;') && share.includes('const CARD_H = 1080;'), 'Card dimensions must be square for the Spotify-style lyric share format.');
+ok(share.includes('paletteFromArtwork') && share.includes('Spotify%20Logo%20-%20Black.png') && share.includes('Spotify%20Logo%20-%20White.png'), 'Card palette must use cover art and the repository Spotify logo variants.');
 ok(!share.includes('paintQr') && !share.includes('MujicQRCode'), 'No QR can be drawn on the share card.');
-ok(css.includes('aspect-ratio:9/16') && css.includes('calc((100dvh - 250px) * .5625)'), 'Preview should scale at a vertical 9:16 ratio on mobile.');
+ok(css.includes('aspect-ratio:1/1') && css.includes('calc(100dvh - 180px)'), 'Preview should scale as a square card on mobile.');
 ok(manifest.name === 'Mujic' && manifest.short_name === 'Mujic', 'Installed app metadata must be branded Mujic.');
-console.log('Lyric card design checks passed: menu-only action, 9:16 album palette, original icon, no QR and correct PWA name.');
+console.log('Lyric card design checks passed: menu-only action, square album palette, Spotify logo variants, no QR and correct PWA name.');

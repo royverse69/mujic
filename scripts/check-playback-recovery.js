@@ -12,14 +12,14 @@ const lyricsShare = read('js/lyrics-share.js');
 const pkg = JSON.parse(read('package.json'));
 const changelog = JSON.parse(read('changlog.json'));
 
-check(pkg.version === '13.0.14' && read('VERSION').trim() === pkg.version && changelog.version === pkg.version, 'Release versions must match.');
+check(read('VERSION').trim() === pkg.version && changelog.version === pkg.version, 'Release versions must match.');
 check(Array.isArray(changelog.entries) && changelog.entries[0]?.version === pkg.version, 'The current release must be in the top-level changelog entries used by Settings.');
-check(provider.includes('return { API_BASE, BACKEND_BASE:LEGACY_BASE') && /resolvePlaybackCandidates\s*,\s*markStreamWorking/.test(provider), 'OnlineMusic must export both stream-candidate functions called by the player.');
+check(provider.includes('return { API_BASE, BACKEND_BASE:LEGACY_BASE') && /resolvePlaybackCandidates/.test(provider) && /markStreamWorking/.test(provider), 'OnlineMusic must export both stream-candidate functions called by the player.');
 check(playerSource.includes('OnlineMusic.resolvePlaybackCandidates(track') && playerSource.includes('OnlineMusic.markStreamWorking?.('), 'The player should resolve and record working stream candidates.');
 check(playerSource.includes('audio.removeAttribute(\'crossorigin\')') && playerSource.includes('await ready;'), 'Normal media playback must not force CORS and must await media readiness.');
 check(sw.includes('looksLikeErrorPayload') && sw.includes('fallbackRequest'), 'Service worker must fall back when a media proxy returns an error payload.');
 check(!html.includes('id="lyrics-share-start-btn"') && html.includes('id="player-more-share-lyrics"') && html.includes('data-action="lyrics-share-start"'), 'Share lyrics must be available from the full player More Options menu, not the transport row.');
-check(lyricsShare.includes('function startSelection()') && lyricsShare.includes('const MAX_LINES = 4'), 'The share action must start line selection with a four-line limit.');
+check(lyricsShare.includes('function startSelection()') && lyricsShare.includes('const MAX_LINES = 5'), 'The share action must start line selection with a five-line limit.');
 check(/\.lyrics-share-selection-bar\s*\{[^}]*z-index:\s*3190/s.test(css), 'The selected-lyrics toolbar must appear above the full-screen player.');
 
 // Run the real AudioAdapter.playRemote method against a fake HTMLAudioElement. This catches

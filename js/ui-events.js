@@ -618,6 +618,10 @@
                     if (key === 'loudnessLevel' && !['soft','balanced','strong'].includes(State.loudnessLevel)) State.loudnessLevel = 'balanced';
                     StorageAdapter.saveSettings(); UI.applySettings(); AudioAdapter.applySettings();
                     if (key === 'keepScreenAwake') AudioAdapter.setWakeLock(State.keepScreenAwake);
+                    if (key === 'lyricsShareEnabled') {
+                        if (!State.lyricsShareEnabled) window.LyricsShare?.cancelSelection();
+                        UI.showToast(State.lyricsShareEnabled ? 'Lyric sharing enabled.' : 'Lyric sharing disabled.', 'check_circle');
+                    }
                     if (key === 'lyricsTimingOffset') { State.activeLyricIndex = -1; UI.syncLyrics(State.currentTime); }
                     if (key === 'lyricsWordByWord' && State.currentLyrics?.isSynced) UI.renderSyncedLyrics(State.currentLyrics);
                     if (key === 'waveformStyle') UI.updateWaveformStyleUI();

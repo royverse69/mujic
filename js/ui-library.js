@@ -206,7 +206,8 @@
                 const artHtml = State.showArtworkLists ? `<img src="${def}" data-art-id="${t.artworkId||''}" data-seed="${Utils.escapeHTML(t.title)}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';">` : `<div class="track-art-small art-placeholder" style="background-image:url('${def}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">music_note</span></div>`;
                 const safeId = Utils.escapeHTML(t.id);
                 const isOnline=t.source==='machhar-online';
-                const isCurrentTrack=String(State.currentTrackId||'')===String(t.id);
+                const boundAudioId=String((typeof AudioAdapter !== 'undefined' ? AudioAdapter.audio?.dataset?.mujicTrackId : '')||'');
+                const isCurrentTrack=Boolean(boundAudioId && boundAudioId===String(State.currentTrackId||'') && boundAudioId===String(t.id));
                 const isCurrentOnline=isOnline&&isCurrentTrack;
                 const rowArt = (t.source === 'machhar-online' && t.artworkUrl)
                     ? `<img src="${Utils.escapeHTML(t.artworkUrl)}" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
@@ -222,7 +223,7 @@
                 const onlineCurrentClass=isCurrentOnline?' online-playing-row':'';
                 const currentClass=isCurrentTrack?' is-now-playing':'';
                 const nowPlayingStatus=isCurrentTrack?'<span class="track-now-playing-status" aria-label="Now playing" title="Now playing"><span class="online-now-playing-bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="track-now-playing-label">PLAYING</span></span>':'';
-                return `<div class="track-row${homeLongPress}${onlineCurrentClass}${currentClass}" data-action="play-track" data-id="${safeId}" data-context="${contextName}" data-longpress-track="${contextName === 'home' ? '1' : '0'}" ${isCurrentTrack?'aria-current="true"':''}>
+                return `<div class="track-row${homeLongPress}${onlineCurrentClass}${currentClass}" data-action="play-track" data-id="${safeId}" data-context="${contextName}" data-track-source="${isOnline?'online':'offline'}" data-longpress-track="${contextName === 'home' ? '1' : '0'}" ${isCurrentTrack?'aria-current="true"':''}>
                     ${rowArt}
                     <div class="track-meta"><div class="item-title">${Utils.escapeHTML(t.title)}</div><div class="item-subtitle">${Utils.escapeHTML(t.artist)}</div></div>
                     ${nowPlayingStatus}${playlistControls}
@@ -235,6 +236,33 @@
                     img.loading = 'lazy'; img.decoding = 'async';
                     if (artId) { const url = await ArtworkCache.getUrl(artId, img.dataset.seed || ''); if (img.isConnected) img.src = url; } else if (img.dataset.seed) { img.src = Utils.generateDefaultArt(img.dataset.seed); }
                 }));
+            },
+            syncNowPlayingIndicators: () => {
+                const audio = typeof AudioAdapter !== 'undefined' ? AudioAdapter.audio : null;
+                const boundId = String(audio?.dataset?.mujicTrackId || '');
+                const currentId = boundId && boundId === String(State.currentTrackId || '') ? boundId : '';
+                document.querySelectorAll('.track-row[data-id]').forEach(row => {
+                    const id = String(row.dataset.id || '');
+                    const active = Boolean(currentId && id === currentId);
+                    row.classList.toggle('is-now-playing', active);
+                    row.classList.toggle('online-playing-row', active && row.dataset.trackSource === 'online');
+                    if (active) row.setAttribute('aria-current', 'true'); else row.removeAttribute('aria-current');
+                    let status = row.querySelector('.track-now-playing-status');
+                    if (active && !status) {
+                        status = document.createElement('span');
+                        status.className = 'track-now-playing-status';
+                        status.setAttribute('aria-label', 'Now playing'); status.title = 'Now playing';
+                        status.innerHTML = '<span class="online-now-playing-bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="track-now-playing-label">PLAYING</span>';
+                        const action = row.querySelector('.online-row-action,button[data-action="track-options"],button');
+                        if (action) row.insertBefore(status, action); else row.appendChild(status);
+                    } else if (!active && status) status.remove();
+                });
+                document.querySelectorAll('.online-compact-row[data-id], .online-media-card.is-song[data-id]').forEach(row => {
+                    const active = Boolean(currentId && String(row.dataset.id || '') === currentId);
+                    row.classList.toggle('is-now-playing', active);
+                    if (active) row.setAttribute('aria-current', 'true'); else row.removeAttribute('aria-current');
+                });
+                return Boolean(currentId);
             },
             updateHighlights: (refreshContent = false) => {
                 const count = document.getElementById('home-liked-count');
@@ -251,6 +279,7 @@
                         UI.lazyLoadArtwork();
                     }
                 }
+                UI.syncNowPlayingIndicators?.();
             },
             openTrackOptions: async (id) => {
                 State.actionTargetId = id;

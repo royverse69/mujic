@@ -12,7 +12,7 @@ const sw = read('sw.js');
 const pkg = JSON.parse(read('package.json'));
 const changelog = JSON.parse(read('changlog.json'));
 const catalog = JSON.parse(read('data/discovery-catalog.json'));
-check(lyrics.includes('clock >= (Number(lines[i].time) || 0)') && !lyrics.includes('lines[i].time - 0.3'), 'Lyrics must switch on exact cue boundaries without clipping each final word early.');
+check(lyrics.includes('while (low <= high)') && lyrics.includes('clock >= (Number(lines[mid]?.time) || 0)') && !lyrics.includes('lines[i].time - 0.3'), 'Lyrics must use binary-search exact cue boundaries without clipping final words early.');
 check(lyrics.includes('UI.lyricWordWeight') && lyrics.includes('revealCount') && lyrics.includes('scrollHeight - container.clientHeight'), 'Timed lyrics must use weighted word timing and clamped scrolling.');
 check(appCss.includes('.lyric-wordwise .lyric-word { display:inline;') && appCss.includes('overflow-wrap:anywhere'), 'Word spans must wrap naturally, including long tokens.');
 const headerStart = html.indexOf('<div class="player-header">');

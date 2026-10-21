@@ -1,15 +1,53 @@
 {
-  "version": "13.0.14",
-  "name": "Mujic v13.0.14 — Lyrics Card Refinement & Render Recommendations",
+  "version": "13.0.17",
+  "name": "Mujic v13.0.17 — Lyrics Artwork & Sync Fix",
   "date": "2026-10-21",
   "changes": [
-    "Kept Share lyrics out of the full-screen transport row and in the More Options sheet, where it starts the existing four-line lyric selection workflow.",
-    "Refined the 9:16 lyric-share card to keep colours muted and derived from the selected track artwork, show the actual cover art and song metadata, and use the original repository Mujic icon; removed all QR content from the generated image.",
-    "Preserved sharing and image-download fallbacks, local and streaming track support, timestamp links in share text when available, and the rest of the player functionality.",
-    "Quick Picks and Suggested for You use the Render backend directly for /trending, /queue and /search. Other catalogue shelves, general search, stream resolution, playlists and library routes keep their existing routing.",
-    "Updated release metadata and the service-worker cache, and expanded regression checks to cover the More Options action, the QR-free branded card, and Render-only home recommendations."
+    "Fixed missing Spotify-style album cover art by resolving high-quality artwork candidates through Render /media, retrying actual player artwork sources and safely handling CORS before canvas export.",
+    "Replaced averaged, mostly dark card colours with a saturated dominant-hue palette sampled from the selected album artwork; use stable per-track colours when artwork is unavailable.",
+    "Made lyric sharing an explicit opt-in for new installs in Settings → Lyrics; existing saved choices are preserved, and turning the toggle off hides Share lyrics and cancels selection.",
+    "Pause lyric auto-follow and word reveal while selecting/sharing. On card dismissal, image save, or completed native share, restore the active lyric and scroll position from the audio element’s live currentTime.",
+    "Bumped the PWA cache/version and added regression checks for artwork fallbacks, palette variation, explicit opt-in and playback-time lyric resynchronization."
   ],
   "entries": [
+    {
+      "version": "13.0.17",
+      "date": "2026-10-21",
+      "title": "Mujic v13.0.17 — Lyrics Artwork & Sync Fix",
+      "changes": [
+        "Fixed missing Spotify-style album cover art by resolving high-quality artwork candidates through Render /media, retrying actual player artwork sources and safely handling CORS before canvas export.",
+        "Replaced averaged, mostly dark card colours with a saturated dominant-hue palette sampled from the selected album artwork; use stable per-track colours when artwork is unavailable.",
+        "Made lyric sharing an explicit opt-in for new installs in Settings → Lyrics; existing saved choices are preserved, and turning the toggle off hides Share lyrics and cancels selection.",
+        "Pause lyric auto-follow and word reveal while selecting/sharing. On card dismissal, image save, or completed native share, restore the active lyric and scroll position from the audio element’s live currentTime.",
+        "Bumped the PWA cache/version and added regression checks for artwork fallbacks, palette variation, explicit opt-in and playback-time lyric resynchronization."
+      ]
+    },
+    {
+      "version": "13.0.16",
+      "date": "2026-10-21",
+      "title": "Mujic v13.0.16 — Spotify-Style Lyrics Cards & Mobile Performance",
+      "changes": [
+        "Redesigned lyric-share cards as square, album-colour compositions with cover art and track metadata in a top row, left-aligned lyrics, and the repository Spotify black/white logo selected for contrast.",
+        "Removed redundant lyric-share subtitle and preview caption; retained the card preview, Save image and Share card actions.",
+        "Added a persistent Settings → Lyrics → Lyric sharing cards switch; disabling it hides the player More Options entry and cancels any active lyric selection.",
+        "Reduced mobile rendering cost by removing card-canvas background blur and reducing large backdrop filters, shadows and decorative motion on small/low-end devices while keeping core actions responsive.",
+        "Updated PWA cache version and pre-cached the repository Spotify logo assets when they are present in the deployed icons folder."
+      ]
+    },
+    {
+      "version": "13.0.15",
+      "date": "2026-10-21",
+      "title": "Mujic v13.0.15 — Reliable Search Playback & Lyrics Refinement",
+      "changes": [
+        "Made stream-candidate resolution independent per track and deduplicated concurrent requests, so warming one search result cannot abort another song's lookup.",
+        "Warm the first visible search results as soon as the songs list renders, with bounded concurrency; prioritize the Render media proxy, refresh expired stream URLs, and try Render's stream endpoint as a fallback for every provider ID.",
+        "Bind now-playing indicators to the audio element's actual loaded track ID and resynchronize rows when track startup completes or fails, preventing stale or wrong-song highlights.",
+        "Route artist artwork through Render's /media proxy while preserving the existing album-art path for songs and other entities.",
+        "Raised lyric-card selection to five lines, adjusted font scaling and horizontal/vertical safe padding, and made lyric selection mode disable neon glow, blur, text-shadow and animated word effects.",
+        "Optimized word-by-word lyrics by binary-searching timestamp cues, precomputing word weights/durations once, and only updating word classes when reveal state changes.",
+        "Updated release metadata and the service-worker cache, while retaining existing player, library, queue, search, sharing, PiP and offline features."
+      ]
+    },
     {
       "version": "13.0.14",
       "date": "2026-10-21",

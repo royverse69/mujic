@@ -223,7 +223,7 @@
                 if (AudioAdapter.requiresWebAudio()) { try { await AudioAdapter.initWebAudio(); } catch (e) { Utils.warn(e); } }
                 if(requestId!==State.playbackRequestId) return false;
                 if (AudioAdapter.masterGain) { try { const now=AudioAdapter.ctx.currentTime; AudioAdapter.masterGain.gain.cancelScheduledValues(now); AudioAdapter.masterGain.gain.setValueAtTime(fadeIn ? 0 : 1, now); } catch (e) { Utils.warn(e); } }
-                try{ await AudioAdapter.audio.play(); AudioAdapter.audio.dataset.mujicTrackId=State.currentTrackId || ''; if (fadeIn) AudioAdapter.fadeMaster(1,220); return true; }
+                try{ await AudioAdapter.audio.play(); if(requestId!==State.playbackRequestId) return false; AudioAdapter.audio.dataset.mujicTrackId=String(State.currentTrackId || ''); if (fadeIn) AudioAdapter.fadeMaster(1,220); return true; }
                 catch(e){ AudioAdapter.handlePlaybackFailure(requestId, trackName, e); return false; }
             },
             playRemote: async (url, trackName='streaming track', requestId=State.playbackRequestId, fadeIn=false) => {
@@ -622,6 +622,10 @@
                 const requestId = ++State.playbackRequestId;
                 const track = Player.getCurrentTrack();
                 if (!track) { AudioAdapter.pause(); return; }
+                // Clear the prior audio binding until this request successfully attaches the new track.
+                // This also prevents a stale same-track retry from leaving an old row highlighted.
+                delete AudioAdapter.audio.dataset.mujicTrackId;
+                UI.syncNowPlayingIndicators?.();
                 const shouldRememberOnlineTrack = track.source === 'machhar-online' && State.currentTrackId !== track.id;
                 
                 if (State.currentTrackId && State.currentTrackId !== track.id && State.resumePlayback) {
@@ -973,7 +977,13 @@
             Player.startCurrentTrack = async (...args) => {
                 State.startsInFlight = (State.startsInFlight || 0) + 1;
                 try { return await startTrack(...args); }
-                finally { State.startsInFlight = Math.max(0, (State.startsInFlight || 1) - 1); }
+                finally {
+                    State.startsInFlight = Math.max(0, (State.startsInFlight || 1) - 1);
+                    if (!State.startsInFlight) {
+                        try { Player.syncNowPlaying?.(); } catch (_) {}
+                        try { UI.syncNowPlayingIndicators?.(); } catch (_) {}
+                    }
+                }
             };
             Player.syncNowPlaying = () => {
                 if ((State.startsInFlight || 0) > 0 || !Array.isArray(State.playbackOrder) || !State.playbackOrder.length) return false;
@@ -986,6 +996,7 @@
                     if (idx > -1) { State.queueIndex = idx; State.currentTrackId = State.playbackOrder[idx]; changed = true; }
                 }
                 const current = Player.getCurrentTrack();
+                UI.syncNowPlayingIndicators?.();
                 // A queue index that differs from currentTrackId is a legitimate transition (e.g. skipping to the next track); leave it alone.
                 if (!current || String(current.id) !== String(State.currentTrackId)) return changed;
                 const shown = String(document.getElementById('mini-title')?.textContent || '').trim();

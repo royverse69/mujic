@@ -15,8 +15,8 @@ const workspace = read('js/online-workspace.js');
 const provider = read('js/online-provider.js');
 const version = read('VERSION').trim();
 
-check(version === '13.0.14' && pkg.version === version && changelog.version === version, 'All release version sources must agree.');
-check(changelog.entries[0]?.version === version && changelog.entries[1]?.version === '13.0.13', 'Release notes must keep the new release first and preserve the previous release.');
+check(pkg.version === version && changelog.version === version, 'All current release version sources must agree.');
+check(changelog.entries[0]?.version === version && changelog.entries.some(entry => entry.version === '13.0.14') && changelog.entries.some(entry => entry.version === '13.0.13'), 'Release notes must keep the current release first and retain the v13.0.14/v13.0.13 history.');
 check(html.includes(`application-version" content="${version}"`) && sw.includes(`mujic-pwa-v${version}-`), 'The in-app version and PWA cache must be bumped.');
 check(manifest.name === 'Mujic' && manifest.short_name === 'Mujic' && manifest.icons.some(icon => icon.src === './icons/icon-512.png'), 'The installed PWA must retain Mujic branding and the original app icon asset.');
 const controls = html.match(/<div class="secondary-playback-controls">([\s\S]*?)<\/div>/)?.[1] || '';
@@ -24,8 +24,8 @@ const menu = html.match(/<div class="bottom-sheet glass-surface" id="player-more
 check(!controls.includes('lyrics-share') && !html.includes('id="lyrics-share-start-btn"'), 'Share lyrics must not appear in the full-screen transport row.');
 check(html.includes('id="player-more-share-lyrics"') && /id="player-more-share-lyrics"[\s\S]*?data-action="lyrics-share-start"[\s\S]*?<span>Share lyrics<\/span>/.test(html), 'Share lyrics must remain visible and labelled inside More Options.');
 check(events.includes("case 'lyrics-share-start':") && events.includes('UI.closeSheets(true); window.LyricsShare?.startSelection();'), 'The menu action must close the menu and start lyric selection.');
-check(share.includes('const MAX_LINES = 4') && share.includes('const CARD_W = 1080;') && share.includes('const CARD_H = 1920;'), 'The share card must be portrait and limited to four selected lines.');
-check(share.includes('paletteFromArtwork') && share.includes("'./icons/icon-512.png'") && share.includes('drawImageCover(ctx, art, artX, artY, artSize, artSize)'), 'The card must use muted cover-derived colours, original icon and actual album art.');
+check(share.includes('const MAX_LINES = 5') && share.includes('const CARD_W = 1080;') && share.includes('const CARD_H = 1080;'), 'The share card must be square and allow five selected lines.');
+check(share.includes('paletteFromArtwork') && share.includes('Spotify%20Logo%20-%20Black.png') && share.includes('Spotify%20Logo%20-%20White.png') && share.includes('drawImageCover(ctx, art, artX, artY, artSize, artSize)'), 'The card must use cover-derived colours, repository Spotify logos and actual album art.');
 check(!share.includes('paintQr') && !share.includes('MujicQRCode') && !html.includes('The QR code opens'), 'No QR code may be drawn on or described as part of the card.');
 check(share.includes('cardBlob') && share.includes('canvas.toBlob') && share.includes('navigator.share'), 'Image generation and native share/fallback paths must remain available.');
 check(workspace.includes('OnlineMusic.fetchRenderQuickPicks()') && workspace.includes('OnlineMusic.fetchRenderSuggestions(seed.track)') && workspace.includes('OnlineMusic.searchRenderSongs('), 'Quick Picks and Suggested shelves must request Render-specific provider methods.');
@@ -33,5 +33,5 @@ const quickPicker = workspace.match(/const quickPickTracks = \(\) => \{([\s\S]*?
 check(quickPicker.includes('(homeShelves.quick?.items||[]).forEach(add)') && quickPicker.includes('(suggestState.items||[]).slice(8).forEach(add)') && !quickPicker.includes('homeShelves.trending') && !quickPicker.includes('homeShelves.hits') && !quickPicker.includes('history.forEach(add)') && !quickPicker.includes('favorites.forEach(add)'), 'Quick Picks candidates must be Render-fed only while history/favourites still influence ranking.');
 check(workspace.includes('const HOME_CACHE_VERSION = 6') && workspace.includes("['latest','quick','suggested'].includes(key)") && workspace.includes("startsWith('render-v1|')"), 'Old home-cache or suggestion records must not seed Render-backed shelves from the prior routing.')
 check(provider.includes('const RENDER_RECOMMENDATIONS_BASE') && provider.includes('fetchRenderQuickPicks') && provider.includes('fetchRenderSuggestions') && provider.includes('searchRenderSongs'), 'Render-only recommendation routes must be exported by OnlineMusic.');
-check(css.includes('aspect-ratio:9/16') && html.includes('width="1080" height="1920"'), 'The preview element must keep the exported card’s 9:16 proportions.');
-console.log('v13.0.14 targeted checks passed: menu-only share action, QR-free art-led card, original app icon and Render-backed home shelves.');
+check(css.includes('aspect-ratio:1/1') && html.includes('width="1080" height="1080"'), 'The preview element must keep the exported card’s square proportions.');
+console.log('v13.0.14 compatibility checks passed: menu-only share action, QR-free art-led card, Spotify logo variants and Render-backed home shelves.');

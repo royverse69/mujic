@@ -231,6 +231,8 @@
         if(hasMore||searchResults.length>tracks.length)html+=`<div class="online-load-more-wrap"><button class="btn" data-action="online-load-more">Load more</button></div>`;
         target.innerHTML=html;
         if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50));
+        const topSongsForWarm=(Array.isArray(data.topQuery)?data.topQuery:[]).filter(item=>item?.onlineTrackId).slice(0,1);
+        OnlineMusic.warmPlaybackCandidates?.([...topSongsForWarm,...searchResults.slice(0,8)]).catch(()=>{});
         UI.lazyLoadArtwork();
     };
     const paintSearchResults = (q, total = 0, hasMore = false) => {
@@ -247,7 +249,7 @@
         else body=renderEntityGrid(list,searchType,'Search to discover more.');
         const more=(hasMore||sourceList.length>list.length)?'<div class="online-load-more-wrap"><button class="btn" data-action="online-load-more">Load more</button></div>':'';
         target.innerHTML=`<div class="online-results-toolbar"><strong>${esc(count)} ${searchTypeLabels[searchType].toLowerCase()}</strong></div>${body}${more}`;
-        if(searchType==='songs') { setSearchContext(searchResults); if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50)); }
+        if(searchType==='songs') { setSearchContext(searchResults); if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50)); OnlineMusic.warmPlaybackCandidates?.(searchResults.slice(0,8)).catch(()=>{}); }
         UI.lazyLoadArtwork();
     };
     const getSearchExpansions = (query, kind) => {
@@ -1397,7 +1399,7 @@
             const rawArtists=[...(current?.raw?.artists?.primary||[]),...(current?.raw?.artists?.all||[]),...(current?.raw?.artists?.featured||[]),...(current?.raw?.artistMap?.primary_artists||[])];
             const rawArtist=rawArtists.find(item=>String(item.id||item.artistId||'')===sourceId);
             const title=cachedArtist?.title||rawArtist?.name|| (current?.artist||'').split(',')[0] || 'Artist';
-            const image=cachedArtist?.image||OnlineMusic.getImage?.(rawArtist||{})||'';
+            const image=cachedArtist?.image||OnlineMusic.getArtistImage?.(rawArtist||{})||OnlineMusic.resolveArtistArtwork?.(rawArtist||{},sourceId,title)||'';
             activeRemoteEntity.data={id:`artists:${sourceId}`,sourceId,title,image,description:cachedArtist?.description||'',tracks:[],albums:[],artists:[],total:0,totalSongs:0,totalAlbums:0,loadingTracks:true,hasMoreTracks:false,failedSongPages:[],songPage:-1,songPageSize:10,albumPage:-1,albumPageSize:6};
             renderRemoteDetail();
         }

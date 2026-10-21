@@ -3,9 +3,9 @@
 (() => {
     'use strict';
 
-    const MAX_LINES = 4;
+    const MAX_LINES = 5;
     const CARD_W = 1080;
-    const CARD_H = 1920;
+    const CARD_H = 1080;
     const selected = new Map();
     let selectionActive = false;
     let selectionTrackId = null;
@@ -54,7 +54,7 @@
         bar.setAttribute('role', 'region');
         bar.setAttribute('aria-label', 'Selected lyrics');
         bar.innerHTML = `
-            <div class="lyrics-share-selection-copy"><span class="lyrics-share-selection-dot"></span><span id="lyrics-share-selection-count">0 / 4 lines</span></div>
+            <div class="lyrics-share-selection-copy"><span class="lyrics-share-selection-dot"></span><span id="lyrics-share-selection-count">0 / 5 lines</span></div>
             <div class="lyrics-share-selection-actions">
                 <button type="button" class="lyrics-share-cancel" data-action="lyrics-share-cancel">Cancel</button>
                 <button type="button" class="lyrics-share-open" data-action="lyrics-share-open"><span class="material-symbols-rounded" aria-hidden="true">auto_awesome</span> Share card</button>
@@ -124,7 +124,7 @@
             selected.delete(data.index);
         } else {
             if (selected.size >= MAX_LINES) {
-                UI.showToast('Choose up to 4 lyric lines per card.', 'info');
+                UI.showToast('Choose up to 5 lyric lines per card.', 'info');
                 return;
             }
             selected.set(data.index, data);
@@ -133,6 +133,7 @@
     }
 
     function beginSelection(row) {
+        if (State.lyricsShareEnabled === false) return;
         const track = trackNow();
         const line = lineData(row);
         if (!track || !line) return;
@@ -148,6 +149,7 @@
     }
 
     function startSelection() {
+        if (State.lyricsShareEnabled === false) { UI.showToast('Enable lyric sharing in Settings → Lyrics to use this feature.', 'info'); return false; }
         const track = trackNow();
         if (!track) { UI.showToast('Play a song before sharing lyrics.', 'info'); return false; }
         if (!State.isLyricsMode) UI.toggleLyricsMode();
@@ -155,7 +157,7 @@
         selectionTrackId = String(track.id ?? State.currentTrackId ?? '');
         selectionActive = true;
         updateRows();
-        UI.showToast('Tap lyric lines to select up to 4, then choose Share card.', 'info');
+        UI.showToast('Tap lyric lines to select up to 5, then choose Share card.', 'info');
         return true;
     }
 
@@ -172,12 +174,29 @@
         return true;
     }
 
+    function resumeAutoFollow() {
+        if (selectionActive || !byId('lyrics-share-overlay')?.hidden) return;
+        const root = container();
+        root?.querySelectorAll('.lyric-line.active').forEach(row => row.classList.remove('active'));
+        State.activeLyricIndex = -1;
+        const liveTime = Number(window.AudioAdapter?.audio?.currentTime);
+        const fallbackTime = Number(State.currentTime) || 0;
+        const run = () => {
+            if (selectionActive || !byId('lyrics-share-overlay')?.hidden) return;
+            const now = Number(window.AudioAdapter?.audio?.currentTime);
+            const time = Number.isFinite(now) ? now : (Number.isFinite(liveTime) ? liveTime : fallbackTime);
+            if (typeof UI?.syncLyrics === 'function') UI.syncLyrics(time);
+        };
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run); else setTimeout(run, 0);
+    }
+
     function cancelSelection() {
         stopPress();
         selected.clear();
         selectionActive = false;
         selectionTrackId = null;
         updateRows();
+        resumeAutoFollow();
     }
 
     function roundedRect(ctx, x, y, w, h, r, fill, stroke) {
@@ -217,67 +236,205 @@
         return lines;
     }
 
-    async function loadArtwork(track) {
-        let src = String(track?.artworkUrl || track?.artwork || '');
-        if (!src) {
-            const element = byId('full-art') || byId('mini-art');
-            src = element?.currentSrc || element?.src || '';
+    function artworkValueToUrl(value) {
+        if (typeof value === 'string') return value.trim();
+        if (Array.isArray(value)) {
+            const candidate = [...value].sort((a, b) => (Number(b?.width || b?.height || 0) - Number(a?.width || a?.height || 0)))[0];
+            return artworkValueToUrl(candidate);
         }
-        if (!src) return null;
+        if (value && typeof value === 'object') {
+            return artworkValueToUrl(value.url || value.link || value.src || value.imageUrl || value.image_url || value.thumbnail || value.image || '');
+        }
+        return '';
+    }
+
+    function normalizeArtworkCandidate(value) {
+        let src = artworkValueToUrl(value);
+        if (!src) return '';
+        // The service worker uses a same-origin virtual route for catalogue artwork. For
+        // canvas export, unwrap it and use Render's CORS-enabled /media endpoint instead.
+        try {
+            const parsed = new URL(src, location.href);
+            if (parsed.pathname.endsWith('/__mujic_media__')) {
+                const raw = parsed.searchParams.get('src') || '';
+                if (raw) src = raw;
+            }
+        } catch (_) {}
+        if (/^(?:blob:|data:)/i.test(src)) return src;
+        try {
+            const parsed = new URL(src, location.href);
+            if (parsed.origin === location.origin) return parsed.href;
+            const proxied = window.OnlineMusic?.getImage?.({ image: parsed.href }, { renderProxy: true });
+            if (proxied) return String(proxied);
+            return parsed.href;
+        } catch (_) { return ''; }
+    }
+
+    function artworkCandidates(track) {
+        const candidates = [];
+        const addUnique = src => { if (src && !candidates.includes(src)) candidates.push(src); };
+        const add = value => {
+            const raw = artworkValueToUrl(value);
+            const src = normalizeArtworkCandidate(value);
+            addUnique(src);
+            // A Render proxy failure should not make us give up on the cover. Keep the
+            // original CDN URL as a second attempt; anonymous CORS mode below ensures a
+            // no-CORS response is rejected rather than tainting the exported canvas.
+            if (raw && src && raw !== src) {
+                let direct = raw;
+                try {
+                    const parsed = new URL(raw, location.href);
+                    if (parsed.pathname.endsWith('/__mujic_media__')) direct = parsed.searchParams.get('src') || direct;
+                    else if (window.MujicBackend?.origins?.().includes(parsed.origin) && parsed.pathname === '/media') direct = parsed.searchParams.get('url') || direct;
+                    const directUrl = new URL(direct, location.href);
+                    if (/\.saavncdn\.com$/i.test(directUrl.hostname) || /(^|\.)jiosaavn\.com$/i.test(directUrl.hostname)) addUnique(directUrl.href);
+                } catch (_) {}
+            }
+        };
+        // Offline/local tracks may use a blob URL already loaded into the actual player.
+        // Use those first only when the track itself has no remote cover URL.
+        const trackSrc = artworkValueToUrl(track?.artworkUrl || track?.artwork || track?.imageUrl || track?.image_url || track?.image);
+        const isLocalBlob = /^(?:blob:|data:)/i.test(trackSrc);
+        if (isLocalBlob) add(trackSrc);
+
+        // Ask the provider to rebuild the high-resolution cover URL through Render. The
+        // raw payload carries nested/quality-specific Saavn image variants omitted by some
+        // queue copies of the track object.
+        try {
+            const rawImage = window.OnlineMusic?.getImage?.(track?.raw || {}, { renderProxy: true });
+            add(rawImage);
+        } catch (_) {}
+        add(track?.artworkUrl);
+        add(track?.artwork);
+        add(track?.imageUrl || track?.image_url || track?.image);
+        add(track?.raw?.image || track?.raw?.images || track?.raw?.artwork || track?.raw?.imageUrl || track?.raw?.image_url || track?.raw?.thumbnail);
+        add(track?.raw?.more_info?.image || track?.raw?.more_info?.image_url || track?.raw?.more_info?.imageUrl || track?.raw?.more_info?.thumbnail);
+
+        // The player can already have the genuine image loaded even when a track copy has
+        // lost its artworkUrl (for example after being restored from the queue).
+        for (const id of ['full-art', 'mini-art', 'desktop-lyrics-art']) {
+            const image = byId(id);
+            if (!image || !image.complete || !(image.naturalWidth > 1)) continue;
+            const current = image.currentSrc || image.src;
+            if (current && !/icon-(?:192|512)\.png|music-note|default-art/i.test(current)) add(current);
+        }
+        // Retry the actual player's sources after proxy URLs: this covers blob-cached album
+        // art and older locally downloaded tracks without replacing their existing behavior.
+        for (const id of ['full-art', 'mini-art', 'desktop-lyrics-art']) {
+            const image = byId(id);
+            if (!image) continue;
+            const current = image.currentSrc || image.src;
+            if (current && /^(?:blob:|data:)/i.test(current) && !candidates.includes(current)) candidates.push(current);
+        }
+        return candidates;
+    }
+
+    async function loadArtwork(track) {
+        const candidates = artworkCandidates(track);
+        for (const src of candidates) {
+            const image = await new Promise(resolve => {
+                const img = new Image();
+                let settled = false;
+                const finish = value => { if (settled) return; settled = true; clearTimeout(timer); resolve(value); };
+                const timer = setTimeout(() => finish(null), 1800);
+                img.decoding = 'async';
+                try {
+                    const parsed = new URL(src, location.href);
+                    // Keep blob/data/same-origin sources untampered; remote candidates must
+                    // load with CORS or the canvas would become unreadable on PNG export.
+                    if (parsed.origin !== location.origin && !/^(?:blob:|data:)/i.test(src)) img.crossOrigin = 'anonymous';
+                } catch (_) {}
+                img.onload = () => finish(img.naturalWidth > 1 && img.naturalHeight > 1 ? img : null);
+                img.onerror = () => finish(null);
+                img.src = src;
+                if (img.complete && img.naturalWidth > 1) finish(img);
+            });
+            if (image) return image;
+        }
+        return null;
+    }
+
+    async function loadSpotifyLogo(lightBackground) {
+        const file = lightBackground ? 'Spotify%20Logo%20-%20Black.png' : 'Spotify%20Logo%20-%20White.png';
+        const localUrl = new URL(`./icons/${file}`, location.href).href;
+        const remoteUrl = `https://raw.githubusercontent.com/royverse69/mujic/main/icons/${file}`;
         return new Promise(resolve => {
             const img = new Image();
             let settled = false;
+            let sourceIndex = 0;
             const finish = value => { if (settled) return; settled = true; clearTimeout(timer); resolve(value); };
             const timer = setTimeout(() => finish(null), 1400);
-            try {
-                const parsed = new URL(src, location.href);
-                if (parsed.origin !== location.origin && !/^blob:|^data:/i.test(src)) img.crossOrigin = 'anonymous';
-            } catch (_) {}
+            img.decoding = 'async';
             img.onload = () => finish(img);
-            img.onerror = () => finish(null);
-            img.src = src;
+            img.onerror = () => {
+                if (settled) return;
+                if (sourceIndex === 0) {
+                    sourceIndex = 1;
+                    // If the packaged files are missing, retry the exact uploaded asset from the public repo.
+                    // CORS mode prevents a successfully loaded remote image from tainting the export canvas.
+                    img.crossOrigin = 'anonymous';
+                    img.src = remoteUrl;
+                } else finish(null);
+            };
+            img.src = localUrl;
         });
     }
 
-    async function loadBrandIcon() {
-        return new Promise(resolve => {
-            const img = new Image();
-            let settled = false;
-            const finish = value => { if (settled) return; settled = true; clearTimeout(timer); resolve(value); };
-            const timer = setTimeout(() => finish(null), 1200);
-            img.onload = () => finish(img);
-            img.onerror = () => finish(null);
-            // This is the real icon shipped in the main Mujic repository (icons/icon-512.png).
-            img.src = new URL('./icons/icon-512.png', location.href).href;
-        });
-    }
-
-    function paletteFromArtwork(image) {
-        if (!image) return { r: 52, g: 79, b: 98 };
+    function paletteFromArtwork(image, track) {
+        const hashHue = () => {
+            const key = `${track?.id || ''}|${track?.title || ''}|${track?.artist || ''}`;
+            let hash = 2166136261;
+            for (let i = 0; i < key.length; i++) { hash ^= key.charCodeAt(i); hash = Math.imul(hash, 16777619); }
+            return (hash >>> 0) % 360;
+        };
+        const hslToRgb = (h, s, l) => {
+            h = ((h % 360) + 360) % 360 / 360;
+            const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q-p)*6*t; if (t < 1/2) return q; if (t < 2/3) return p + (q-p)*(2/3-t)*6; return p; };
+            const q = l < .5 ? l * (1+s) : l + s - l*s, p = 2*l-q;
+            return { r:Math.round(hue2rgb(p,q,h+1/3)*255), g:Math.round(hue2rgb(p,q,h)*255), b:Math.round(hue2rgb(p,q,h-1/3)*255) };
+        };
+        const fallback = () => hslToRgb(hashHue(), .52, .45);
+        if (!image) return fallback();
         try {
             const sample = document.createElement('canvas');
-            sample.width = 18; sample.height = 18;
+            sample.width = 36; sample.height = 36;
             const sampleCtx = sample.getContext('2d', { willReadFrequently: true });
-            sampleCtx.drawImage(image, 0, 0, 18, 18);
-            const pixels = sampleCtx.getImageData(0, 0, 18, 18).data;
-            let r = 0, g = 0, b = 0, count = 0;
+            sampleCtx.drawImage(image, 0, 0, 36, 36);
+            const pixels = sampleCtx.getImageData(0, 0, 36, 36).data;
+            const buckets = Array.from({length: 12}, () => ({r:0,g:0,b:0,weight:0,count:0}));
             for (let i = 0; i < pixels.length; i += 4) {
-                if (pixels[i + 3] < 80) continue;
-                // De-emphasize highlights and highly saturated poster accents; the palette is an ambience, not a neon fill.
-                r += Math.min(210, pixels[i]);
-                g += Math.min(210, pixels[i + 1]);
-                b += Math.min(210, pixels[i + 2]);
-                count++;
+                if (pixels[i + 3] < 100) continue;
+                const r = pixels[i]/255, g = pixels[i+1]/255, b = pixels[i+2]/255;
+                const max = Math.max(r,g,b), min = Math.min(r,g,b), delta = max-min;
+                const l = (max+min)/2;
+                if (l < .09 || l > .94 || delta < .045) continue;
+                let h = 0;
+                if (delta) {
+                    if (max === r) h = 60 * (((g-b)/delta) % 6);
+                    else if (max === g) h = 60 * ((b-r)/delta + 2);
+                    else h = 60 * ((r-g)/delta + 4);
+                }
+                if (h < 0) h += 360;
+                const sat = delta / (1 - Math.abs(2*l - 1) || 1);
+                if (sat < .16) continue;
+                const weight = sat * (.55 + (1 - Math.abs(l-.5)*2) * .45);
+                const bucket = buckets[Math.floor(h/30)%12];
+                bucket.r += pixels[i]*weight; bucket.g += pixels[i+1]*weight; bucket.b += pixels[i+2]*weight;
+                bucket.weight += weight; bucket.count++;
             }
-            if (!count) return { r: 52, g: 79, b: 98 };
-            const avg = { r: r / count, g: g / count, b: b / count };
-            const luminance = avg.r * .2126 + avg.g * .7152 + avg.b * .0722;
-            const scale = luminance > 150 ? .47 : luminance > 95 ? .58 : .72;
-            return { r: Math.round(avg.r * scale), g: Math.round(avg.g * scale), b: Math.round(avg.b * scale) };
-        } catch (_) {
-            // If a provider's art disallows canvas sampling, use a restrained slate palette and still draw the artwork when possible.
-            return { r: 39, g: 68, b: 88 };
-        }
+            const bucket = buckets.sort((a,b) => (b.weight + b.count*.018) - (a.weight + a.count*.018))[0];
+            if (!bucket || bucket.weight < 1) return fallback();
+            let color = {r:bucket.r/bucket.weight,g:bucket.g/bucket.weight,b:bucket.b/bucket.weight};
+            const r = color.r/255, g = color.g/255, b = color.b/255;
+            const max = Math.max(r,g,b), min = Math.min(r,g,b), delta=max-min;
+            let h=0;
+            if (delta) { if(max===r) h=60*(((g-b)/delta)%6); else if(max===g) h=60*((b-r)/delta+2); else h=60*((r-g)/delta+4); }
+            if(h<0)h+=360;
+            const l=(max+min)/2;
+            const sat=delta/(1-Math.abs(2*l-1)||1);
+            // Lift muted album accents to a usable rich background while retaining their hue.
+            return hslToRgb(h, Math.max(.42, Math.min(.78, sat*1.28)), Math.max(.34, Math.min(.53, l*.92)));
+        } catch (_) { return fallback(); }
     }
 
     function colorString(color, alpha = 1) {
@@ -291,6 +448,22 @@
         ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
     }
 
+    function fallbackSpotifyMark(ctx, x, y, foreground, background) {
+        // Used only if an uploaded logo asset is unavailable; normal deployments use the repository PNG.
+        ctx.save();
+        ctx.fillStyle = foreground;
+        ctx.beginPath(); ctx.arc(x + 22, y + 22, 21, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = background; ctx.lineCap = 'round'; ctx.lineWidth = 3.2;
+        [[-10, -3, 10], [-8, 4, 8], [-5, 10, 5]].forEach(([dy, start, end]) => {
+            ctx.beginPath(); ctx.moveTo(x + 22 - 13, y + 22 + dy);
+            ctx.quadraticCurveTo(x + 22, y + 22 + dy + (dy < 0 ? -4 : 1), x + 22 + 13, y + 22 + dy + 1);
+            ctx.stroke();
+        });
+        ctx.fillStyle = foreground; ctx.font = '800 42px Arial, sans-serif';
+        ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillText('Spotify', x + 57, y + 22);
+        ctx.restore();
+    }
+
     async function drawCard(track, lines, token) {
         const canvas = byId('lyrics-share-card-canvas');
         if (!canvas) return null;
@@ -299,150 +472,112 @@
         canvas.width = CARD_W;
         canvas.height = CARD_H;
         const art = await loadArtwork(track);
-        const appIcon = await loadBrandIcon();
         if (token !== cardRenderToken) return null;
-        try { await Promise.race([document.fonts?.ready || Promise.resolve(), new Promise(resolve => setTimeout(resolve, 500))]); } catch (_) {}
+        try { await Promise.race([document.fonts?.ready || Promise.resolve(), new Promise(resolve => setTimeout(resolve, 220))]); } catch (_) {}
 
-        const palette = paletteFromArtwork(art);
-        ctx.save();
-        if (art) {
-            ctx.filter = 'blur(42px) saturate(.58)';
-            ctx.globalAlpha = .72;
-            drawImageCover(ctx, art, -54, -54, CARD_W + 108, CARD_H + 108);
-            ctx.filter = 'none';
-            ctx.globalAlpha = 1;
-        } else {
-            const fallback = ctx.createLinearGradient(0, 0, CARD_W * .65, CARD_H);
-            fallback.addColorStop(0, '#203c4c');
-            fallback.addColorStop(.56, '#1e2938');
-            fallback.addColorStop(1, '#080b10');
-            ctx.fillStyle = fallback;
-            ctx.fillRect(0, 0, CARD_W, CARD_H);
-        }
-        const ambience = ctx.createRadialGradient(CARD_W * .18, CARD_H * .31, 12, CARD_W * .18, CARD_H * .31, CARD_W * .95);
-        ambience.addColorStop(0, colorString(palette, .72));
-        ambience.addColorStop(1, colorString(palette, 0));
-        ctx.fillStyle = ambience;
-        ctx.fillRect(0, 0, CARD_W, CARD_H);
-        const shade = ctx.createLinearGradient(0, 0, 0, CARD_H);
-        shade.addColorStop(0, 'rgba(5, 8, 12, .48)');
-        shade.addColorStop(.28, 'rgba(5, 8, 12, .48)');
-        shade.addColorStop(.64, 'rgba(4, 7, 11, .72)');
-        shade.addColorStop(1, 'rgba(2, 4, 7, .94)');
-        ctx.fillStyle = shade;
-        ctx.fillRect(0, 0, CARD_W, CARD_H);
-        ctx.restore();
-
-        // Quiet frame inspired by the reference: avoid bright accent blocks and use a muted colour from the cover.
-        roundedRect(ctx, 24, 24, CARD_W - 48, CARD_H - 48, 34, null, 'rgba(255,255,255,.075)');
-        const accent = {
-            r: Math.min(205, Math.round(palette.r * .68 + 100)),
-            g: Math.min(215, Math.round(palette.g * .68 + 105)),
-            b: Math.min(225, Math.round(palette.b * .68 + 110))
+        const palette = paletteFromArtwork(art, track);
+        const linearChannel = value => { const channel = Math.max(0, Math.min(255, Number(value) || 0)) / 255; return channel <= .04045 ? channel / 12.92 : Math.pow((channel + .055) / 1.055, 2.4); };
+        const luminance = .2126 * linearChannel(palette.r) + .7152 * linearChannel(palette.g) + .0722 * linearChannel(palette.b);
+        // WCAG-style relative luminance decides which uploaded logo has stronger contrast.
+        const lightBackground = luminance > .179;
+        const foreground = lightBackground ? '#111216' : '#ffffff';
+        const secondary = lightBackground ? 'rgba(12,13,17,.72)' : 'rgba(255,255,255,.76)';
+        const gradientEnd = {
+            r: Math.round(palette.r * (lightBackground ? .90 : .68)),
+            g: Math.round(palette.g * (lightBackground ? .90 : .68)),
+            b: Math.round(palette.b * (lightBackground ? .90 : .68))
         };
+        // Flat, art-derived colour fields avoid the expensive full-canvas blur that stuttered on mobile.
+        const background = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
+        background.addColorStop(0, colorString(palette));
+        background.addColorStop(1, colorString(gradientEnd));
+        ctx.fillStyle = background; ctx.fillRect(0, 0, CARD_W, CARD_H);
+        roundedRect(ctx, 20, 20, CARD_W - 40, CARD_H - 40, 26, null, lightBackground ? 'rgba(0,0,0,.10)' : 'rgba(255,255,255,.13)');
 
-        // Header
-        ctx.fillStyle = 'rgba(245, 248, 252, .86)';
-        ctx.font = '800 30px Inter, system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.letterSpacing = '8px';
-        ctx.fillText('LYRIC', CARD_W / 2, 155);
-        ctx.letterSpacing = '0px';
+        // Track identity row: cover art on the left, title and artist on the right.
+        const artX = 72, artY = 72, artSize = 126;
+        ctx.save();
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(artX, artY, artSize, artSize, 15);
+        else roundedRect(ctx, artX, artY, artSize, artSize, 15, null);
+        ctx.clip();
+        if (art) drawImageCover(ctx, art, artX, artY, artSize, artSize);
+        else {
+            ctx.fillStyle = lightBackground ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.12)';
+            ctx.fillRect(artX, artY, artSize, artSize);
+            ctx.fillStyle = foreground; ctx.font = '700 68px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('♫', artX + artSize / 2, artY + 88);
+        }
+        ctx.restore();
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = foreground;
+        const titleText = String(track?.title || 'Unknown song');
+        const titleFont = titleText.length > 35 ? 36 : titleText.length > 25 ? 40 : 46;
+        ctx.font = `750 ${titleFont}px Inter, system-ui, sans-serif`;
+        const title = wrapText(ctx, titleText, 792, 1)[0] || 'Unknown song';
+        ctx.fillText(title, 230, 125, 792);
+        ctx.fillStyle = secondary; ctx.font = '600 32px Inter, system-ui, sans-serif';
+        const artist = wrapText(ctx, String(track?.artist || 'Unknown artist'), 792, 1)[0] || 'Unknown artist';
+        ctx.fillText(artist, 230, 174, 792);
 
-        // Oversized opening quote, tinted by the album art.
-        ctx.textAlign = 'left';
-        ctx.fillStyle = colorString(accent, .84);
-        ctx.font = '900 225px Georgia, serif';
-        ctx.fillText('“', 116, 350);
-
-        // Keep each chosen line readable, centered and visually faithful to the reference.
+        // Selected lyric lines form the hero; wrap each selected line together as a group.
         const chosen = (Array.isArray(lines) ? lines : []).slice(0, MAX_LINES).map(line => String(line?.text || '').trim()).filter(Boolean);
-        let fontSize = chosen.length >= 4 ? 64 : chosen.length === 3 ? 69 : chosen.length === 2 ? 74 : 78;
-        const availableWidth = 900;
+        let fontSize = chosen.length >= 5 ? 66 : chosen.length === 4 ? 72 : chosen.length === 3 ? 78 : chosen.length === 2 ? 84 : 90;
+        const sidePadding = 76;
+        const availableWidth = CARD_W - sidePadding * 2;
+        const lyricAreaTop = 254;
+        const lyricAreaHeight = 600;
         let wrappedGroups = [];
         let totalHeight = 0;
         const layoutLyrics = () => {
-            ctx.font = `800 ${fontSize}px Inter, system-ui, sans-serif`;
+            ctx.font = `750 ${fontSize}px Inter, system-ui, sans-serif`;
             wrappedGroups = chosen.map(text => wrapText(ctx, text, availableWidth, 2));
-            const lineHeight = Math.round(fontSize * 1.16);
-            totalHeight = wrappedGroups.reduce((sum, parts) => sum + parts.length * lineHeight, 0) + Math.max(0, wrappedGroups.length - 1) * Math.round(fontSize * .18);
-            return lineHeight;
+            const lineHeight = Math.round(fontSize * 1.12);
+            const groupGap = Math.round(fontSize * .23);
+            totalHeight = wrappedGroups.reduce((sum, parts) => sum + parts.length * lineHeight, 0) + Math.max(0, wrappedGroups.length - 1) * groupGap;
+            return { lineHeight, groupGap };
         };
-        let lineHeight = layoutLyrics();
-        while (totalHeight > 795 && fontSize > 42) { fontSize -= 2; lineHeight = layoutLyrics(); }
-        const lyricsTop = 450 + Math.max(0, (790 - totalHeight) / 2);
-        let y = lyricsTop;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#f7f8fb';
-        ctx.shadowColor = 'rgba(0,0,0,.36)';
-        ctx.shadowBlur = 18;
-        ctx.shadowOffsetY = 7;
+        let { lineHeight, groupGap } = layoutLyrics();
+        while (totalHeight > lyricAreaHeight && fontSize > 34) {
+            fontSize -= 2;
+            ({ lineHeight, groupGap } = layoutLyrics());
+        }
+        // Extra safety for five long lines on compact devices: always stay inside the export's content box.
+        if (totalHeight > lyricAreaHeight) {
+            ctx.font = `700 34px Inter, system-ui, sans-serif`;
+            wrappedGroups = chosen.map(text => wrapText(ctx, text, availableWidth, 1));
+            lineHeight = 39; groupGap = 9;
+            totalHeight = wrappedGroups.reduce((sum, parts) => sum + parts.length * lineHeight, 0) + Math.max(0, wrappedGroups.length - 1) * groupGap;
+        }
+        let y = lyricAreaTop + Math.max(0, (lyricAreaHeight - totalHeight) / 2) + lineHeight;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = foreground;
+        // Crisp typography without neon, blur or heavy text shadows.
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
         wrappedGroups.forEach((parts, index) => {
             for (const part of parts) {
-                ctx.fillText(part, CARD_W / 2, y, availableWidth);
+                ctx.fillText(part, sidePadding, y, availableWidth);
                 y += lineHeight;
             }
-            if (index < wrappedGroups.length - 1) y += Math.round(fontSize * .18);
+            if (index < wrappedGroups.length - 1) y += groupGap;
         });
-        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
-        // Actual album cover art, centered below the lyric passage.
-        const artSize = 206, artX = (CARD_W - artSize) / 2, artY = 1275;
-        ctx.save();
-        ctx.shadowColor = colorString(accent, .28); ctx.shadowBlur = 54; ctx.shadowOffsetY = 12;
-        roundedRect(ctx, artX, artY, artSize, artSize, 26, 'rgba(255,255,255,.06)');
-        ctx.restore();
-        ctx.save();
-        ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') ctx.roundRect(artX, artY, artSize, artSize, 26);
-        else roundedRect(ctx, artX, artY, artSize, artSize, 26, null);
-        ctx.clip();
-        if (art) drawImageCover(ctx, art, artX, artY, artSize, artSize);
-        else if (appIcon) drawImageCover(ctx, appIcon, artX, artY, artSize, artSize);
-        else {
-            ctx.fillStyle = colorString(palette, .85); ctx.fillRect(artX, artY, artSize, artSize);
-            ctx.fillStyle = '#fff'; ctx.font = '800 86px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('♫', CARD_W / 2, artY + 136);
+        // Use the user's uploaded official repository logo variant chosen for the card's luminance.
+        const spotifyLogo = await loadSpotifyLogo(lightBackground);
+        if (token !== cardRenderToken) return null;
+        const logoX = 72, logoY = 958, logoMaxWidth = 190, logoMaxHeight = 48;
+        if (spotifyLogo && spotifyLogo.naturalWidth && spotifyLogo.naturalHeight) {
+            const scale = Math.min(logoMaxWidth / spotifyLogo.naturalWidth, logoMaxHeight / spotifyLogo.naturalHeight);
+            const logoWidth = spotifyLogo.naturalWidth * scale, logoHeight = spotifyLogo.naturalHeight * scale;
+            ctx.drawImage(spotifyLogo, logoX, logoY + (logoMaxHeight - logoHeight) / 2, logoWidth, logoHeight);
+        } else {
+            fallbackSpotifyMark(ctx, logoX, logoY + 2, foreground, colorString(gradientEnd));
         }
-        ctx.restore();
-
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#ffffff';
-        const titleSize = String(track?.title || '').length > 42 ? 38 : 44;
-        ctx.font = `800 ${titleSize}px Inter, system-ui, sans-serif`;
-        const title = wrapText(ctx, track?.title || 'Unknown song', 950, 1)[0] || 'Unknown song';
-        ctx.fillText(title, CARD_W / 2, 1538, 950);
-        ctx.fillStyle = 'rgba(245, 247, 250, .74)';
-        ctx.font = '600 31px Inter, system-ui, sans-serif';
-        const artist = wrapText(ctx, track?.artist || 'Unknown artist', 900, 1)[0] || 'Unknown artist';
-        ctx.fillText(artist, CARD_W / 2, 1605, 900);
-
-        // Official Mujic app icon from this repository, not a drawn placeholder logo.
-        const brandSize = 48, brandX = CARD_W / 2 - 114, brandY = 1692;
-        if (appIcon) {
-            ctx.save();
-            ctx.beginPath();
-            if (typeof ctx.roundRect === 'function') ctx.roundRect(brandX, brandY, brandSize, brandSize, 13);
-            else ctx.rect(brandX, brandY, brandSize, brandSize);
-            ctx.clip(); ctx.drawImage(appIcon, brandX, brandY, brandSize, brandSize); ctx.restore();
-        }
-        ctx.fillStyle = '#f4f6fa';
-        ctx.font = '800 39px Inter, system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.letterSpacing = '2px';
-        ctx.fillText('MUJIC', brandX + 62, brandY + 36);
-        ctx.letterSpacing = '0px';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(235, 239, 245, .58)';
-        ctx.font = '600 24px Inter, system-ui, sans-serif';
-        ctx.fillText('royverse69.github.io/mujic', CARD_W / 2, 1808);
-
         return new Promise(resolve => canvas.toBlob(blob => resolve(blob || null), 'image/png'));
     }
 
     async function openCard() {
         const track = trackNow();
         const lines = selectedLines();
-        if (!track || !lines.length) { UI.showToast('Long-press a lyric, then select up to 4 lines.', 'info'); return; }
+        if (!track || !lines.length) { UI.showToast('Long-press a lyric, then select up to 5 lines.', 'info'); return; }
         if (String(track.id ?? State.currentTrackId ?? '') !== String(selectionTrackId)) {
             cancelSelection();
             UI.showToast('The song changed. Select lyrics from the current song.', 'info');
@@ -502,6 +637,7 @@
         cardStartTime = 0;
         shareUrl = '';
         cardRenderToken++;
+        cancelSelection();
         if (returnFocus && typeof returnFocus.focus === 'function') returnFocus.focus({ preventScroll: true });
     }
 
@@ -513,6 +649,7 @@
         document.body.appendChild(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1500);
         UI.showToast('Lyrics card saved as an image.', 'check_circle');
+        closeCard();
     }
 
     async function shareCard() {
@@ -526,6 +663,7 @@
         try {
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({ title, text: shareText, files: [file] });
+                closeCard();
                 return;
             }
             downloadCard();
@@ -545,7 +683,7 @@
 
         root.addEventListener('pointerdown', event => {
             const row = event.target.closest('.lyric-line[data-line-index][data-time]');
-            if (!row || event.button > 0 || !lineData(row)) return;
+            if (State.lyricsShareEnabled === false || !row || event.button > 0 || !lineData(row)) return;
             stopPress();
             pressRow = row;
             pressPointerId = event.pointerId;
@@ -571,7 +709,7 @@
         // The browser context-menu gesture also starts selection on desktop.
         root.addEventListener('contextmenu', event => {
             const row = event.target.closest('.lyric-line[data-line-index][data-time]');
-            if (!row || !lineData(row)) return;
+            if (State.lyricsShareEnabled === false || !row || !lineData(row)) return;
             event.preventDefault();
             if (ignoreNextClickIndex === Number(row.dataset.lineIndex)) return;
             beginSelection(row);
@@ -611,6 +749,7 @@
         shareCard,
         cancelSelection,
         isSelecting: () => selectionActive,
+        shouldPauseAutoFollow: () => selectionActive || !byId('lyrics-share-overlay')?.hidden,
         getSelected: selectedLines
     };
 })();

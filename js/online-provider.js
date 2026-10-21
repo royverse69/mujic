@@ -15,7 +15,8 @@ const OnlineMusic = (() => {
     const audioPreloaders = new Map();
     let latestSearchRequest = 0;
     let activeController = null;
-    let activeStreamController = null;
+    const streamResolvePromises = new Map();
+    const streamResolveControllers = new Map();
     let modeAnimationTimer = null;
     let searchMeta = { query: '', page: 0, limit: 40, total: 0, hasMore: false, provider: 'saavn' };
 
@@ -37,6 +38,7 @@ const OnlineMusic = (() => {
         } catch (_) { return ''; }
     };
     const BACKEND_ORIGIN = window.MujicBackend.PRIMARY;
+    const RENDER_MEDIA_ORIGIN = String(window.MujicBackend.FALLBACK || 'https://gaana-suno-varna-machhar-aajayega.onrender.com').replace(/\/$/, '');
     const BACKEND_ORIGINS = window.MujicBackend.origins();
     const isCatalogueMediaHost = hostname => {
         const host = String(hostname || '').toLowerCase();
@@ -64,16 +66,32 @@ const OnlineMusic = (() => {
         if (!m) return 0;
         const n = Number(m[1]); return m[2] === 'bps' || (!m[2] && n >= 10000) ? n / 1000 : n;
     };
-    const pickImage = value => {
+    const renderProxyMediaUrl = value => {
+        let normalized = safeHttpUrl(value);
+        if (!normalized) return '';
+        try {
+            let url = new URL(normalized);
+            // Unwrap a previously proxied image so artist pages consistently use Render.
+            if (BACKEND_ORIGINS.includes(url.origin) && url.pathname === '/media') {
+                normalized = safeHttpUrl(url.searchParams.get('url') || '');
+                if (!normalized) return '';
+                url = new URL(normalized);
+            }
+            if (!isCatalogueMediaHost(url.hostname)) return normalized;
+            return `${RENDER_MEDIA_ORIGIN}/media?url=${encodeURIComponent(normalized)}`;
+        } catch (_) { return ''; }
+    };
+    const pickImage = (value, options = {}) => {
         const images = Array.isArray(value) ? value : (value ? [value] : []);
         const candidates = images.map(item => ({
             source: typeof item === 'string' ? item : (item?.url || item?.link || item?.src || item?.imageUrl || item?.image_url || item?.thumbnail),
             quality: qualityNumber(item?.quality || item?.size || item?.width || item?.height)
         })).filter(item => typeof item.source === 'string' && item.source.trim());
         candidates.sort((a,b) => b.quality-a.quality);
-        return candidates.length ? proxyMediaUrl(candidates[0].source) : '';
+        if (!candidates.length) return '';
+        return options.renderProxy ? renderProxyMediaUrl(candidates[0].source) : proxyMediaUrl(candidates[0].source);
     };
-    const getImage = raw => {
+    const getImage = (raw, options = {}) => {
         if (!raw || typeof raw !== 'object') return '';
         const candidates = [];
         for (const value of [raw.image, raw.images, raw.artwork, raw.imageUrl, raw.image_url, raw.thumbnail,
@@ -81,7 +99,7 @@ const OnlineMusic = (() => {
             if (Array.isArray(value)) candidates.push(...value);
             else if (value) candidates.push(value);
         }
-        return pickImage(candidates);
+        return pickImage(candidates, options);
     };
     const imageLooksGeneric = value => /(?:placeholder|no[-_]?image|default[-_]?artist|artist[-_]?default|unknown[-_]?artist|blank[-_]?avatar)/i.test(String(value || ''));
     const artistNameKey = value => decodeText(value).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
@@ -91,7 +109,7 @@ const OnlineMusic = (() => {
         const targetName = artistNameKey(artistName || raw.name || raw.title || '');
         const rawId = String(raw.id || raw.artistId || '').trim();
         const rawName = artistNameKey(raw.name || raw.title || '');
-        const direct = getImage(raw);
+        const direct = getImage(raw, {renderProxy:true});
         const directBelongsToTarget = (!targetId && !targetName) || (targetId && rawId === targetId) || (targetName && rawName === targetName);
         if (directBelongsToTarget && direct && !imageLooksGeneric(direct)) return direct;
         const candidates = [];
@@ -110,7 +128,7 @@ const OnlineMusic = (() => {
             const name = artistNameKey(candidate.name || candidate.title || '');
             const matched = (targetId && id && targetId === id) || (targetName && name && targetName === name);
             if (!matched) continue;
-            const image = getImage(candidate);
+            const image = getImage(candidate, {renderProxy:true});
             if (image && !imageLooksGeneric(image) && !seen.has(image)) return image;
             if (image) seen.add(image);
         }
@@ -118,7 +136,7 @@ const OnlineMusic = (() => {
     };
     const getEntityImage = (kind, raw) => {
         if (kind !== 'artists') return getImage(raw);
-        const fallback = getImage(raw);
+        const fallback = getImage(raw, {renderProxy:true});
         return resolveArtistArtwork(raw, raw?.id || raw?.artistId || '', raw?.name || raw?.title || '') || (imageLooksGeneric(fallback) ? '' : fallback);
     };
     const getArtist = raw => {
@@ -291,25 +309,26 @@ const OnlineMusic = (() => {
         if (!out.length && Array.isArray(payload?.downloadUrl)) return payload.downloadUrl.map(entry => ({url:entry?.url || entry?.link || '', quality:String(entry?.quality || ''), codec:'', format:''}));
         return out.filter(entry => safeHttpUrl(entry.url));
     };
-    const fetchSongsByIdsOrLink = async reference => {
+    const fetchSongsByIdsOrLink = async (reference, signal = null) => {
         const value=String(reference||'').trim();if(!value)throw new Error('Enter a song ID or share link.');
         const isLink=/^https?:\/\//i.test(value);
         const query=isLink?`link=${encodeURIComponent(value)}`:`ids=${encodeURIComponent(value.replace(/^songs?:/i,''))}`;
-        const payload=await requestSaavn(`songs?${query}`,null,18000);const data=unwrapData(payload);
+        const payload=await requestSaavn(`songs?${query}`,signal,18000);const data=unwrapData(payload);
         const rows=Array.isArray(data)?data:(Array.isArray(data?.songs)?data.songs:(Array.isArray(data?.results)?data.results:[]));
         const one=!rows.length&&data&&typeof data==='object'&&(data.id||data.songId||data.downloadUrl)?[data]:rows;
         return one.map(raw=>normalizeTrack({...raw,provider:'saavn'})).filter(Boolean);
     };
-    const fetchSongDetails = async track => {
+    const fetchSongDetails = async (track, signal = null) => {
         const id = encodeURIComponent(track.onlineTrackId);
-        if (track.provider === 'machhar') return requestLegacy(`stream/${id}`, null, 18000);
+        if (signal?.aborted) throw new Error('Playback source lookup cancelled.');
+        if (track.provider === 'machhar') return requestLegacy(`stream/${id}`, signal, 18000);
         let candidate=null;
         try {
-            const payload = await requestSaavn(`songs/${id}`, null, 18000);
+            const payload = await requestSaavn(`songs/${id}`, signal, 18000);
             candidate = Array.isArray(payload?.data) ? payload.data[0] : payload?.data;
-        } catch (_) { }
+        } catch (error) { if (signal?.aborted) throw error; }
         if (!candidate) {
-            const fallback=await fetchSongsByIdsOrLink(track.onlineTrackId);
+            const fallback=await fetchSongsByIdsOrLink(track.onlineTrackId, signal);
             candidate=fallback[0]?.raw || null;
         }
         if (!candidate) throw new Error('Song details were not returned by the catalogue.');
@@ -725,23 +744,20 @@ const OnlineMusic = (() => {
     const invalidateStream = trackId => streamCache.delete(String(trackId || ''));
     const getStreamChoices = async (track, options = {}) => {
         let choices = parseStreamChoices(track?.raw || {});
-        if (!choices.length || options.refresh) choices = parseStreamChoices(await fetchSongDetails(track));
+        if (!choices.length || options.refresh) choices = parseStreamChoices(await fetchSongDetails(track, options.signal));
         const valid=choices.filter(item=>safeHttpUrl(item.url));
         valid.sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
         return options.all ? valid : (valid.length?[valid[0]]:[]);
     };
-    // Build a bounded list of playable URLs rather than trusting a single proxy route.
-    // The service-worker URL is attempted first when controlled; direct primary/fallback
-    // proxy URLs are then tried because a SW's cross-origin fetch can be rejected by CORS.
+    // Generate redundant routes with Render first so first-play attempts don't get
+    // pinned behind a stale Cloudflare/service-worker response.
     const playbackUrlsFor = value => {
         const normalized = safeHttpUrl(value);
         if (!normalized) return [];
         let source = normalized;
-        let inputWasMediaProxy = false;
         try {
             const input = new URL(normalized);
             if (BACKEND_ORIGINS.includes(input.origin) && input.pathname === '/media') {
-                inputWasMediaProxy = true;
                 source = safeHttpUrl(input.searchParams.get('url') || '');
                 if (!source) return [normalized];
             }
@@ -750,39 +766,58 @@ const OnlineMusic = (() => {
         } catch (_) { return [normalized]; }
         const result = [];
         const add = candidate => { const safe = safeHttpUrl(candidate); if (safe && !result.includes(safe)) result.push(safe); };
-        if (inputWasMediaProxy) add(normalized);
+        add(`${RENDER_MEDIA_ORIGIN}/media?url=${encodeURIComponent(source)}`);
+        add(`${BACKEND_ORIGIN}/media?url=${encodeURIComponent(source)}`);
         add(proxyMediaUrl(source));
         for (const origin of BACKEND_ORIGINS) add(`${origin}/media?url=${encodeURIComponent(source)}`);
-        add(source); // Last-resort direct CDN URL; some catalogues permit it, others geo-block it.
+        add(source); // Last resort only; some catalogues geo-block direct CDN requests.
         return result;
     };
     const resolvePlaybackCandidates = async (track, options = {}) => {
         if (!track?.onlineTrackId) throw new Error('This streaming result has no song ID. Search again to refresh it.');
         if (State.playbackSourceMode !== 'online') throw new Error('Streaming playback is turned off.');
         if (!navigator.onLine) throw new Error('An internet connection is required for streaming playback.');
+        const key = String(track.id || track.onlineTrackId);
         const forceRefresh = Boolean(options.forceRefresh);
-        const cached = streamCache.get(String(track.id));
+        const cached = streamCache.get(key);
         if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
             if (Array.isArray(cached.candidates) && cached.candidates.length) return cached.candidates.slice();
             if (cached.url) {
                 const upgraded = playbackUrlsFor(cached.url);
                 if (upgraded.length) {
-                    streamCache.set(String(track.id), {url:upgraded[0], candidates:upgraded, expiresAt:cached.expiresAt});
+                    streamCache.set(key, {url:upgraded[0], candidates:upgraded, expiresAt:cached.expiresAt});
                     return upgraded;
                 }
             }
         }
-        streamCache.delete(String(track.id));
-        if (activeStreamController) activeStreamController.abort();
-        const controller = new AbortController(); activeStreamController = controller;
+        if (!forceRefresh && streamResolvePromises.has(key)) return streamResolvePromises.get(key);
+        if (forceRefresh) {
+            streamResolveControllers.get(key)?.abort();
+            streamResolvePromises.delete(key);
+        }
+        streamCache.delete(key);
+        const controller = new AbortController();
+        streamResolveControllers.set(key, controller);
         const timer = setTimeout(() => controller.abort(), 20000);
-        try {
-            const choices = await getStreamChoices(track, {all:true, refresh:forceRefresh});
-            let usable = choices.filter(item => safeHttpUrl(item.url)).sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
-            if (!usable.length && track.provider === 'machhar') {
-                const data = await requestLegacy(`stream/${encodeURIComponent(track.onlineTrackId)}`, controller.signal, 15000);
-                usable = parseStreamChoices(data).filter(item=>safeHttpUrl(item.url)).sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
+        const resolution = (async () => {
+            let choices = [];
+            try {
+                choices = await getStreamChoices(track, {all:true, refresh:forceRefresh, signal:controller.signal});
+            } catch (error) {
+                // A failing catalogue-details call must not short-circuit the independent
+                // Render stream endpoint below. Only an intentional cancellation stops retry.
+                if (controller.signal.aborted) throw error;
             }
+            let usable = choices.filter(item => safeHttpUrl(item.url)).sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
+            // The Render stream endpoint is a final metadata source for every catalogue ID,
+            // not just rows labelled with the legacy provider. Search providers can differ.
+            if (!usable.length && !controller.signal.aborted) {
+                try {
+                    const data = await requestLegacy(`stream/${encodeURIComponent(track.onlineTrackId)}`, controller.signal, 15000);
+                    usable = parseStreamChoices(data).filter(item=>safeHttpUrl(item.url)).sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
+                } catch (error) { if (controller.signal.aborted) throw error; }
+            }
+            if (controller.signal.aborted) throw new Error('Playback source lookup timed out or was cancelled.');
             const candidates = [];
             for (const choice of usable.slice(0, 3)) {
                 for (const url of playbackUrlsFor(choice.url)) {
@@ -790,12 +825,36 @@ const OnlineMusic = (() => {
                 }
             }
             if (!candidates.length) throw new Error('The music service did not return a usable audio URL.');
-            // Try the highest-quality source through every supported route, then a second
-            // source quality. Avoid making a slow connection wait through every catalogue URL.
             const bounded = candidates.slice(0, 7);
-            streamCache.set(String(track.id), {url:bounded[0], candidates:bounded, expiresAt:Date.now()+4*60*1000});
+            streamCache.set(key, {url:bounded[0], candidates:bounded, expiresAt:Date.now()+4*60*1000});
             return bounded;
-        } finally { clearTimeout(timer); if (activeStreamController === controller) activeStreamController = null; }
+        })();
+        streamResolvePromises.set(key, resolution);
+        try { return await resolution; }
+        finally {
+            clearTimeout(timer);
+            if (streamResolveControllers.get(key) === controller) streamResolveControllers.delete(key);
+            if (streamResolvePromises.get(key) === resolution) streamResolvePromises.delete(key);
+        }
+    };
+    const warmPlaybackCandidates = async (tracks, limit = 8) => {
+        if (State.playbackSourceMode !== 'online' || !navigator.onLine) return false;
+        const unique = [];
+        const seen = new Set();
+        for (const track of (Array.isArray(tracks) ? tracks : [])) {
+            if (!track?.onlineTrackId || !isOnlineTrack(track) || seen.has(String(track.id))) continue;
+            seen.add(String(track.id)); unique.push(track);
+            if (unique.length >= Math.max(1, Math.min(12, Number(limit) || 8))) break;
+        }
+        let cursor = 0;
+        const worker = async () => {
+            while (cursor < unique.length) {
+                const track = unique[cursor++];
+                try { await resolvePlaybackCandidates(track); } catch (_) { /* clicking still gets its own retry path */ }
+            }
+        };
+        await Promise.all(Array.from({length:Math.min(3, unique.length)}, () => worker()));
+        return true;
     };
     const markStreamWorking = (trackId, url) => {
         const key = String(trackId || '');
@@ -880,6 +939,8 @@ const OnlineMusic = (() => {
         finally { clearTimeout(timeout); if(activeChunkPrefetch===controller)activeChunkPrefetch=null; }
     };
     const clearCache = () => {
+        for (const controller of streamResolveControllers.values()) { try { controller.abort(); } catch (_) {} }
+        streamResolveControllers.clear(); streamResolvePromises.clear();
         streamCache.clear(); searchCache.clear(); entitySearchCache.clear(); entityDetailsCache.clear(); relatedCache.clear(); relatedRateLimitedUntil = 0;
         for (const audio of audioPreloaders.values()) { try { audio.pause(); audio.removeAttribute('src'); audio.load(); } catch (_) {} }
         audioPreloaders.clear(); prefetchedChunks.clear(); if(activeChunkPrefetch){try{activeChunkPrefetch.abort();}catch(_){}} activeChunkPrefetch=null; navigator.serviceWorker?.controller?.postMessage({type:'CLEAR_ONLINE_MEDIA_CACHE'}); if (window.OnlineCache) OnlineCache.clear();
@@ -962,7 +1023,8 @@ const OnlineMusic = (() => {
             State.playbackSourceMode = next; StorageAdapter.saveSettings(); updateModeUI();
             if (next === 'offline') {
                 latestSearchRequest++; if (activeController) activeController.abort();
-                if (activeStreamController) activeStreamController.abort();
+                for (const controller of streamResolveControllers.values()) { try { controller.abort(); } catch (_) {} }
+                streamResolveControllers.clear(); streamResolvePromises.clear();
                 stopRemotePlayback();
             }
             if (window.OnlineWorkspace) OnlineWorkspace.onModeChange(next, previous);
@@ -979,6 +1041,6 @@ const OnlineMusic = (() => {
     window.addEventListener('online', () => {
         updateModeUI(); if (State.playbackSourceMode === 'online' && window.OnlineWorkspace) OnlineWorkspace.refreshActiveView();
     });
-    return { API_BASE, BACKEND_BASE:LEGACY_BASE, LEGACY_BASE, RENDER_RECOMMENDATIONS_BASE, requestRenderRecommendation, fetchRenderQuickPicks, fetchRenderSuggestions, searchRenderSongs, proxyMediaUrl, isOnlineId, isOnlineTrack, getTrack, registerTrack, normalizeTrack, extractSongs:extractRawSongs, search, searchEntities, globalSearch, getImage, resolveArtistArtwork, isGenericArtistArtwork:imageLooksGeneric, fetchSongsByIdsOrLink, fetchPublicPlaylist, fetchAlbumDetails, fetchArtistDetails, fetchArtistSongs, fetchArtistAlbums, getSearchMeta, searchAndRender, resolveStream, resolvePlaybackCandidates, markStreamWorking, resolveDownloadSource, fetchSongDetails, fetchRelated, fetchTrending, prefetchStreams, invalidateStream, clearCache, renderBlank, updateModeUI, setMode, stopRemotePlayback };
+    return { API_BASE, BACKEND_BASE:LEGACY_BASE, LEGACY_BASE, RENDER_RECOMMENDATIONS_BASE, requestRenderRecommendation, fetchRenderQuickPicks, fetchRenderSuggestions, searchRenderSongs, proxyMediaUrl, isOnlineId, isOnlineTrack, getTrack, registerTrack, normalizeTrack, extractSongs:extractRawSongs, search, searchEntities, globalSearch, getImage, getArtistImage:raw => getImage(raw, {renderProxy:true}), resolveArtistArtwork, isGenericArtistArtwork:imageLooksGeneric, fetchSongsByIdsOrLink, fetchPublicPlaylist, fetchAlbumDetails, fetchArtistDetails, fetchArtistSongs, fetchArtistAlbums, getSearchMeta, searchAndRender, resolveStream, resolvePlaybackCandidates, warmPlaybackCandidates, markStreamWorking, resolveDownloadSource, fetchSongDetails, fetchRelated, fetchTrending, prefetchStreams, invalidateStream, clearCache, renderBlank, updateModeUI, setMode, stopRemotePlayback };
 })();
 window.OnlineMusic = OnlineMusic;
