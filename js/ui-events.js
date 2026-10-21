@@ -1,6 +1,8 @@
 /* Copyright mujic@royverse69 */
         Object.assign(UI, {
             setupGlobalDelegation: () => {
+                // Sharing is optional UI: never let its initialization prevent player/control handlers from being wired.
+                try { window.LyricsShare?.init(); } catch (error) { console.warn('[Mujic] Lyrics-share setup failed; player controls remain enabled.', error); }
                 const closePlayerBtn = document.getElementById('close-player-btn');
                 if (closePlayerBtn) {
                     let handledPointerUp = false;
@@ -63,7 +65,7 @@
                                 ctx.textAlign='left';
                                 ctx.fillStyle='#fff';ctx.font='600 25px system-ui';ctx.fillText(fit(title,290),320,150);
                                 ctx.fillStyle='#b9b9c2';ctx.font='18px system-ui';ctx.fillText(fit(artist,290),320,185);
-                                ctx.fillStyle='#777';ctx.font='14px system-ui';ctx.fillText('MACHHAR BETA V1',320,225);
+                                ctx.fillStyle='#777';ctx.font='14px system-ui';ctx.fillText('MUJIC  ·  NOW PLAYING',320,225);
                             };
                             video._pipPaint();
                             // Keep the display video mirrored to the audio engine in both directions.
@@ -160,6 +162,18 @@
                         switch (action) {
                             case 'picture-in-picture':
                                 e.preventDefault(); e.stopPropagation(); await openPlayerPiP(); return;
+                            case 'lyrics-share-start':
+                                e.preventDefault(); e.stopPropagation(); UI.closeSheets(true); window.LyricsShare?.startSelection(); return;
+                            case 'lyrics-share-open':
+                                e.preventDefault(); e.stopPropagation(); await window.LyricsShare?.openCard(); return;
+                            case 'lyrics-share-close':
+                                e.preventDefault(); e.stopPropagation(); window.LyricsShare?.closeCard(); return;
+                            case 'lyrics-share-download':
+                                e.preventDefault(); e.stopPropagation(); window.LyricsShare?.downloadCard(); return;
+                            case 'lyrics-share-share':
+                                e.preventDefault(); e.stopPropagation(); await window.LyricsShare?.shareCard(); return;
+                            case 'lyrics-share-cancel':
+                                e.preventDefault(); e.stopPropagation(); window.LyricsShare?.cancelSelection(); return;
                             case 'online-open-category':
                                 e.preventDefault(); e.stopPropagation(); if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return; await OnlineWorkspace.openCategory(btn.dataset.id); return;
                             case 'online-open-radio':
@@ -553,7 +567,7 @@
                     else if (action === 'refresh-changelog') { e.stopPropagation(); UI.loadChangeLog(true); }
                     else if (action === 'reset-appearance') UI.resetAppearance();
                     else if (action === 'open-external') { const target = btn.dataset.url || ''; if (/^https:\/\//.test(target)) window.open(target, '_blank', 'noopener,noreferrer'); }
-                    else if (action === 'seek-lyric') { AudioAdapter.seek(parseFloat(btn.dataset.time)); }
+                    else if (action === 'seek-lyric') { if (window.LyricsShare?.handleLyricClick(btn)) return; AudioAdapter.seek(parseFloat(btn.dataset.time)); }
                     else if (action === 'clear-library') {
                         const confirmed = await Dialog.show({ type: 'confirm', title: 'Wipe Library', message: 'Are you sure you want to completely wipe all application data? This cannot be undone.', confirmText: 'Wipe Data', destructive: true });
                         if(confirmed) {

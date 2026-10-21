@@ -407,7 +407,7 @@
         return performSearch(q,true);
     };
     const HOME_TTL = 15 * 60 * 1000;
-    const HOME_CACHE_VERSION = 4;
+    const HOME_CACHE_VERSION = 6;
     const HOME_DEFS = [
         {key:'quick',kind:'quick',node:'online-shelf-quick',derived:true,stage:1},
         {key:'suggested',kind:'songs',query:'',node:'online-shelf-suggested',layout:'list',stage:1},
@@ -430,7 +430,7 @@
         const stale=stored.version!==HOME_CACHE_VERSION;
         homeShelves={};
         for(const [key,value] of Object.entries(stored.shelves)){
-            if(stale&&key==='latest')continue;
+            if(stale&&['latest','quick','suggested'].includes(key))continue;
             const restored=(value.items||[]).map(item=>value.kind==='songs'?restoreTrack(item):item).filter(Boolean);homeShelves[key]={kind:value.kind,items:value.kind==='songs'?dedupeCatalogueTracks(restored):restored};
         }
         homeLastLoaded=stale?0:(Number(stored.savedAt)||0);return true;
@@ -791,11 +791,9 @@
         const historyIndex=new Map(history.map((track,index)=>[track.id,index]));
         const pool=new Map();
         const add=track=>{if(track?.id&&!pool.has(track.id))pool.set(track.id,track);};
-        history.forEach(add);favorites.forEach(add);
+        (homeShelves.quick?.items||[]).forEach(add);
         const shownSuggested=new Set((suggestState.items||[]).slice(0,8).map(track=>track.id));
         (suggestState.items||[]).slice(8).forEach(add);
-        (homeShelves.trending?.items||[]).slice(0,14).forEach(add);
-        (homeShelves.hits?.items||[]).slice(0,14).forEach(add);
         shownSuggested.forEach(id=>{if(!historyIndex.has(id)&&!favoriteIds.has(id))pool.delete(id);});
         const score=track=>{
             let value=0;
@@ -837,7 +835,7 @@
         }
         return seeds;
     };
-    const suggestionSignature = seeds => `${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
+    const suggestionSignature = seeds => `render-v1|${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
     const buildSuggestions = async seeds => {
         const played=new Set(),prints=new Set();
         onlineHistory.slice(0,60).forEach(track=>{played.add(track.id);prints.add(fingerprint(track));});
@@ -845,8 +843,8 @@
         const queries=DAYPART_QUERIES[daypart()];
         const lists=await Promise.all(seeds.map(async seed=>{
             try{
-                if(seed.track&&window.OnlineRecommendations?.getCandidates)return await OnlineRecommendations.getCandidates(seed.track,12);
-                const found=await OnlineMusic.search(`${seed.name} songs`,{page:0,limit:30,background:true});
+                if(seed.track && OnlineMusic.fetchRenderSuggestions) return await OnlineMusic.fetchRenderSuggestions(seed.track);
+                const found=await OnlineMusic.searchRenderSongs(`${seed.name} songs`);
                 return found.filter(track=>{const key=artistKey(track.artist);return key&&(key.includes(seed.key)||seed.key.includes(key));});
             }catch(_){return [];}
         }));
@@ -866,7 +864,7 @@
         };
         let items=merge(lists);
         if(items.length<8){
-            const extra=await Promise.all(queries.map(async query=>{try{return await OnlineMusic.search(query,{page:0,limit:20,background:true});}catch(_){return [];}}));
+            const extra=await Promise.all(queries.map(async query=>{try{return await OnlineMusic.searchRenderSongs(query);}catch(_){return [];}}));
             items=merge([items,...extra]);
         }
         return items;
@@ -876,13 +874,36 @@
     };
     const restoreSuggest = () => {
         const stored=safeRead(KEYS.suggest,null);
-        if(!stored?.items?.length)return;
+        if(!stored?.items?.length||!String(stored.sig||'').startsWith('render-v1|'))return;
         suggestState={sig:String(stored.sig||''),savedAt:Number(stored.savedAt)||0,items:hydrate(stored.items),loading:''};
     };
     const updateSuggestNote = seeds => {
         const note=document.getElementById('online-suggest-note');if(!note)return;
         const first=seeds?.[0];
         note.textContent=first?.track?`Because you played ${first.track.title}`:first?.name?`Based on your ${first.name} listening`:`Picked for this ${daypart()}`;
+    };
+    let quickPicksPromise = null;
+    const QUICK_PICKS_TTL = 30 * 60 * 1000;
+    const refreshQuickPicks = async (force=false) => {
+        if (State.playbackSourceMode !== 'online' || !navigator.onLine) return homeShelves.quick?.items || [];
+        const cached = homeShelves.quick?.items || [];
+        if (!force && cached.length && Date.now() - (homeShelves.quick?.savedAt || homeLastLoaded || 0) < QUICK_PICKS_TTL) return cached;
+        if (quickPicksPromise) return quickPicksPromise;
+        quickPicksPromise = (async () => {
+            try {
+                const items = dedupeCatalogueTracks(await OnlineMusic.fetchRenderQuickPicks());
+                if (items.length) {
+                    homeShelves.quick = { kind: 'songs', items: items.slice(0, 40), savedAt: Date.now(), source: 'render' };
+                    cacheHomeShelves();
+                    if (State.playbackSourceMode === 'online') renderShelfItem(HOME_DEFS[0], []);
+                }
+                return homeShelves.quick?.items || [];
+            } catch (error) {
+                console.warn('[Mujic] Render Quick Picks unavailable; retaining cached/local picks.', error);
+                return cached;
+            } finally { quickPicksPromise = null; }
+        })();
+        return quickPicksPromise;
     };
     const refreshSuggestions = async (force=false) => {
         if(State.playbackSourceMode!=='online'||!navigator.onLine)return suggestState.items;
@@ -944,6 +965,7 @@
             for(const stage of [1,2,3]){
                 if(State.playbackSourceMode!=='online'||!navigator.onLine)break;
                 const tasks=HOME_DEFS.filter(def=>def.stage===stage).map(loadDef);
+                if(stage===1){tasks.push(refreshQuickPicks(force));tasks.push(refreshSuggestions(force));}
                 if(stage===2)tasks.push(loadHomeArtistShelves());
                 await Promise.all(tasks);
                 if(State.playbackSourceMode==='online'){renderShelfItem(HOME_DEFS[0],[]);renderShelfItem(HOME_DEFS.find(def=>def.key==='forYouArtists'),[]);}
@@ -1000,7 +1022,7 @@
         renderSearchHistory();
         if(!navigator.onLine){renderConnectivityState();return;}
         if(Date.now()-homeLastLoaded>HOME_TTL||!Object.keys(homeShelves).length)loadHomeShelves(false);
-        else refreshSuggestions(false);
+        else { refreshSuggestions(false); refreshQuickPicks(false); }
     };
     const renderRemotePlaylistCards = list => renderEntityGrid(list,'playlists');
     const loadPublicPlaylists = async (query='Hindi romantic',append=false) => {
@@ -1910,7 +1932,7 @@
         artistStats={};
         persistTaste();persist();
         try{localStorage.removeItem(KEYS.suggest);}catch(_){}
-        renderSettingsStats();renderHomePersonal();refreshSuggestions(true);
+        renderSettingsStats();renderHomePersonal();refreshSuggestions(true);refreshQuickPicks(true);
         UI.showToast('Listening profile reset.','check_circle');
     };
     const exportStreamingLibrary = () => {

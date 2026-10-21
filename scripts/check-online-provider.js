@@ -30,6 +30,17 @@ const mkContext = fetchImpl => {
     const ctx2 = mkContext(async () => ({ ok: true, text: async () => JSON.stringify(streamPayload) }));
     const source = await ctx2.music.resolveDownloadSource({ id: 'machhar:song-x', onlineTrackId: 'song-x' });
     if (source.url !== 'https://audio.example/high.m4a' || !/aac/i.test(source.codec)) throw new Error('Downloader did not select the highest-quality AAC source.');
+    const playbackFixture = {
+        id: 'machhar:saavn:playback-fixture', onlineTrackId: 'playback-fixture', provider: 'saavn',
+        raw: { downloadUrl: [{ quality: '320kbps', url: 'https://aac.saavncdn.com/playback-fixture.m4a?token=fixture' }] }
+    };
+    if (typeof ctx2.music.resolvePlaybackCandidates !== 'function' || typeof ctx2.music.markStreamWorking !== 'function') throw new Error('OnlineMusic must expose the resolver and working-source cache updater used by the player.');
+    const streamCandidates = await ctx2.music.resolvePlaybackCandidates(playbackFixture);
+    if (streamCandidates.length < 2 || !streamCandidates.some(url => url.includes('/media?url=')) || !streamCandidates.some(url => url.includes('aac.saavncdn.com'))) throw new Error('Playback resolution must provide proxy routes and a direct CDN fallback.');
+    const selectedCandidate = streamCandidates[streamCandidates.length - 1];
+    if (!ctx2.music.markStreamWorking(playbackFixture.id, selectedCandidate)) throw new Error('A successful source must be recorded by the provider.');
+    const reorderedCandidates = await ctx2.music.resolvePlaybackCandidates(playbackFixture);
+    if (reorderedCandidates[0] !== selectedCandidate) throw new Error('The last successful stream route must be preferred on subsequent playback.');
     const proxiedMedia = ctx2.music.proxyMediaUrl('https://aac.saavncdn.com/test-track.m4a?token=fixture');
     if (!proxiedMedia.startsWith('https://mujic.calverse.online/media?url=') || !decodeURIComponent(proxiedMedia.split('url=')[1]).includes('aac.saavncdn.com/test-track.m4a')) throw new Error('Known catalogue media hosts must be proxied through the primary backend.');
 
@@ -123,5 +134,5 @@ const mkContext = fetchImpl => {
     let blocked = false;
     try { await ctx3.music.search('sample'); } catch (e) { blocked = /offline/i.test(e.message); }
     if (!blocked || calls.count !== 0) throw new Error('Online search must be blocked without connectivity.');
-    console.log('Online provider checks OK: search parsing, capped-page pagination, inferred artist page size, foreign artist song-search fallback, artwork fallback (including artist-map portraits), documented suggestions, link lookup, AAC source selection, and offline request blocking.')
+    console.log('Online provider checks OK: search parsing, capped-page pagination, inferred artist page size, foreign artist song-search fallback, artwork fallback (including artist-map portraits), documented suggestions, link lookup, AAC source selection, stream resolver/route fallback caching, and offline request blocking.')
 })().catch(error => { console.error(error); process.exit(1); });

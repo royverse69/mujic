@@ -10,7 +10,6 @@ from flask import Response
 import requests
 from urllib.parse import urljoin, urlparse
 
-# Fixed upstream: this is intentionally NOT an open proxy accepting arbitrary URLs.
 ALLOWED_CATALOGUE_PREFIXES = {"search", "songs", "albums", "artists", "playlists"}
 LYRICSPLUS_ORIGINS = (
     "https://lyricsplus.prjktla.my.id",
@@ -48,8 +47,6 @@ def mujic_catalogue_proxy(upstream_path):
     return _mujic_proxy_response(upstream)
 
 
-# Proxy only the catalogue CDN domains seen in music API image and audio URLs.
-# Validate redirect destinations as well; do not accept arbitrary URLs/hosts.
 CATALOGUE_MEDIA_DOMAINS = ("saavncdn.com", "jiosaavn.com")
 
 
@@ -101,6 +98,9 @@ def mujic_catalogue_media_proxy():
         return jsonify({"error": "Too many media redirects"}), 502
     headers = {key: upstream.headers[key] for key in ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified") if key in upstream.headers}
     headers.setdefault("Cache-Control", "public, max-age=900")
+    # Cross-origin MediaElementSource/equalizer use requires an explicit CORS grant.
+    headers["Access-Control-Allow-Origin"] = "*"
+    headers["Access-Control-Expose-Headers"] = "Accept-Ranges, Content-Length, Content-Range, Content-Type, ETag, Last-Modified"
     response = Response(upstream.iter_content(chunk_size=64 * 1024), status=upstream.status_code, headers=headers)
     response.call_on_close(upstream.close)
     return response

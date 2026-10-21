@@ -1,5 +1,5 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.0.9-machhar-beta-v1-9-stability';
+const CACHE_NAME = 'mujic-pwa-v13.0.14-machhar-beta-v1-9-lyrics-card-render-shelves';
 const API_CACHE = 'mujic-api-v2';
 const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';
@@ -22,7 +22,7 @@ const MAX_MEDIA_IMAGE_ENTRIES = 400;
 const MAX_MEDIA_IMAGE_BYTES = 80 * 1024 * 1024;
 const APP_SHELL = [
   './', './index.html', './VERSION', './manifest.webmanifest', './changlog.json', './css/app.css', './css/online-workspace.css',
-  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/backend-config.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/discovery-catalog-data.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
+  './js/vendor-loader.js', './js/vendor/qrcode-generator.js', './js/core.js', './js/storage.js', './js/backend-config.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/discovery-catalog-data.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/lyrics-share.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/app.js',
   './data/discovery-catalog.json', './icons/icon-192.png', './icons/icon-512.png'
 ];
 const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];
@@ -67,13 +67,26 @@ const fetchBackendMedia = (source, request, rangeOverride = '') => {
     if (value) headers.set(name, value);
   }
   if (rangeOverride) headers.set('Range', rangeOverride);
+  const fallbackRequest = () => {
+    const fallback = new URL(FALLBACK_API_ORIGIN + '/media');
+    fallback.searchParams.set('url', source);
+    return fetch(fallback.href, { method:'GET', headers, credentials:'omit', cache:'no-store', redirect:'follow' });
+  };
+  const looksLikeErrorPayload = response => {
+    const type = String(response.headers.get('Content-Type') || '').toLowerCase();
+    const statusFailed = !response.ok && response.status !== 416;
+    const bodyLooksLikeError = /^(text\/html|application\/(?:json|problem\+json)|text\/plain)(?:\s*;|$)/i.test(type);
+    const knownBackendFailure = [502,503,504].includes(response.status) || (response.status >= 520 && response.status <= 530);
+    return statusFailed || knownBackendFailure || bodyLooksLikeError;
+  };
   return fetch(target.href, { method:'GET', headers, credentials:'omit', cache:'no-store', redirect:'follow' }).then(async response => {
-    if (response.ok || !([502,503,504].includes(response.status) || (response.status >= 520 && response.status <= 530))) return response;
-    const fallback = new URL(FALLBACK_API_ORIGIN + '/media'); fallback.searchParams.set('url', source);
-    return fetch(fallback.href, { method:'GET', headers, credentials:'omit', cache:'no-store', redirect:'follow' });
-  }).catch(async error => {
-    const fallback = new URL(FALLBACK_API_ORIGIN + '/media'); fallback.searchParams.set('url', source);
-    return fetch(fallback.href, { method:'GET', headers, credentials:'omit', cache:'no-store', redirect:'follow' });
+    if (!looksLikeErrorPayload(response)) return response;
+    try { await response.body?.cancel(); } catch (_) {}
+    try { return await fallbackRequest(); }
+    catch (_) { return response; }
+  }).catch(async () => {
+    try { return await fallbackRequest(); }
+    catch (error) { throw error; }
   });
 };
 const storeMediaChunk = async (cache, key, response) => {

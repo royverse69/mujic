@@ -26,6 +26,6 @@ check(index.includes('online-detail-back-circle') && css.includes('.online-detai
 check(!index.includes('player-context-badge') && index.includes('>Now Playing</span>') && appCss.includes('padding:28px'), 'Restore the prior full-screen player header and preserve the padded controls surface.');
 check(catalog.artworkAttributions.length >= 4 && read('docs/artwork-attributions.md').includes('CC BY 3.0'), 'Wikimedia artwork must have attribution/license documentation.');
 check(changelog.previous.entries.some(entry => entry.version === '13.0.7') || pkg.version === '13.0.7', 'Historical release record for v13.0.7 must remain available.');
-check(workspace.includes("'new Hindi songs 2026'") && workspace.includes("'new Bollywood songs 2026'") && workspace.includes('const HOME_CACHE_VERSION = 4'), 'Latest Finds must merge multiple queries and invalidate the old sparse shelf cache.');
+check(workspace.includes("'new Hindi songs 2026'") && workspace.includes("'new Bollywood songs 2026'") && workspace.includes('const HOME_CACHE_VERSION = 6'), 'Latest Finds must merge multiple queries and invalidate the old sparse shelf cache.');
 check(read('js/ui-player.js').includes('track-now-playing-status') && read('js/ui-library.js').includes('const nowPlayingStatus=isCurrentTrack?'), 'Queue and playlist rows must own the redesigned now-playing marker.');
 console.log('Carried-forward discovery compatibility checks passed: full offline catalog, 31 seeded radios, station-specific queue and release cache.');

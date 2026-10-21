@@ -2,6 +2,7 @@
         const AudioAdapter = {
             audio: new Audio(), ctx: null, source: null, analyser:null, eqFilters:[], compressor:null, masterGain:null,
             currentObjectUrl:null, visualizerRAF:0, visualizerLastFrameAt:0, visualizerFreqData:null, silenceStart:0, lastSilenceCheck:0, wakeLock:null, lastMediaSeekAt:0, progressiveSeekCount:0,
+            remoteAttemptInProgress:false, remoteAttemptToken:0, lastRemoteError:null, remoteRecoveryTrackId:null, remoteRecoveryAttempted:false,
             init: () => {
                 AudioAdapter.audio.addEventListener('timeupdate', () => {
                     State.currentTime = AudioAdapter.audio.currentTime;
@@ -63,9 +64,35 @@
                 AudioAdapter.audio.addEventListener('error', (e) => {
                     const track = Player.getCurrentTrack();
                     if (track?.source === 'machhar-online') {
+                        // Per-URL failures are handled by playRemote's readiness promise while it
+                        // tries the proxy routes. Only handle errors after a track had started.
+                        if (AudioAdapter.remoteAttemptInProgress) return;
+                        const trackId = String(track.id || '');
                         OnlineMusic.invalidateStream(track.id);
-                        console.error('Online stream error', e);
-                        UI.showToast('Streaming audio failed. Tap play to refresh the stream.', 'error');
+                        State.isPlaying = false;
+                        const failedTime = Number(AudioAdapter.audio.currentTime);
+                        if (Number.isFinite(failedTime) && failedTime > 0) State.currentTime = failedTime;
+                        State.resumePosition = State.currentTime;
+                        AudioAdapter.stopVisualizerLoop();
+                        UI.updatePlayPause(); UI.updateProgress();
+                        try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; } catch (_) {}
+                        console.error('Online stream error', {event:e, code:AudioAdapter.audio.error?.code, message:AudioAdapter.audio.error?.message});
+                        if (AudioAdapter.remoteRecoveryTrackId !== trackId) {
+                            AudioAdapter.remoteRecoveryTrackId = trackId;
+                            AudioAdapter.remoteRecoveryAttempted = false;
+                        }
+                        if (!AudioAdapter.remoteRecoveryAttempted) {
+                            AudioAdapter.remoteRecoveryAttempted = true;
+                            const failedRequest = State.playbackRequestId;
+                            UI.showToast('Stream interrupted. Trying a backup source…', 'info');
+                            setTimeout(() => {
+                                if (State.playbackRequestId === failedRequest && String(Player.getCurrentTrack()?.id || '') === trackId) {
+                                    Player.startCurrentTrack({recovery:true, refreshStream:true, preserveTime:true});
+                                }
+                            }, 180);
+                        } else {
+                            UI.showToast('Streaming audio could not load. Check your connection or choose another track.', 'error');
+                        }
                         return;
                     }
                     if (track && State.autoSkipOnError && State.playbackOrder.length > 1) AudioAdapter.handlePlaybackFailure(State.playbackRequestId, track.fileName || track.title, e);
@@ -201,21 +228,83 @@
             },
             playRemote: async (url, trackName='streaming track', requestId=State.playbackRequestId, fadeIn=false) => {
                 if (requestId !== State.playbackRequestId || !url) return false;
+                const audio = AudioAdapter.audio;
+                const attemptToken = ++AudioAdapter.remoteAttemptToken;
+                AudioAdapter.remoteAttemptInProgress = true;
+                AudioAdapter.lastRemoteError = null;
+                let cleanupReady = () => {};
                 if (AudioAdapter.currentObjectUrl) { URL.revokeObjectURL(AudioAdapter.currentObjectUrl); AudioAdapter.currentObjectUrl = null; }
-                AudioAdapter.audio.pause();
-                AudioAdapter.audio.crossOrigin = 'anonymous';
-                AudioAdapter.audio.preload = 'metadata';
-                AudioAdapter.audio.src = url;
-                if (AudioAdapter.requiresWebAudio()) { try { await AudioAdapter.initWebAudio(); } catch (e) { Utils.warn(e); } }
-                if (requestId !== State.playbackRequestId) return false;
-                if (AudioAdapter.masterGain) { try { const now=AudioAdapter.ctx.currentTime; AudioAdapter.masterGain.gain.cancelScheduledValues(now); AudioAdapter.masterGain.gain.setValueAtTime(fadeIn ? 0 : 1, now); } catch (e) { Utils.warn(e); } }
-                try { await AudioAdapter.audio.play(); AudioAdapter.audio.dataset.mujicTrackId=State.currentTrackId || ''; if (fadeIn) AudioAdapter.fadeMaster(1, 220); return true; }
-                catch (e) {
-                    if (requestId === State.playbackRequestId) {
-                        console.warn('Online stream could not start', e);
-                        UI.showToast('Streaming audio failed to start. Tap play to request a fresh stream.', 'error');
+                try {
+                    audio.pause();
+                    // CORS mode is only necessary when Web Audio must inspect the media. For
+                    // ordinary playback, forcing anonymous CORS can reject valid proxy streams.
+                    if (AudioAdapter.requiresWebAudio()) audio.crossOrigin = 'anonymous';
+                    else audio.removeAttribute('crossorigin');
+                    audio.preload = 'auto';
+                    audio.removeAttribute('src');
+                    audio.load();
+                    const ready = new Promise((resolve, reject) => {
+                        let settled = false;
+                        const finish = (error) => {
+                            if (settled) return;
+                            settled = true;
+                            clearTimeout(timer);
+                            audio.removeEventListener('canplay', onReady);
+                            audio.removeEventListener('loadeddata', onReady);
+                            audio.removeEventListener('error', onError);
+                            cleanupReady = () => {};
+                            if (error) reject(error); else resolve(true);
+                        };
+                        const onReady = () => { if (audio.readyState >= 3) finish(); };
+                        const onError = () => {
+                            const mediaError = audio.error;
+                            const error = new Error(mediaError?.message || `Media source failed (code ${mediaError?.code || 'unknown'}).`);
+                            error.name = mediaError?.code === 4 ? 'NotSupportedError' : 'MediaSourceError';
+                            error.mediaCode = mediaError?.code || 0;
+                            finish(error);
+                        };
+                        const timer = setTimeout(() => finish(new Error('Timed out waiting for audio data from this stream.')), 7500);
+                        cleanupReady = () => finish(new Error('Stream attempt cancelled.'));
+                        audio.addEventListener('canplay', onReady);
+                        audio.addEventListener('loadeddata', onReady);
+                        audio.addEventListener('error', onError);
+                        onReady();
+                    });
+                    ready.catch(() => {}); // play() may reject before the readiness promise is awaited.
+                    audio.src = url;
+                    audio.load();
+                    if (AudioAdapter.requiresWebAudio()) {
+                        try { await AudioAdapter.initWebAudio(); }
+                        catch (error) { Utils.warn(error); }
                     }
+                    if (requestId !== State.playbackRequestId) throw new DOMException('Playback request superseded.', 'AbortError');
+                    if (AudioAdapter.masterGain) {
+                        try { const now=AudioAdapter.ctx.currentTime; AudioAdapter.masterGain.gain.cancelScheduledValues(now); AudioAdapter.masterGain.gain.setValueAtTime(fadeIn ? 0 : 1, now); }
+                        catch (error) { Utils.warn(error); }
+                    }
+                    // A play() resolution alone is not proof that the URL returned audio. Wait
+                    // until the element can actually produce data before treating it as playing.
+                    await audio.play();
+                    await ready;
+                    if (requestId !== State.playbackRequestId || attemptToken !== AudioAdapter.remoteAttemptToken) throw new DOMException('Playback request superseded.', 'AbortError');
+                    audio.dataset.mujicTrackId = String(State.currentTrackId || '');
+                    if (fadeIn) AudioAdapter.fadeMaster(1, 220);
+                    return true;
+                } catch (error) {
+                    AudioAdapter.lastRemoteError = error;
+                    cleanupReady();
+                    if (requestId === State.playbackRequestId && attemptToken === AudioAdapter.remoteAttemptToken) {
+                        try { audio.pause(); audio.removeAttribute('src'); audio.load(); } catch (_) {}
+                        delete audio.dataset.mujicTrackId;
+                        State.isPlaying = false;
+                        State.currentTime = 0; State.duration = 0; State.resumePosition = 0;
+                        UI.updatePlayPause(); UI.updateProgress(); UI.updateDuration();
+                    }
+                    if (error?.name !== 'AbortError') console.warn(`Online stream candidate failed for ${trackName}:`, error);
                     return false;
+                } finally {
+                    cleanupReady();
+                    if (attemptToken === AudioAdapter.remoteAttemptToken) AudioAdapter.remoteAttemptInProgress = false;
                 }
             },
             pause: () => { AudioAdapter.audio.pause(); },
@@ -453,18 +542,27 @@
                 if (!('mediaSession' in navigator) || typeof navigator.mediaSession.setPositionState !== 'function') return;
                 const duration = Number(State.duration); const currentTime = Number(State.currentTime); const playbackRate = Number(State.playbackRate) || 1;
                 if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(currentTime) || currentTime < 0) return;
-                try { navigator.mediaSession.setPositionState({ duration, playbackRate, currentTime: Math.min(currentTime, Math.max(0, duration - 0.001)) }); } catch (e) { Utils.warn(e); }
+                try { navigator.mediaSession.setPositionState({ duration, playbackRate, position: Math.min(currentTime, Math.max(0, duration - 0.001)) }); } catch (e) { Utils.warn(e); }
             },
             setupMediaSession: () => {
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.setActionHandler('play', AudioAdapter.play); 
-                    navigator.mediaSession.setActionHandler('pause', AudioAdapter.pause);
-                    navigator.mediaSession.setActionHandler('previoustrack', Player.previous); 
-                    navigator.mediaSession.setActionHandler('nexttrack', Player.next);
-                    navigator.mediaSession.setActionHandler('seekbackward', (d) => { const offset = State.progressiveSeek ? AudioAdapter.getMediaSeekOffset() : (d.seekOffset || Number(State.seekStep) || 10); AudioAdapter.seek(State.currentTime - offset); });
-                    navigator.mediaSession.setActionHandler('seekforward', (d) => { const offset = State.progressiveSeek ? AudioAdapter.getMediaSeekOffset() : (d.seekOffset || Number(State.seekStep) || 10); AudioAdapter.seek(State.currentTime + offset); });
-                    navigator.mediaSession.setActionHandler('seekto', (d) => { AudioAdapter.seek(d.seekTime); });
-                }
+                if (!('mediaSession' in navigator) || typeof navigator.mediaSession.setActionHandler !== 'function') return;
+                // Register each action separately: one unsupported action must not disable the rest of PiP/OS controls.
+                const bind = (action, handler) => { try { navigator.mediaSession.setActionHandler(action, handler); } catch (_) {} };
+                const seekBy = (offset) => {
+                    const current = Number(AudioAdapter.audio.currentTime) || 0;
+                    AudioAdapter.seek(current + offset);
+                    State.currentTime = Number(AudioAdapter.audio.currentTime) || 0;
+                    AudioAdapter.updateMediaSessionPosition();
+                    UI.updateProgress();
+                };
+                bind('play', () => AudioAdapter.play());
+                bind('pause', () => AudioAdapter.pause());
+                bind('stop', () => AudioAdapter.pause());
+                bind('previoustrack', () => Player.previous());
+                bind('nexttrack', () => Player.next());
+                bind('seekbackward', d => { const offset = State.progressiveSeek ? AudioAdapter.getMediaSeekOffset() : (Number(d?.seekOffset) || Number(State.seekStep) || 10); seekBy(-offset); });
+                bind('seekforward', d => { const offset = State.progressiveSeek ? AudioAdapter.getMediaSeekOffset() : (Number(d?.seekOffset) || Number(State.seekStep) || 10); seekBy(offset); });
+                bind('seekto', d => { if (Number.isFinite(Number(d?.seekTime))) { AudioAdapter.seek(Number(d.seekTime)); State.currentTime = Number(AudioAdapter.audio.currentTime) || 0; AudioAdapter.updateMediaSessionPosition(); UI.updateProgress(); } });
             },
             updateMediaSessionMeta: async (track) => {
                 if (!('mediaSession' in navigator) || !track) return;
@@ -519,7 +617,8 @@
                 State.playbackOrder = Player._generateShuffle(State.queue, null); State.queueIndex = 0;
                 Player.startCurrentTrack();
             },
-            startCurrentTrack: async () => {
+            startCurrentTrack: async (startOptions = {}) => {
+                const recoveryPosition = Math.max(0, Number(AudioAdapter.audio.currentTime) || Number(State.currentTime) || 0);
                 const requestId = ++State.playbackRequestId;
                 const track = Player.getCurrentTrack();
                 if (!track) { AudioAdapter.pause(); return; }
@@ -530,9 +629,15 @@
                     State.lastPositionSave = Date.now();
                     StorageAdapter.saveSettings().catch(()=>{});
                 }
-                const restored=State.restoredPlaybackResume&&String(State.restoredPlaybackResume.trackId)===String(track.id)?State.restoredPlaybackResume:null;
+                const storedResume=State.restoredPlaybackResume&&String(State.restoredPlaybackResume.trackId)===String(track.id)?State.restoredPlaybackResume:null;
+                const restored=storedResume || (startOptions.preserveTime && recoveryPosition > 0 ? {trackId:track.id, position:recoveryPosition, duration:Number(State.duration)||0} : null);
+                if (!startOptions.recovery) { AudioAdapter.remoteRecoveryTrackId = String(track.id || ''); AudioAdapter.remoteRecoveryAttempted = false; }
                 State.restoredPlaybackResume=null;
                 State.modeResumePendingTrackId=restored&&Number(restored.position)>0?track.id:null;
+                if (String(State.currentTrackId ?? '') !== String(track.id ?? '')) {
+                    // Keep optional lyric-card cleanup isolated from the critical playback path.
+                    try { window.LyricsShare?.cancelSelection(); } catch (error) { console.warn('[Mujic] Lyrics-share cleanup failed; continuing playback.', error); }
+                }
                 State.currentTrackId = track.id;
                 const restorePosition=restored?Math.max(0,Number(restored.position)||0):0;
                 State.currentTime = restorePosition; State.duration = restored?Math.max(0,Number(restored.duration)||0):0; State.resumePosition = restorePosition; State.statsLastAudioTime = null; AudioAdapter._wf = null;
@@ -574,11 +679,37 @@
                 try {
                     let played = false;
                     if (isOnline) {
-                        const streamUrl = await OnlineMusic.resolveStream(track);
+                        let candidates = await OnlineMusic.resolvePlaybackCandidates(track, {forceRefresh:Boolean(startOptions.refreshStream)});
                         if (requestId !== State.playbackRequestId) return;
-                        if (!streamUrl) throw new Error('No online stream URL was returned.');
-                        played = await AudioAdapter.playRemote(streamUrl, track.fileName || track.title, requestId, fadeIn);
-                        if (!played) OnlineMusic.invalidateStream(track.id);
+                        const attempted = new Set();
+                        const tryCandidates = async urls => {
+                            for (const streamUrl of (urls || [])) {
+                                if (!streamUrl || attempted.has(streamUrl)) continue;
+                                attempted.add(streamUrl);
+                                if (requestId !== State.playbackRequestId) return false;
+                                played = await AudioAdapter.playRemote(streamUrl, track.fileName || track.title, requestId, fadeIn);
+                                if (played) {
+                                    OnlineMusic.markStreamWorking?.(track.id, streamUrl);
+                                    return true;
+                                }
+                                if (AudioAdapter.lastRemoteError?.name === 'NotAllowedError') return false;
+                            }
+                            return false;
+                        };
+                        await tryCandidates(candidates);
+                        // Signed CDN URLs can expire while catalogue metadata remains cached.
+                        // Re-fetch song details once, then retry only newly discovered sources.
+                        if (!played && requestId === State.playbackRequestId && AudioAdapter.lastRemoteError?.name !== 'NotAllowedError' && !startOptions.recovery) {
+                            try {
+                                candidates = await OnlineMusic.resolvePlaybackCandidates(track, {forceRefresh:true});
+                                if (requestId !== State.playbackRequestId) return;
+                                await tryCandidates(candidates);
+                            } catch (refreshError) { console.warn('Refreshing the failed stream source did not work:', refreshError); }
+                        }
+                        if (!played) {
+                            OnlineMusic.invalidateStream(track.id);
+                            throw AudioAdapter.lastRemoteError || new Error('No usable audio stream could be loaded.');
+                        }
                     } else {
                         played = await AudioAdapter.playBlob(blob, track.fileName, requestId, fadeIn);
                     }
@@ -604,8 +735,14 @@
                     }
                 } catch(e) {
                     if (requestId === State.playbackRequestId) {
-                        UI.updatePlayPause();
-                        UI.showToast(isOnline ? 'Streaming audio is unavailable. Try another result or retry later.' : 'Failed to play track.', 'error');
+                        State.isPlaying = false;
+                        try { AudioAdapter.audio.pause(); } catch (_) {}
+                        UI.updatePlayPause(); UI.updateProgress(); UI.updateDuration();
+                        try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; } catch (_) {}
+                        const message = isOnline
+                            ? (e?.name === 'NotAllowedError' ? 'Your browser blocked playback. Tap Play again to allow audio.' : 'Streaming audio could not load from the available sources. Check the connection or choose another track.')
+                            : 'Failed to play track.';
+                        UI.showToast(message, 'error');
                     }
                     console.warn('Playback start failed:', e);
                 }

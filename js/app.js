@@ -55,8 +55,10 @@
                         } else { State.queue = []; State.playbackOrder = []; State.currentTrackId = null; State.queueIndex = -1; }
                     }
                     else { const onlineCurrent=Player.getCurrentTrack(); if(onlineCurrent?.source==='machhar-online') { UI.showMiniPlayer(); UI.updatePlayerMeta(onlineCurrent).catch(()=>{}); } UI.renderQueue(); }
-                    const sharedSongId = new URLSearchParams(location.search).get('s');
-                    if (sharedSongId && window.TrackActions) await TrackActions.openSharedSong(sharedSongId);
+                    const shareParams = new URLSearchParams(location.search);
+                    const sharedSongId = shareParams.get('s');
+                    const sharedSongTime = Number(shareParams.get('t')) || 0;
+                    if (sharedSongId && window.TrackActions) await TrackActions.openSharedSong(sharedSongId, sharedSongTime);
                 } catch (e) {
                     console.error("Initialization failed", e); UI.showToast("Database initialization failed.", "error");
                 }

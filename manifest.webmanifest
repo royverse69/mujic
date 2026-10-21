@@ -1,7 +1,7 @@
 {
-  "name": "Machhar Beta v1",
-  "short_name": "Machhar Beta",
-  "description": "Machhar Beta v1 \u2014 an offline-first music player with streaming discovery, artist pages and seamless playback.",
+  "name": "Mujic",
+  "short_name": "Mujic",
+  "description": "Mujic offline-first music player with artwork-led lyric sharing and online streaming.",
   "start_url": "./index.html?source=pwa",
   "scope": "./",
   "display": "standalone",

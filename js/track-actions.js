@@ -20,12 +20,13 @@
         await Dialog.show({type:'info', title:'Song info', message, confirmText:'Done', cancelText:'Close'});
         return true;
     };
-    const shortShareUrl = track => {
+    const shortShareUrl = (track, startSeconds) => {
         const rawId = String(track?.onlineTrackId || track?.songId || track?.id || '')
             .replace(/^machhar:(?:saavn|machhar):/i, '').replace(/^machhar:/i, '').trim();
         if (!rawId || /^(?:artists|albums|playlists):/i.test(rawId)) return '';
         const url = new URL(SHARE_BASE);
         url.searchParams.set('s', rawId);
+        if (Number.isFinite(Number(startSeconds)) && Number(startSeconds) > 0) url.searchParams.set('t', String(Math.floor(Number(startSeconds))));
         return url.href;
     };
     const share = async id => {
@@ -62,20 +63,52 @@
             return true;
         }
     };
-    const openSharedSong = async reference => {
+    const openSharedSong = async (reference, startSeconds = 0) => {
         const id = String(reference || '').trim().replace(/^songs?:/i, '');
+        const requestedTime = Math.max(0, Math.min(24 * 60 * 60, Number(startSeconds) || 0));
         if (!id || /^(?:artists|albums|playlists):/i.test(id)) return false;
         if (State.playbackSourceMode !== 'online' && !(await OnlineMusic.setMode('online'))) return false;
         try {
             const tracks = await OnlineMusic.fetchSongsByIdsOrLink(id);
             if (!tracks?.length) throw new Error('This Mujic link did not return a playable song.');
             const track = tracks[0];
+            const audio = AudioAdapter.audio;
+            let seekApplied = false;
+            let seekTimer = null;
+            const cleanupSeek = () => {
+                audio.removeEventListener('loadedmetadata', applySharedPosition);
+                audio.removeEventListener('durationchange', applySharedPosition);
+                audio.removeEventListener('canplay', applySharedPosition);
+                if (seekTimer) clearTimeout(seekTimer);
+                seekTimer = null;
+            };
+            const applySharedPosition = () => {
+                if (seekApplied || !requestedTime) return;
+                if (String(State.currentTrackId ?? '') !== String(track.id ?? '')) { cleanupSeek(); return; }
+                const duration = Number(audio.duration);
+                if (audio.readyState < 1 || !Number.isFinite(duration) || duration <= 0) return;
+                AudioAdapter.seek(Math.min(requestedTime, Math.max(0, duration - 0.25)));
+                State.currentTime = Number(audio.currentTime) || 0;
+                State.resumePosition = State.currentTime;
+                UI.updateProgress();
+                AudioAdapter.updateMediaSessionPosition();
+                seekApplied = true;
+                cleanupSeek();
+            };
+            if (requestedTime > 0) {
+                audio.addEventListener('loadedmetadata', applySharedPosition);
+                audio.addEventListener('durationchange', applySharedPosition);
+                audio.addEventListener('canplay', applySharedPosition);
+                seekTimer = setTimeout(() => { applySharedPosition(); cleanupSeek(); }, 15000);
+            }
             UI.switchView('online-home');
             await Player.playContext([track], 0);
+            // Cover cached/fast streams whose metadata event fires before playContext resolves.
+            applySharedPosition();
             UI.showMiniPlayer();
             UI.openFullPlayer();
             try { history.replaceState(null, document.title, location.pathname + location.hash); } catch (_) {}
-            UI.showToast(`Opened ${track.title} from Mujic`, 'music_note');
+            UI.showToast(requestedTime > 0 ? `Opening ${track.title} at ${formatDuration(requestedTime)}` : `Opened ${track.title} from Mujic`, 'music_note');
             return true;
         } catch (error) {
             UI.showToast(error?.message || 'Could not open the shared song. Check your connection and try again.', 'error');

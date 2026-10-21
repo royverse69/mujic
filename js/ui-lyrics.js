@@ -20,6 +20,7 @@
                 }).join('');
                 State.activeLyricIndex = -1;
                 UI.syncLyrics(State.currentTime);
+                window.LyricsShare?.refreshSelectionMarks();
             },
             lyricWordWeight: word => {
                 const value = String(word || '').toLocaleLowerCase();

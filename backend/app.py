@@ -5,17 +5,16 @@ import requests
 from requests.adapters import HTTPAdapter
 import time
 import random
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlencode
+from threading import RLock
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 CORS(app)
 Compress(app)  
 
-BASE_API = "https://music-api.albatross0071.workers.dev/api"
+BASE_API = "https://saavn.sumit.co/api"
 
-# Fixed-origin proxy for the full documented catalogue API. This lets the PWA use the
-# Render service as its single API entry point while keeping the upstream host server-side.
-# The allowlist prevents this from becoming an open proxy to arbitrary URLs or services.
 ALLOWED_CATALOGUE_PREFIXES = {"search", "songs", "albums", "artists", "playlists"}
 
 @app.route("/api/<path:upstream_path>", methods=["GET"])
@@ -25,27 +24,42 @@ def catalogue_api_proxy(upstream_path):
         return jsonify({"success": False, "error": "Catalogue route not allowed"}), 404
 
     target = f"{BASE_API.rstrip('/')}/{upstream_path}"
+    params = request.args.to_dict(flat=False)
+    normalized_params = sorted((key, str(value)) for key, values in params.items() for value in (values if isinstance(values, list) else [values]))
+    cache_key = f"{upstream_path}?{urlencode(normalized_params)}"
+    ttl = _catalogue_cache_ttl(upstream_path)
+    cached = get_cache(catalogue_cache, cache_key, max_age=ttl)
+    if cached is not None:
+        response = jsonify(cached["payload"])
+        response.headers["Cache-Control"] = f"public, max-age={min(ttl, 60)}, stale-while-revalidate=120"
+        response.headers["X-Mujic-Cache"] = "HIT"
+        return response, cached["status"]
+
     try:
         upstream = session.get(
             target,
-            params=request.args.to_dict(flat=False),
+            params=params,
             headers={"Accept": request.headers.get("Accept", "application/json")},
-            timeout=18,
+            timeout=(3, 9),
         )
-    except requests.RequestException as exc:
+    except requests.RequestException:
         return jsonify({"success": False, "error": "Upstream catalogue temporarily unavailable"}), 502
 
     content_type = upstream.headers.get("Content-Type", "application/json")
-    # Return JSON as JSON so existing client-side response parsers remain unchanged.
     if "json" in content_type.lower():
         try:
-            return jsonify(upstream.json()), upstream.status_code
+            payload = upstream.json()
+            if upstream.status_code == 200:
+                set_cache(catalogue_cache, cache_key, {"payload": payload, "status": upstream.status_code})
+            response = jsonify(payload)
+            if upstream.status_code == 200:
+                response.headers["Cache-Control"] = f"public, max-age={min(ttl, 60)}, stale-while-revalidate=120"
+            response.headers["X-Mujic-Cache"] = "MISS"
+            return response, upstream.status_code
         except ValueError:
             pass
     return Response(upstream.content, status=upstream.status_code, content_type=content_type)
 
-# Catalogue media proxy for supported Saavn/JioSaavn CDN hosts only. The URL is validated
-# before every request/redirect to prevent use as an arbitrary URL proxy or SSRF primitive.
 CATALOGUE_MEDIA_DOMAINS = ("saavncdn.com", "jiosaavn.com")
 
 
@@ -109,28 +123,30 @@ def catalogue_media_proxy():
         if header in upstream.headers:
             passthrough_headers[header] = upstream.headers[header]
     passthrough_headers.setdefault("Cache-Control", "public, max-age=900")
+    passthrough_headers["Access-Control-Allow-Origin"] = "*"
+    passthrough_headers["Access-Control-Expose-Headers"] = "Accept-Ranges, Content-Length, Content-Range, Content-Type, ETag, Last-Modified"
     response = Response(upstream.iter_content(chunk_size=64 * 1024), status=upstream.status_code, headers=passthrough_headers)
     response.call_on_close(upstream.close)
     return response
 
 
-# --- TCP Connection Pooling ---
 session = requests.Session()
 adapter = HTTPAdapter(
-    pool_connections=20, 
-    pool_maxsize=20,
-    max_retries=3
+    pool_connections=40,
+    pool_maxsize=40,
+    max_retries=1
 )
 session.mount("https://", adapter)
 session.mount("http://", adapter)
 
-# --- Globals & Caching ---
 search_cache = {}
 song_cache = {}
 lyrics_cache = {}
 recommend_cache = {}
 trending_cache = {}
-CACHE_TIME = 1800  # 30 mins
+catalogue_cache = {}
+cache_lock = RLock()
+CACHE_TIME = 1800
 
 TRENDING_MAP = {
     "english": ["The Weeknd", "Imagine Dragons", "Taylor Swift", "OneRepublic", "Ed Sheeran"],
@@ -139,25 +155,42 @@ TRENDING_MAP = {
 }
 
 
-# --- Core Helper Functions ---
-def get_cache(cache, key):
-    item = cache.get(key)
-    if not item: return None
-    if time.time() - item["time"] > CACHE_TIME:
-        del cache[key]
-        return None
-    return item["data"]
+def _catalogue_cache_ttl(path):
+    route = str(path or '').lower().strip('/')
+    if route == 'search' or route.startswith('search/songs'):
+        return 45
+    if route.startswith('search/'):
+        return 240
+    if 'suggestions' in route:
+        return 180
+    if route.startswith(('songs/', 'albums', 'artists', 'playlists')):
+        return 120
+    return 45
+
+def get_cache(cache, key, max_age=None):
+    ttl = CACHE_TIME if max_age is None else max(1, int(max_age))
+    with cache_lock:
+        item = cache.get(key)
+        if not item: return None
+        if time.time() - item["time"] > ttl:
+            cache.pop(key, None)
+            return None
+        return item["data"]
 
 def set_cache(cache, key, data):
-    cache[key] = {
-        "time": time.time(),
-        "data": data
-    }
+    now = time.time()
+    with cache_lock:
+        cache[key] = {"time": now, "data": data}
+        if len(cache) > 800:
+            oldest = sorted(cache.items(), key=lambda pair: pair[1].get('time', 0))[:150]
+            for old_key, _ in oldest:
+                cache.pop(old_key, None)
 
 def search_songs(query):
     if not query: return []
     try:
-        r = session.get(f"{BASE_API}/search", params={"query": query}, timeout=15)
+        r = session.get(f"{BASE_API}/search", params={"query": query}, timeout=(3, 8))
+        r.raise_for_status()
         return r.json().get("data", {}).get("songs", {}).get("results", [])
     except:
         return []
@@ -167,7 +200,7 @@ def fetch_single_song_raw(song_id):
     if cached: return cached
 
     try:
-        r = session.get(f"{BASE_API}/songs/{song_id}", timeout=15)
+        r = session.get(f"{BASE_API}/songs/{song_id}", timeout=(3, 8))
         r.raise_for_status()
         data = r.json()
         set_cache(song_cache, song_id, data)
@@ -209,16 +242,13 @@ def generate_recommendations(song_id):
 
     recommendations = []
     
-    # 40% Album
     if album_name:
         try: recommendations.extend(search_songs(album_name)[:12])
         except: pass
-    # 30% Artist
     if artist:
         try: recommendations.extend(search_songs(artist)[:9])
         except: pass
     
-    # De-duplication queries
     if artist and song_name:
         try: recommendations.extend(search_songs(f"{artist} {song_name}")[:8])
         except: pass
@@ -226,7 +256,6 @@ def generate_recommendations(song_id):
         try: recommendations.extend(search_songs(song_name)[:8])
         except: pass
     
-    # 20% Language/Genre & 10% Trending Mix
     if language in TRENDING_MAP:
         try:
             trending_artists = random.sample(TRENDING_MAP[language], 2)
@@ -260,7 +289,6 @@ def generate_recommendations(song_id):
     return result
 
 
-# --- Base Routes ---
 @app.route("/")
 def home():
     return jsonify({"status": "online", "name": "Royverse Music API Hardened"})
@@ -276,21 +304,22 @@ def stats():
         "song_cache": len(song_cache),
         "lyrics_cache": len(lyrics_cache),
         "recommend_cache": len(recommend_cache),
-        "trending_cache": len(trending_cache)
+        "trending_cache": len(trending_cache),
+        "catalogue_cache": len(catalogue_cache)
     })
 
 
-# --- Search & Content Routes ---
 @app.route("/search")
 def search():
     query = request.args.get("q")
     if not query: return jsonify({"error": "query required"}), 400
 
-    cached = get_cache(search_cache, query)
+    cached = get_cache(search_cache, query, max_age=45)
     if cached: return jsonify(cached)
 
     try:
-        r = session.get(f"{BASE_API}/search", params={"query": query}, timeout=15)
+        r = session.get(f"{BASE_API}/search", params={"query": query}, timeout=(3, 9))
+        r.raise_for_status()
         data = r.json()
         set_cache(search_cache, query, data)
         return jsonify(data)
@@ -308,7 +337,6 @@ def suggest():
         suggestions = []
 
         for song in songs[:10]:
-            # Clean up HTML entities just in case they bleed through the new structure
             title = (song.get("title") or song.get("name", "")).replace("&quot;", '"').replace("&amp;", "&")
             artist = (song.get("primaryArtists") or song.get("artists", "")).replace("&quot;", '"').replace("&amp;", "&")
             
@@ -343,23 +371,21 @@ def artist_songs(name):
 
 @app.route("/trending")
 def trending():
-    cached = get_cache(trending_cache, "global_trending")
+    cached = get_cache(trending_cache, "global_trending", max_age=300)
     if cached: return jsonify(cached)
 
     try:
         queries = ["The Weeknd", "Imagine Dragons", "Taylor Swift", "Arijit Singh"]
         results = []
-        for q in queries:
-            songs = search_songs(q)
-            results.extend(songs[:5])
-            
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            for songs in pool.map(search_songs, queries):
+                results.extend(songs[:5])
         set_cache(trending_cache, "global_trending", {"songs": results})
         return jsonify({"songs": results})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-# --- Playback & Queue Management ---
 @app.route("/song/<song_id>")
 def song(song_id):
     data = fetch_single_song_raw(song_id)
@@ -403,7 +429,6 @@ def get_queue(song_id):
         return jsonify({"error": str(e)}), 500
 
 
-# --- Data Infrastructure & Bulk Lookups ---
 @app.route("/songs/bulk")
 def bulk_songs():
     raw_ids = request.args.get("ids")
@@ -413,7 +438,7 @@ def bulk_songs():
     results = []
 
     try:
-        r = session.get(f"{BASE_API}/songs/{','.join(id_list)}", timeout=12)
+        r = session.get(f"{BASE_API}/songs/{','.join(id_list)}", timeout=(3, 8))
         response_json = r.json()
         
         if response_json.get("success") and isinstance(response_json.get("data"), list):
@@ -486,8 +511,6 @@ def lyrics():
         return jsonify({"success": False, "error": str(e)})
 
 
-# Fixed-origin lyrics proxies. These keep all lyrics API calls behind this Render service.
-# No user-supplied URL is accepted, so these routes cannot be used as arbitrary URL proxies.
 LYRICSPLUS_ORIGINS = (
     "https://lyricsplus.prjktla.my.id",
     "https://lyricsplus.prjktla.workers.dev",
@@ -583,7 +606,6 @@ def lyricsplus_get_proxy():
                 timeout=5,
             )
             last_response = upstream
-            # Try the next fixed provider on missing-route or provider failure responses.
             if upstream.status_code in (404, 405, 410) or upstream.status_code >= 500:
                 continue
             return _relay_json_or_body(upstream)
