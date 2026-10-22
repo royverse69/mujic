@@ -46,7 +46,7 @@
             theme: 'system', accentPreset: 'dynamic', accentColor: '#ffffff', surfaceTheme: 'oled', textScale: 'normal', layoutDensity: 'comfortable', lowEndMode: false, lowEndModeActive: false, performanceProfile: 'auto',
             interfaceStyle: 'subtle', cornerRadius: 'rounded', motion: 'full', lyricsStyle: 'apple',
             lyricsPosition: 'center', lyricsVerticalOffset: 0, lyricsTimingOffset: 0, lyricsWordByWord: false, lyricsShareEnabled: false, lyricsShareStyle: 'spotify', lyricsFontSize: 'normal', lyricsLineSpacing: 'normal', lyricsWidth: 'standard', lyricsEmphasis: 'soft',
-            playerBackground: 'artwork', playerArtworkMode: 'full', visualizerMode:'off', resumePlayback: false,
+            playerBackground: 'artwork', playerArtworkMode: 'full', visualizerMode:'wave', waveDefaultApplied: true, onboardingSeen: false, installBannerDismissedAt: 0, resumePlayback: false,
             librarySort: 'dateAdded', librarySortDir: 'desc', showArtworkLists: true,
             crossfade: false, skipSilence: false, instantSkipSilence: false, loudnessControl: false,
             loudnessLevel: 'balanced', autoSkipOnError: true, preventDuplicateQueue: false,

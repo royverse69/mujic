@@ -1,6 +1,21 @@
 /* Copyright mujic@royverse69 */
         Object.assign(UI, {
+            // Time-of-day greeting shared by the offline Home. Matches the streaming Home's day parts.
+            greetingText: (date = new Date()) => {
+                const hour = date.getHours();
+                if (hour >= 5 && hour < 12) return 'Good morning';
+                if (hour >= 12 && hour < 17) return 'Good afternoon';
+                if (hour >= 17 && hour < 21) return 'Good evening';
+                return 'Good night';
+            },
+            updateGreeting: (reveal = false) => {
+                const el = document.getElementById('greeting-text'); if (!el) return;
+                const text = UI.greetingText();
+                if (el.textContent !== text) el.textContent = text;
+                if (reveal) el.classList.remove('hidden');
+            },
             renderHome: async () => {
+                UI.updateGreeting();
                 if (State.library.length === 0) { 
                     document.getElementById('home-empty-state').style.display = 'block'; 
                     document.getElementById('home-content').style.display = 'none'; return; 
@@ -8,9 +23,6 @@
                 document.getElementById('home-empty-state').style.display = 'none'; 
                 document.getElementById('home-content').style.display = 'block';
                 
-                const hour = new Date().getHours();
-                let greeting = "Good evening"; if(hour < 12) greeting = "Good morning"; else if (hour < 18) greeting = "Good afternoon";
-                document.getElementById('greeting-text').innerText = greeting;
 
                 const rhPlaylists = document.getElementById('home-playlists-rail');
                 const likedTrack = State.favorites.length > 0 ? State.library.find(t=>t.id===State.favorites[State.favorites.length-1]) : null;

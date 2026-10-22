@@ -751,7 +751,7 @@ const OnlineMusic = (() => {
     };
     // Generate redundant routes with Render first so first-play attempts don't get
     // pinned behind a stale Cloudflare/service-worker response.
-    const playbackUrlsFor = value => {
+    const playbackUrlsFor = (value, primaryFirst = false) => {
         const normalized = safeHttpUrl(value);
         if (!normalized) return [];
         let source = normalized;
@@ -766,12 +766,43 @@ const OnlineMusic = (() => {
         } catch (_) { return [normalized]; }
         const result = [];
         const add = candidate => { const safe = safeHttpUrl(candidate); if (safe && !result.includes(safe)) result.push(safe); };
-        add(`${RENDER_MEDIA_ORIGIN}/media?url=${encodeURIComponent(source)}`);
-        add(`${BACKEND_ORIGIN}/media?url=${encodeURIComponent(source)}`);
-        add(proxyMediaUrl(source));
+        if (primaryFirst) {
+            // Tapped search results: the Cloudflare-fronted primary answers immediately, whereas the
+            // Render service can take many seconds to wake up. Render stays as the fallback route.
+            add(`${BACKEND_ORIGIN}/media?url=${encodeURIComponent(source)}`);
+            add(proxyMediaUrl(source));
+            add(`${RENDER_MEDIA_ORIGIN}/media?url=${encodeURIComponent(source)}`);
+        } else {
+            add(`${RENDER_MEDIA_ORIGIN}/media?url=${encodeURIComponent(source)}`);
+            add(`${BACKEND_ORIGIN}/media?url=${encodeURIComponent(source)}`);
+            add(proxyMediaUrl(source));
+        }
         for (const origin of BACKEND_ORIGINS) add(`${origin}/media?url=${encodeURIComponent(source)}`);
         add(source); // Last resort only; some catalogues geo-block direct CDN requests.
         return result;
+    };
+    // Tracks that came from a search result the person can tap. Their media is requested from the
+    // primary backend (mujic.calverse.online) first so playback starts without a Render cold start.
+    const primaryFirstIds = new Set();
+    const isPrimaryMediaUrl = url => String(url || '').startsWith(`${BACKEND_ORIGIN}/media?`);
+    const prioritizePrimaryMedia = candidates => {
+        const list = Array.isArray(candidates) ? candidates : [];
+        return [...list.filter(isPrimaryMediaUrl), ...list.filter(url => !isPrimaryMediaUrl(url))];
+    };
+    const preferPrimaryMedia = tracks => {
+        for (const track of (Array.isArray(tracks) ? tracks : [tracks])) {
+            if (!track) continue;
+            const key = String(track.id || track.onlineTrackId || '');
+            if (!key) continue;
+            primaryFirstIds.add(key);
+            while (primaryFirstIds.size > 200) primaryFirstIds.delete(primaryFirstIds.values().next().value);
+            // Re-order any candidates that a background warm-up already cached with Render first.
+            const cached = streamCache.get(key);
+            if (cached?.candidates?.length) {
+                const reordered = prioritizePrimaryMedia(cached.candidates);
+                streamCache.set(key, {...cached, url:reordered[0], candidates:reordered});
+            }
+        }
     };
     const resolvePlaybackCandidates = async (track, options = {}) => {
         if (!track?.onlineTrackId) throw new Error('This streaming result has no song ID. Search again to refresh it.');
@@ -779,18 +810,23 @@ const OnlineMusic = (() => {
         if (!navigator.onLine) throw new Error('An internet connection is required for streaming playback.');
         const key = String(track.id || track.onlineTrackId);
         const forceRefresh = Boolean(options.forceRefresh);
+        if (options.primaryFirst) preferPrimaryMedia(track);
+        const primaryFirst = primaryFirstIds.has(key);
         const cached = streamCache.get(key);
         if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
-            if (Array.isArray(cached.candidates) && cached.candidates.length) return cached.candidates.slice();
+            if (Array.isArray(cached.candidates) && cached.candidates.length) return (primaryFirst ? prioritizePrimaryMedia(cached.candidates) : cached.candidates).slice();
             if (cached.url) {
-                const upgraded = playbackUrlsFor(cached.url);
+                const upgraded = playbackUrlsFor(cached.url, primaryFirst);
                 if (upgraded.length) {
                     streamCache.set(key, {url:upgraded[0], candidates:upgraded, expiresAt:cached.expiresAt});
                     return upgraded;
                 }
             }
         }
-        if (!forceRefresh && streamResolvePromises.has(key)) return streamResolvePromises.get(key);
+        if (!forceRefresh && streamResolvePromises.has(key)) {
+            const shared = await streamResolvePromises.get(key);
+            return primaryFirst ? prioritizePrimaryMedia(shared) : shared;
+        }
         if (forceRefresh) {
             streamResolveControllers.get(key)?.abort();
             streamResolvePromises.delete(key);
@@ -820,7 +856,7 @@ const OnlineMusic = (() => {
             if (controller.signal.aborted) throw new Error('Playback source lookup timed out or was cancelled.');
             const candidates = [];
             for (const choice of usable.slice(0, 3)) {
-                for (const url of playbackUrlsFor(choice.url)) {
+                for (const url of playbackUrlsFor(choice.url, primaryFirst)) {
                     if (!candidates.includes(url)) candidates.push(url);
                 }
             }
@@ -837,7 +873,7 @@ const OnlineMusic = (() => {
             if (streamResolvePromises.get(key) === resolution) streamResolvePromises.delete(key);
         }
     };
-    const warmPlaybackCandidates = async (tracks, limit = 8) => {
+    const warmPlaybackCandidates = async (tracks, limit = 8, options = {}) => {
         if (State.playbackSourceMode !== 'online' || !navigator.onLine) return false;
         const unique = [];
         const seen = new Set();
@@ -850,7 +886,7 @@ const OnlineMusic = (() => {
         const worker = async () => {
             while (cursor < unique.length) {
                 const track = unique[cursor++];
-                try { await resolvePlaybackCandidates(track); } catch (_) { /* clicking still gets its own retry path */ }
+                try { await resolvePlaybackCandidates(track, options.primaryFirst ? {primaryFirst:true} : {}); } catch (_) { /* clicking still gets its own retry path */ }
             }
         };
         await Promise.all(Array.from({length:Math.min(3, unique.length)}, () => worker()));
@@ -1041,6 +1077,6 @@ const OnlineMusic = (() => {
     window.addEventListener('online', () => {
         updateModeUI(); if (State.playbackSourceMode === 'online' && window.OnlineWorkspace) OnlineWorkspace.refreshActiveView();
     });
-    return { API_BASE, BACKEND_BASE:LEGACY_BASE, LEGACY_BASE, RENDER_RECOMMENDATIONS_BASE, requestRenderRecommendation, fetchRenderQuickPicks, fetchRenderSuggestions, searchRenderSongs, proxyMediaUrl, isOnlineId, isOnlineTrack, getTrack, registerTrack, normalizeTrack, extractSongs:extractRawSongs, search, searchEntities, globalSearch, getImage, getArtistImage:raw => getImage(raw, {renderProxy:true}), resolveArtistArtwork, isGenericArtistArtwork:imageLooksGeneric, fetchSongsByIdsOrLink, fetchPublicPlaylist, fetchAlbumDetails, fetchArtistDetails, fetchArtistSongs, fetchArtistAlbums, getSearchMeta, searchAndRender, resolveStream, resolvePlaybackCandidates, warmPlaybackCandidates, markStreamWorking, resolveDownloadSource, fetchSongDetails, fetchRelated, fetchTrending, prefetchStreams, invalidateStream, clearCache, renderBlank, updateModeUI, setMode, stopRemotePlayback };
+    return { API_BASE, BACKEND_BASE:LEGACY_BASE, LEGACY_BASE, RENDER_RECOMMENDATIONS_BASE, requestRenderRecommendation, fetchRenderQuickPicks, fetchRenderSuggestions, searchRenderSongs, proxyMediaUrl, isOnlineId, isOnlineTrack, getTrack, registerTrack, normalizeTrack, extractSongs:extractRawSongs, search, searchEntities, globalSearch, getImage, getArtistImage:raw => getImage(raw, {renderProxy:true}), resolveArtistArtwork, isGenericArtistArtwork:imageLooksGeneric, fetchSongsByIdsOrLink, fetchPublicPlaylist, fetchAlbumDetails, fetchArtistDetails, fetchArtistSongs, fetchArtistAlbums, getSearchMeta, searchAndRender, resolveStream, resolvePlaybackCandidates, warmPlaybackCandidates, preferPrimaryMedia, markStreamWorking, resolveDownloadSource, fetchSongDetails, fetchRelated, fetchTrending, prefetchStreams, invalidateStream, clearCache, renderBlank, updateModeUI, setMode, stopRemotePlayback };
 })();
 window.OnlineMusic = OnlineMusic;

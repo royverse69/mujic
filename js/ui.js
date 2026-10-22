@@ -26,6 +26,9 @@
                     try { initialize.call(UI); }
                     catch (error) { console.error(`Mujic ${label} initialization failed; continuing startup.`, error); }
                 }
+                UI.updateGreeting?.();
+                setInterval(() => UI.updateGreeting?.(), 60000);
+                document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') UI.updateGreeting?.(true); });
                 setTimeout(() => { document.querySelectorAll('.home-greeting:not(#online-greeting-text)').forEach(g => g.classList.add('hidden')); }, 25000);
                 const persistResume = () => {
                     if (State.resumePlayback && State.currentTrackId) { State.resumePosition = State.currentTime; State.lastPositionSave = Date.now(); StorageAdapter.saveSettings(); }

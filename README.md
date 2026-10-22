@@ -1,3 +1,11 @@
+## Mujic v13.0.20 — Onboarding, Install Banner & Faster Search Playback
+
+- **Install banner** shows on the Offline and Online *Home* screens only, when the browser exposes install (or on iOS, with Add to Home Screen instructions). Dismissing it hides it for 7 days; it never shows in the installed app.
+- **First-run guide** explains the Offline/Online switch, how each mode works, turning on lyrics, Settings customization and extras. It appears once for new users and can be replayed from **Settings → App & About → App guide**.
+- **Wavy waveform** is now the default seek-bar effect (existing installs still on the old "off" default are migrated once).
+- **Greeting fix**: the Offline Home greeting follows the time of day instead of always showing "Good evening".
+- **Search playback**: tapped streaming search results request media from `mujic.calverse.online` first; Render remains the fallback. Quick Picks / Suggested shelves still use Render directly.
+
 ## Mujic v13.0.16 — Lyrics Card Refinement & Render Recommendations
 
 - **Share lyrics** stays in the full-screen player's **More Options** sheet, not alongside the primary playback controls. The action opens lyric selection, limited to five synced lines.

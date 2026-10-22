@@ -21,8 +21,8 @@ check(pkg.version === version && changelog.version === version && changelog.entr
 check(html.includes(`application-version" content="${version}"`) && sw.includes(`mujic-pwa-v${version}-`), 'HTML and service-worker cache need the current release version.');
 check(provider.includes('const streamResolvePromises = new Map()') && provider.includes('const streamResolveControllers = new Map()'), 'Stream resolution must be deduplicated and abort-scoped per track.');
 check(provider.includes('warmPlaybackCandidates') && provider.includes('Math.min(3, unique.length)'), 'Visible results should warm candidate URLs with bounded concurrency.');
-check(workspace.includes('warmPlaybackCandidates?.([...topSongsForWarm,...searchResults.slice(0,8)])') && workspace.includes('warmPlaybackCandidates?.(searchResults.slice(0,8))'), 'Both all-results and song-only search results should be pre-warmed.');
-check(provider.includes('add(`${RENDER_MEDIA_ORIGIN}/media?url=${encodeURIComponent(source)}`)') && provider.includes('RENDER_MEDIA_ORIGIN}/media?url='), 'Render must be tried first for catalogue media playback.');
+check(workspace.includes('warmPlaybackCandidates?.([...topSongsForWarm,...searchResults.slice(0,8)],8,{primaryFirst:true})') && workspace.includes('warmPlaybackCandidates?.(searchResults.slice(0,8),8,{primaryFirst:true})'), 'Both all-results and song-only search results should be pre-warmed.');
+check(provider.includes('add(`${RENDER_MEDIA_ORIGIN}/media?url=${encodeURIComponent(source)}`)') && provider.includes('RENDER_MEDIA_ORIGIN}/media?url='), 'Render must remain the first route for non-search catalogue media; tapped search results use the primary first (see v13.0.20).');
 check(provider.includes('getArtistImage:raw => getImage(raw, {renderProxy:true})') && provider.includes('const renderProxyMediaUrl'), 'Artist portraits must be loaded through Render /media.');
 check(workspace.includes('OnlineMusic.getArtistImage?.(rawArtist||{})'), 'Artist detail view must request Render-proxied portraits.');
 check(uiLibrary.includes('syncNowPlayingIndicators: () =>') && player.includes('UI.syncNowPlayingIndicators?.()') && player.includes('if (!State.startsInFlight)'), 'Now-playing indicators must resynchronize once a track start finishes.');
@@ -79,7 +79,7 @@ const makeContext = fetchImpl => {
     concurrent.music.resolvePlaybackCandidates(t2)
   ]);
   check(firstCandidates.some(url=>decodeURIComponent(url).includes('/first.m4a')) && secondCandidates.some(url=>decodeURIComponent(url).includes('/second.m4a')), 'Concurrent first/second search result stream resolution should both succeed.');
-  check(firstCandidates[0].startsWith(`${render}/media?url=`) && secondCandidates[0].startsWith(`${render}/media?url=`), 'Render media must be the first URL attempted for each result.');
+  check(firstCandidates.some(url=>url.startsWith(`${render}/media?url=`)) && secondCandidates.some(url=>url.startsWith(`${render}/media?url=`)), 'Render media must remain available as a candidate for each result (first for non-search playback).');
 
   const artwork = concurrent.music.getArtistImage({id:'artist-1',name:'Artist One',image:[{quality:'500x500',url:'https://c.saavncdn.com/artist-portrait.jpg'}]});
   check(artwork.startsWith(`${render}/media?url=`) && decodeURIComponent(artwork).includes('artist-portrait.jpg'), 'Artist image should use Render /media directly.');

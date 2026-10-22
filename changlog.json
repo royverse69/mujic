@@ -1,14 +1,27 @@
 {
-  "version": "13.0.19",
-  "name": "Mujic v13.0.19 — PiP Control Sync & Lyrics Card Styles",
-  "date": "2026-10-21",
+  "version": "13.0.20",
+  "name": "Mujic v13.0.20 — Onboarding, Install Banner & Faster Search Playback",
+  "date": "2026-10-22",
   "changes": [
-    "Bridge native video-PiP play/pause buttons to the actual audio player instead of force-restarting the silent canvas video; share a deduplicated action path with Media Session controls to prevent double-start races.",
-    "Synchronize native PiP state, position, track artwork and metadata from the real audio element; attach and detach audio listeners on each PiP open/close so realtime events keep working after reopening.",
-    "Update native PiP seek and play/pause state every 200 ms while open, but repaint the 640×360 canvas only when track metadata or artwork changes to reduce CPU use.",
-    "Keep Document PiP custom controls linked directly to Player/AudioAdapter, and retain the Settings → Lyrics selector for Mujic Style versus Spotify Style cards with an inverted artwork palette in Spotify Style."
+    "Add an Install Mujic banner that appears on the Offline and Online Home screens only, when the browser can install the app. It can be dismissed (re-offered after 7 days) and disappears once installed.",
+    "Add a first-run guide covering the Offline/Online switch, how Offline and Online playback work, turning on lyrics, Settings customization and handy extras. Existing users are not interrupted; replay it from Settings → App & About → App guide.",
+    "Make the Wavy audio waveform the default seek-bar effect. Installs that still carried the old 'off' default are switched over once; later choices are respected.",
+    "Fix the Offline Home greeting being stuck on “Good evening”: it now follows the time of day (morning, afternoon, evening, night), refreshes while the app stays open, and also updates when the library is empty.",
+    "Speed up playback when a streaming search result is tapped: its media is requested from mujic.calverse.online first, with the Render service kept only as a fallback, avoiding Render cold-start delays."
   ],
   "entries": [
+    {
+      "version": "13.0.20",
+      "date": "2026-10-22",
+      "title": "Mujic v13.0.20 — Onboarding, Install Banner & Faster Search Playback",
+      "changes": [
+        "Add an Install Mujic banner that appears on the Offline and Online Home screens only, when the browser can install the app. It can be dismissed (re-offered after 7 days) and disappears once installed.",
+        "Add a first-run guide covering the Offline/Online switch, how Offline and Online playback work, turning on lyrics, Settings customization and handy extras. Existing users are not interrupted; replay it from Settings → App & About → App guide.",
+        "Make the Wavy audio waveform the default seek-bar effect. Installs that still carried the old 'off' default are switched over once; later choices are respected.",
+        "Fix the Offline Home greeting being stuck on “Good evening”: it now follows the time of day (morning, afternoon, evening, night), refreshes while the app stays open, and also updates when the library is empty.",
+        "Speed up playback when a streaming search result is tapped: its media is requested from mujic.calverse.online first, with the Render service kept only as a fallback, avoiding Render cold-start delays."
+      ]
+    },
     {
       "version": "13.0.19",
       "date": "2026-10-21",

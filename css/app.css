@@ -1716,3 +1716,58 @@ body.low-end-mode .lyrics-share-spinner { animation:none !important; }
   .lyrics-share-canvas-wrap { width:min(100%, calc(100vw - 42px), calc(100dvh - 170px)); }
   .lyrics-share-dialog-actions button { font-size:12px; gap:5px; }
 }
+
+
+/* ===== Onboarding: Home-only install banner + first-run guide (v13.0.20) ===== */
+.install-banner { display:flex; align-items:center; gap:12px; margin:4px 0 16px; padding:10px 10px 10px 12px; border-radius:var(--radius-lg); background:var(--bg-elevated); border:1px solid var(--border-subtle); animation:ob-rise .35s cubic-bezier(.2,.8,.2,1) both; }
+.install-banner[hidden] { display:none; }
+.install-banner-icon { width:40px; height:40px; border-radius:10px; flex:none; object-fit:cover; }
+.install-banner-copy { min-width:0; flex:1; display:flex; flex-direction:column; gap:2px; }
+.install-banner-copy strong { font-size:14px; font-weight:700; color:var(--text-primary); }
+.install-banner-copy span { font-size:12px; line-height:1.35; color:var(--text-secondary); }
+.install-banner-btn { flex:none; border:0; cursor:pointer; padding:8px 16px; border-radius:var(--radius-full); background:var(--text-primary); color:var(--bg-base); font:inherit; font-size:13px; font-weight:700; }
+.install-banner-btn:active { transform:scale(.96); }
+.install-banner-close { flex:none; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:0; cursor:pointer; border-radius:50%; background:transparent; color:var(--text-secondary); }
+.install-banner-close:hover { background:var(--bg-hover); color:var(--text-primary); }
+.install-banner-close .material-symbols-rounded { font-size:20px; }
+
+.ob-overlay { position:fixed; inset:0; z-index:6500; display:flex; align-items:center; justify-content:center; padding:max(16px, var(--safe-top)) 16px max(16px, var(--safe-bottom)); background:rgba(0,0,0,.66); opacity:0; transition:opacity .25s ease; }
+.ob-overlay.visible { opacity:1; }
+.ob-card { width:100%; max-width:420px; max-height:min(640px, 100%); display:flex; flex-direction:column; border-radius:var(--radius-hero); background:var(--bg-elevated); border:1px solid var(--border-subtle); box-shadow:0 24px 70px rgba(0,0,0,.5); overflow:hidden; transform:translateY(14px) scale(.98); transition:transform .3s cubic-bezier(.2,.8,.2,1); }
+.ob-overlay.visible .ob-card { transform:none; }
+.ob-top { display:flex; align-items:center; justify-content:space-between; padding:14px 18px 0; }
+.ob-count { font-size:12px; font-weight:600; letter-spacing:.04em; color:var(--text-tertiary); }
+.ob-skip { border:0; background:transparent; cursor:pointer; padding:6px 8px; border-radius:var(--radius-sm); color:var(--text-secondary); font:inherit; font-size:13px; font-weight:600; }
+.ob-skip:hover { color:var(--text-primary); background:var(--bg-hover); }
+.ob-skip[hidden], .ob-btn[hidden] { visibility:hidden; display:block; }
+.ob-stage { flex:1; min-height:0; overflow-y:auto; padding:10px 24px 6px; display:flex; flex-direction:column; align-items:center; text-align:center; animation:ob-fade .3s ease both; }
+.ob-icon { width:56px; height:56px; margin:6px 0 14px; display:flex; align-items:center; justify-content:center; border-radius:18px; background:var(--bg-active); color:var(--accent-color); flex:none; }
+.ob-icon .material-symbols-rounded { font-size:30px; }
+.ob-title { margin:0 0 8px; font-size:21px; line-height:1.2; font-weight:800; color:var(--text-primary); }
+.ob-body { margin:0; font-size:14px; line-height:1.55; color:var(--text-secondary); }
+.ob-art { margin:2px 0 16px; }
+.ob-art-brand img { width:84px; height:84px; border-radius:22px; box-shadow:0 10px 30px rgba(0,0,0,.45); }
+.ob-art-toggle { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:var(--radius-full); background:var(--bg-surface); border:1px solid var(--border-subtle); }
+.ob-pill { font-size:12px; font-weight:700; color:var(--text-tertiary); }
+.ob-pill.is-on { color:var(--text-primary); }
+.ob-switch { position:relative; width:42px; height:24px; border-radius:var(--radius-full); background:var(--bg-active); }
+.ob-switch span { position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:var(--text-primary); animation:ob-slide 2.4s ease-in-out infinite; }
+.ob-list { list-style:none; margin:14px 0 4px; padding:0; width:100%; display:flex; flex-direction:column; gap:8px; text-align:left; }
+.ob-list li { display:flex; align-items:flex-start; gap:12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--bg-surface); border:1px solid var(--border-subtle); }
+.ob-list li > .material-symbols-rounded { font-size:22px; color:var(--accent-color); margin-top:1px; flex:none; }
+.ob-list strong { display:block; font-size:13.5px; font-weight:700; color:var(--text-primary); }
+.ob-list small { display:block; margin-top:1px; font-size:12px; line-height:1.4; color:var(--text-secondary); }
+.ob-dots { display:flex; justify-content:center; gap:6px; padding:12px 0 6px; }
+.ob-dot { width:6px; height:6px; border-radius:var(--radius-full); background:var(--bg-active); transition:width .25s ease, background .25s ease; }
+.ob-dot.active { width:20px; background:var(--text-primary); }
+.ob-actions { display:flex; gap:10px; padding:10px 18px 18px; }
+.ob-btn { flex:1; border:1px solid var(--border-subtle); cursor:pointer; padding:12px 16px; border-radius:var(--radius-full); background:var(--bg-surface); color:var(--text-primary); font:inherit; font-size:14px; font-weight:700; }
+.ob-btn-primary { flex:2; border-color:transparent; background:var(--text-primary); color:var(--bg-base); }
+.ob-btn:active { transform:scale(.97); }
+.ob-btn:focus-visible, .ob-skip:focus-visible, .install-banner-btn:focus-visible, .install-banner-close:focus-visible { outline:2px solid var(--accent-color); outline-offset:2px; }
+@keyframes ob-rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes ob-fade { from { opacity:0; transform:translateX(10px); } to { opacity:1; transform:none; } }
+@keyframes ob-slide { 0%,35% { transform:translateX(0); } 55%,90% { transform:translateX(18px); } 100% { transform:translateX(0); } }
+@media (min-width: 900px) { .install-banner { max-width:560px; } }
+@media (prefers-reduced-motion: reduce) { .install-banner, .ob-stage, .ob-switch span, .ob-card, .ob-overlay { animation:none !important; transition:none !important; } }
+body.reduced-motion .install-banner, body.reduced-motion .ob-stage, body.reduced-motion .ob-switch span { animation:none !important; }

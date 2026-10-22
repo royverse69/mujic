@@ -59,6 +59,8 @@
                     const sharedSongId = shareParams.get('s');
                     const sharedSongTime = Number(shareParams.get('t')) || 0;
                     if (sharedSongId && window.TrackActions) await TrackActions.openSharedSong(sharedSongId, sharedSongTime);
+                    // First-run guide + Home install banner. A shared-song link goes straight to the song, so skip the tour then.
+                    try { window.Onboarding?.start({ suppressGuide: Boolean(sharedSongId) }); } catch (error) { console.warn('Onboarding failed to start', error); }
                 } catch (e) {
                     console.error("Initialization failed", e); UI.showToast("Database initialization failed.", "error");
                 }

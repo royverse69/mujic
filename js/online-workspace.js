@@ -232,7 +232,7 @@
         target.innerHTML=html;
         if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50));
         const topSongsForWarm=(Array.isArray(data.topQuery)?data.topQuery:[]).filter(item=>item?.onlineTrackId).slice(0,1);
-        OnlineMusic.warmPlaybackCandidates?.([...topSongsForWarm,...searchResults.slice(0,8)]).catch(()=>{});
+        OnlineMusic.warmPlaybackCandidates?.([...topSongsForWarm,...searchResults.slice(0,8)],8,{primaryFirst:true}).catch(()=>{});
         UI.lazyLoadArtwork();
     };
     const paintSearchResults = (q, total = 0, hasMore = false) => {
@@ -249,7 +249,7 @@
         else body=renderEntityGrid(list,searchType,'Search to discover more.');
         const more=(hasMore||sourceList.length>list.length)?'<div class="online-load-more-wrap"><button class="btn" data-action="online-load-more">Load more</button></div>':'';
         target.innerHTML=`<div class="online-results-toolbar"><strong>${esc(count)} ${searchTypeLabels[searchType].toLowerCase()}</strong></div>${body}${more}`;
-        if(searchType==='songs') { setSearchContext(searchResults); if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50)); OnlineMusic.warmPlaybackCandidates?.(searchResults.slice(0,8)).catch(()=>{}); }
+        if(searchType==='songs') { setSearchContext(searchResults); if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50)); OnlineMusic.warmPlaybackCandidates?.(searchResults.slice(0,8),8,{primaryFirst:true}).catch(()=>{}); }
         UI.lazyLoadArtwork();
     };
     const getSearchExpansions = (query, kind) => {
@@ -1744,6 +1744,7 @@
     };
     const playSearchResult = id => {
         const selected=trackById(id);if(!selected||!OnlineMusic.isOnlineTrack(selected)){UI.showToast('This search result is no longer available. Search again.','info');return false;}
+        OnlineMusic.preferPrimaryMedia?.(selected);
         Player.playContext([selected],0);saveQueueSnapshot('online');return true;
     };
     const playPlaylist = id => {

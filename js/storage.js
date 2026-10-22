@@ -100,7 +100,7 @@
             SAVED_KEYS: ['favorites','favoriteArtists','history','queue','currentTrackId','playbackSourceMode','volume','muted','repeat','shuffle','eq','eqPreset','eqBands',
                 'theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','interfaceStyle','cornerRadius','motion',
                 'lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsWordByWord','lyricsShareEnabled','lyricsShareStyle','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis',
-                'playerBackground','playerArtworkMode','visualizerMode','resumePlayback','resumePosition','librarySort','librarySortDir','showArtworkLists','playStats',
+                'playerBackground','playerArtworkMode','visualizerMode','waveDefaultApplied','onboardingSeen','installBannerDismissedAt','resumePlayback','resumePosition','librarySort','librarySortDir','showArtworkLists','playStats',
                 'crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed',
                 'progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','keyboardShortcutsEnabled','keyBindings'],
             saveSettings: () => {
@@ -153,6 +153,12 @@
                     if(s.lyricsEmphasis !== undefined && ['soft','standard','strong','off'].includes(s.lyricsEmphasis)) State.lyricsEmphasis=s.lyricsEmphasis;
                     if(s.playerBackground !== undefined) State.playerBackground = s.playerBackground;
                     if(s.playerArtworkMode !== undefined) State.playerArtworkMode = s.playerArtworkMode; if(s.visualizerMode !== undefined) State.visualizerMode = s.visualizerMode === 'off' ? 'off' : 'wave';
+                    // One-time migration: Wavy became the default seek-bar effect in v13.0.20. Existing installs that still
+                    // carry the old 'off' default switch over once; the choice is respected on every later launch.
+                    State.waveDefaultApplied = s.waveDefaultApplied === true;
+                    if(!State.waveDefaultApplied){ State.visualizerMode = 'wave'; State.waveDefaultApplied = true; }
+                    State.onboardingSeen = s.onboardingSeen === undefined ? true : s.onboardingSeen === true; // Saved settings without the flag belong to an existing user: the guide stays available in Settings.
+                    State.installBannerDismissedAt = Number(s.installBannerDismissedAt) || 0;
                     if(s.resumePlayback !== undefined) State.resumePlayback = s.resumePlayback;
                     if(s.resumePosition !== undefined) State.resumePosition = Number(s.resumePosition) || 0;
                     if(s.librarySort !== undefined) State.librarySort = s.librarySort; if(s.librarySortDir !== undefined) State.librarySortDir = s.librarySortDir;

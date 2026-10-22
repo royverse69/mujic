@@ -14,7 +14,7 @@ const storage = read('js/storage.js');
 const sw = read('sw.js');
 const version = read('VERSION').trim();
 
-assert(version === '13.0.19' && pkg.version === version && changelog.version === version && changelog.entries[0]?.version === version, 'Release metadata must agree for v13.0.19.');
+assert(pkg.version === version && changelog.version === version && changelog.entries[0]?.version === version && changelog.entries.some(entry => entry.version === '13.0.19'), 'Release metadata must agree and retain the v13.0.19 history.');
 assert(html.includes(`application-version" content="${version}"`) && sw.includes(`mujic-pwa-v${version}-`), 'HTML and service worker must use the current version.');
 assert(events.includes("video.addEventListener('play',()=>{if(!syncingVideoFromAudio&&document.pictureInPictureElement===video)requestPipPlay();})"), 'Native PiP video play control must call the audio Player, except during programmatic synchronization.');
 assert(events.includes("video.addEventListener('pause',()=>{if(!syncingVideoFromAudio&&document.pictureInPictureElement===video)requestPipPause();})"), 'Native PiP video pause control must pause the audio Player, except during programmatic synchronization.');
