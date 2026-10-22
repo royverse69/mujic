@@ -37,6 +37,10 @@ const OnlineMusic = (() => {
             return ['https:', 'http:'].includes(u.protocol) ? u.href : '';
         } catch (_) { return ''; }
     };
+    // A song's `url` field is its jiosaavn.com web PAGE, not audio. Only accept URLs that look like media.
+    const looksLikeAudioUrl = value => typeof value === 'string'
+        && (/\.(?:mp4|m4a|aac|mp3)(?:[?#]|$)/i.test(value) || /(^|\.)saavncdn\.com\//i.test(value.replace(/^https?:\/\//i, '')))
+        && !/jiosaavn\.com\/(?:song|album|artist|featured|s\/playlist|playlist)\//i.test(value);
     const BACKEND_ORIGIN = window.MujicBackend.PRIMARY;
     const RENDER_MEDIA_ORIGIN = String(window.MujicBackend.FALLBACK || 'https://gaana-suno-varna-machhar-aajayega.onrender.com').replace(/\/$/, '');
     const BACKEND_ORIGINS = window.MujicBackend.origins();
@@ -242,6 +246,25 @@ const OnlineMusic = (() => {
             signal?.removeEventListener('abort', relayAbort);
         }
     };
+    // Saavn sometimes answers HTTP 200 with the collection details but no tracks (or a song without any
+    // download links), depending on where the request comes from. Treat those as unusable so the other
+    // route (direct vs backend) gets a chance; if neither is better, the original answer is still used.
+    const songHasAudio = row => ['downloadUrl', 'download_url'].some(key => Array.isArray(row?.[key]) && row[key].some(entry => entry?.url || entry?.link));
+    const isUsableCatalogue = (cleanPath, value) => {
+        if (!value || typeof value !== 'object') return true;
+        if (value.success === false) return false;
+        const [route, query = ''] = String(cleanPath || '').split('?');
+        const parts = route.split('/').filter(Boolean);
+        const first = parts[0];
+        const data = value.data;
+        const page = Number(new URLSearchParams(query).get('page') || 0) || 0;
+        if ((first === 'playlists' || first === 'albums') && parts.length === 1 && page === 0
+            && data && typeof data === 'object' && !Array.isArray(data) && Array.isArray(data.songs) && data.songs.length === 0) return false;
+        if (first === 'artists' && parts.length === 1 && data && typeof data === 'object'
+            && Array.isArray(data.topSongs) && Array.isArray(data.topAlbums) && !data.topSongs.length && !data.topAlbums.length) return false;
+        if (first === 'songs' && !parts.includes('suggestions') && Array.isArray(data) && data.length && data.some(row => !songHasAudio(row))) return false;
+        return true;
+    };
     const requestSaavn = async (path, signal, timeout = 10000) => {
         const cleanPath = path.replace(/^\//, '');
         if (signal?.aborted) throw new Error('Catalogue request cancelled.');
@@ -250,40 +273,32 @@ const OnlineMusic = (() => {
         const proxyController = new AbortController();
         const relayAbort = () => { directController.abort(signal?.reason); proxyController.abort(signal?.reason); };
         signal?.addEventListener('abort', relayAbort, { once:true });
-        const asResult = (source, promise) => promise.then(value => ({source,value}), error => ({source,error}));
+        const asResult = (source, promise) => promise
+            .then(value => ({source, value, unusable:!isUsableCatalogue(cleanPath, value)}), error => ({source, error}));
+        const ok = result => Boolean(result) && !result.error && !result.unusable;
+        const finish = result => { (result.source === 'direct' ? proxyController : directController).abort(); return result.value; };
+        // Both routes finished and neither was clean: prefer any real answer over an error.
+        const settle = (a, b) => {
+            if (ok(a)) return finish(a);
+            if (ok(b)) return finish(b);
+            const withData = [a, b].find(result => result && !result.error);
+            if (withData) return withData.value;
+            throw (a.source === 'proxy' ? a : b).error || a.error || b.error;
+        };
         const directPromise = asResult('direct', request(`${API_BASE}/${cleanPath}`, directController.signal, Math.min(Math.max(1000, timeout), 4200)));
         let fallbackTimer = null;
-        let proxyPromise = null;
         try {
             const first = await Promise.race([
                 directPromise,
                 new Promise(resolve => { fallbackTimer = setTimeout(() => resolve({source:'fallback-start'}), 650); })
             ]);
-            if (first.source === 'direct' && !first.error) {
-                proxyController.abort();
-                return first.value;
-            }
+            if (first.source === 'direct' && ok(first)) return finish(first);
             if (signal?.aborted || !navigator.onLine) throw first.error || new Error('Catalogue request cancelled.');
-            proxyPromise = asResult('proxy', request(`${LEGACY_API_BASE}/${cleanPath}`, proxyController.signal, Math.min(Math.max(1000, timeout), 7000)));
-            const winner = first.source === 'direct'
-                ? await proxyPromise
-                : await Promise.race([directPromise, proxyPromise]);
-            if (winner.error) {
-                if (winner.source === 'direct' && proxyPromise) {
-                    const proxy = await proxyPromise;
-                    if (!proxy.error) { directController.abort(); return proxy.value; }
-                    throw proxy.error;
-                }
-                if (winner.source === 'proxy' && first.source === 'fallback-start') {
-                    const direct = await directPromise;
-                    if (!direct.error) { proxyController.abort(); return direct.value; }
-                    throw winner.error;
-                }
-                throw winner.error;
-            }
-            if (winner.source === 'direct') proxyController.abort();
-            else directController.abort();
-            return winner.value;
+            const proxyPromise = asResult('proxy', request(`${LEGACY_API_BASE}/${cleanPath}`, proxyController.signal, Math.min(Math.max(1000, timeout), 7000)));
+            if (first.source === 'direct') return settle(first, await proxyPromise);
+            const winner = await Promise.race([directPromise, proxyPromise]);
+            if (ok(winner)) return finish(winner);
+            return settle(winner, await (winner.source === 'direct' ? proxyPromise : directPromise));
         } finally {
             if (fallbackTimer !== null) clearTimeout(fallbackTimer);
             signal?.removeEventListener('abort', relayAbort);
@@ -297,7 +312,7 @@ const OnlineMusic = (() => {
         const items = Array.isArray(payload?.data) ? payload.data : (payload?.data ? [payload.data] : (Array.isArray(payload) ? payload : [payload]));
         const out = [];
         for (const item of items) {
-            const urls = item?.downloadUrl || item?.download_url || item?.url;
+            const urls = item?.downloadUrl || item?.download_url || (looksLikeAudioUrl(item?.url) ? item.url : '');
             if (typeof urls === 'string') out.push({url:urls, quality:item?.quality || 'unknown', codec:item?.codec || '', format:item?.format || ''});
             else if (Array.isArray(urls)) for (const entry of urls) out.push({
                 url: entry?.url || entry?.link || entry?.downloadUrl || '',
