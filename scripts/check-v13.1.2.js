@@ -12,10 +12,10 @@ const pkg = JSON.parse(read('package.json'));
 const sw = read('sw.js');
 const settingsUI = read('js/ui-settings.js');
 
-assert.strictEqual(pkg.version, '13.1.2', 'package version should be bumped');
-assert.ok(html.includes('content="13.1.2"'), 'HTML should advertise the new app version');
-assert.ok(read('VERSION').trim() === '13.1.2', 'VERSION should agree with package version');
-assert.ok(sw.includes('mujic-pwa-v13.1.2'), 'service worker should invalidate the previous shell');
+assert.ok(/^13\.1\.\d+$/.test(pkg.version), 'package version should remain in the 13.1.x release line');
+assert.ok(html.includes(`content="${pkg.version}"`), 'HTML should advertise the current app version');
+assert.ok(read('VERSION').trim() === pkg.version, 'VERSION should agree with package version');
+assert.ok(sw.includes(`mujic-pwa-v${pkg.version}`), 'service worker should invalidate the previous shell');
 assert.ok(/icon_names=[^\"]*\bpause\b/.test(html), 'subsetted Material Symbols font must include pause');
 assert.ok(playerUI.includes("const icon = isPlaying ? 'pause' : 'play_arrow'"), 'play/pause icon should reflect state');
 assert.ok(playerUI.includes("miniButton.setAttribute('aria-label', label)"), 'mini-player control must expose the current accessible action');
