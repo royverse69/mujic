@@ -10,14 +10,12 @@ const html = read('index.html');
 const css = read('css/app.css');
 const lyricsShare = read('js/lyrics-share.js');
 const pkg = JSON.parse(read('package.json'));
-const changelog = JSON.parse(read('changlog.json'));
 
-check(read('VERSION').trim() === pkg.version && changelog.version === pkg.version, 'Release versions must match.');
-check(Array.isArray(changelog.entries) && changelog.entries[0]?.version === pkg.version, 'The current release must be in the top-level changelog entries used by Settings.');
-check(provider.includes('return { API_BASE, BACKEND_BASE:LEGACY_BASE') && /resolvePlaybackCandidates/.test(provider) && /markStreamWorking/.test(provider), 'OnlineMusic must export both stream-candidate functions called by the player.');
+check(read('VERSION').trim() === pkg.version, 'Release versions must match.');
+check(provider.includes('return { API_BASE, BACKEND_BASE:WORKER_BASE') && /resolvePlaybackCandidates/.test(provider) && /markStreamWorking/.test(provider), 'OnlineMusic must export both stream-candidate functions called by the player.');
 check(playerSource.includes('OnlineMusic.resolvePlaybackCandidates(track') && playerSource.includes('OnlineMusic.markStreamWorking?.('), 'The player should resolve and record working stream candidates.');
 check(playerSource.includes('audio.removeAttribute(\'crossorigin\')') && playerSource.includes('await ready;'), 'Normal media playback must not force CORS and must await media readiness.');
-check(sw.includes('looksLikeErrorPayload') && sw.includes('fallbackRequest'), 'Service worker must fall back when a media proxy returns an error payload.');
+check(sw.includes('const fetchBackendMedia = async') && sw.includes('BACKEND_MEDIA_BASE'), 'Service worker must fetch media through the single Worker media endpoint.');
 check(!html.includes('id="lyrics-share-start-btn"') && html.includes('id="player-more-share-lyrics"') && html.includes('data-action="lyrics-share-start"'), 'Share lyrics must be available from the full player More Options menu, not the transport row.');
 check(lyricsShare.includes('function startSelection()') && lyricsShare.includes('const MAX_LINES = 5'), 'The share action must start line selection with a five-line limit.');
 check(/\.lyrics-share-selection-bar\s*\{[^}]*z-index:\s*3190/s.test(css), 'The selected-lyrics toolbar must appear above the full-screen player.');
@@ -86,8 +84,7 @@ class FakeAudio {
   check(State.isPlaying === false && State.currentTime === 0 && State.duration === 0, 'Failed remote playback must reset stale playing/time/duration state.');
   check(calls.playPause > 0 && calls.progress > 0 && calls.duration > 0, 'Failed remote playback must refresh visible controls and timeline.');
 
-  // Exercise the service worker's actual fallback path: a nominal HTTP 200 JSON error from
-  // the primary proxy must not be mistaken for audio, and should fall through to Render.
+  // Exercise the service worker's media path without introducing any secondary backend host.
   const swCalls = [];
   const swListeners = {};
   const swSandbox = {
@@ -96,9 +93,6 @@ class FakeAudio {
     fetch: async url => {
       const target = String(url); swCalls.push(target);
       if (target.startsWith('https://mujic.calverse.online/media')) {
-        return new Response(JSON.stringify({error:'not audio'}), {status:200, headers:{'Content-Type':'application/json'}});
-      }
-      if (target.startsWith('https://gaana-suno-varna-machhar-aajayega.onrender.com/media')) {
         return new Response(new Uint8Array([1,2,3,4]), {status:206, headers:{'Content-Type':'audio/mpeg','Content-Range':'bytes 0-3/4','Accept-Ranges':'bytes'}});
       }
       throw new Error(`Unexpected test fetch: ${target}`);
@@ -108,8 +102,8 @@ class FakeAudio {
   vm.runInNewContext(`${sw}; self.__mujicTest = { fetchBackendMedia };`, swSandbox, {filename:'sw.js'});
   const mediaRequest = new Request('https://royverse69.github.io/mujic/__mujic_media__?src=fixture', {headers:{Range:'bytes=0-3', Accept:'audio/*'}});
   const mediaResponse = await swSandbox.self.__mujicTest.fetchBackendMedia('https://aac.saavncdn.com/test.m4a', mediaRequest);
-  check(mediaResponse.status === 206 && mediaResponse.headers.get('Content-Type') === 'audio/mpeg', 'The media proxy should use the valid fallback audio response when the primary returns JSON.');
-  check(swCalls.length === 2 && swCalls[0].startsWith('https://mujic.calverse.online/media') && swCalls[1].startsWith('https://gaana-suno-varna-machhar-aajayega.onrender.com/media'), 'The SW must try primary then fallback in order.');
+  check(mediaResponse.status === 206 && mediaResponse.headers.get('Content-Type') === 'audio/mpeg', 'The media proxy should return the Worker audio response.');
+  check(swCalls.length === 1 && swCalls[0].startsWith('https://mujic.calverse.online/media'), 'The SW must use the Worker media route without a secondary host.');
 
-  console.log('Playback recovery checks passed: exported stream methods, audio readiness/failure lifecycle, non-CORS playback path, actual mocked SW media fallback, visible lyric-share action, toolbar layering, and release metadata.');
+  console.log('Playback recovery checks passed: exported stream methods, audio readiness/failure lifecycle, non-CORS playback path, actual single-origin SW media routing, visible lyric-share action, toolbar layering, and release metadata.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic — Music Player</title>
-    <meta name="application-version" content="13.0.20">
+    <meta name="application-version" content="13.0.21">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -21,8 +21,6 @@
     </script>
  
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-9HWTBD3DH6"></script>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1690950053974135"
-     crossorigin="anonymous"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -544,11 +542,11 @@
                 <div class="settings-section">
                     <h2 class="section-title">Lyrics Providers</h2>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Community lyrics server</div><div class="settings-desc">Sends the song title and artist to a third-party server (onrender.com) when LRCLIB has no match. Turn off to keep lookups to LRCLIB only.</div></div>
-                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsRenderEnabled" aria-label="Enable community lyrics server fallback"></div>
+                        <div class="settings-text"><div class="settings-label">Community lyrics fallback</div><div class="settings-desc">Uses the configured lyrics fallback through the Mujic Cloudflare Worker when an earlier lyrics lookup has no match. Turn off to disable this fallback.</div></div>
+                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsRenderEnabled" aria-label="Enable community lyrics fallback"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">LyricsPlus fallback</div><div class="settings-desc">Try the LyricsPlus synchronized-lyrics API only after embedded lyrics, cache, LRCLIB and the Render fallback. Requires an internet connection.</div></div>
+                        <div class="settings-text"><div class="settings-label">LyricsPlus fallback</div><div class="settings-desc">Try the LyricsPlus synchronized-lyrics API through the Mujic Worker after embedded lyrics, cache and earlier lookups. Requires an internet connection.</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsPlusEnabled" aria-label="Enable LyricsPlus fallback"></div>
                     </div>
                     <div class="settings-row" hidden>

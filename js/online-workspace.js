@@ -232,7 +232,7 @@
         target.innerHTML=html;
         if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50));
         const topSongsForWarm=(Array.isArray(data.topQuery)?data.topQuery:[]).filter(item=>item?.onlineTrackId).slice(0,1);
-        OnlineMusic.warmPlaybackCandidates?.([...topSongsForWarm,...searchResults.slice(0,8)],8,{primaryFirst:true}).catch(()=>{});
+        OnlineMusic.warmPlaybackCandidates?.([...topSongsForWarm,...searchResults.slice(0,1)],2,{primaryFirst:true}).catch(()=>{});
         UI.lazyLoadArtwork();
     };
     const paintSearchResults = (q, total = 0, hasMore = false) => {
@@ -249,7 +249,7 @@
         else body=renderEntityGrid(list,searchType,'Search to discover more.');
         const more=(hasMore||sourceList.length>list.length)?'<div class="online-load-more-wrap"><button class="btn" data-action="online-load-more">Load more</button></div>':'';
         target.innerHTML=`<div class="online-results-toolbar"><strong>${esc(count)} ${searchTypeLabels[searchType].toLowerCase()}</strong></div>${body}${more}`;
-        if(searchType==='songs') { setSearchContext(searchResults); if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50)); OnlineMusic.warmPlaybackCandidates?.(searchResults.slice(0,8),8,{primaryFirst:true}).catch(()=>{}); }
+        if(searchType==='songs') { setSearchContext(searchResults); if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50)); OnlineMusic.warmPlaybackCandidates?.(searchResults.slice(0,2),2,{primaryFirst:true}).catch(()=>{}); }
         UI.lazyLoadArtwork();
     };
     const getSearchExpansions = (query, kind) => {
@@ -409,7 +409,7 @@
         return performSearch(q,true);
     };
     const HOME_TTL = 15 * 60 * 1000;
-    const HOME_CACHE_VERSION = 6;
+    const HOME_CACHE_VERSION = 7;
     const HOME_DEFS = [
         {key:'quick',kind:'quick',node:'online-shelf-quick',derived:true,stage:1},
         {key:'suggested',kind:'songs',query:'',node:'online-shelf-suggested',layout:'list',stage:1},
@@ -837,7 +837,7 @@
         }
         return seeds;
     };
-    const suggestionSignature = seeds => `render-v1|${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
+    const suggestionSignature = seeds => `worker-v2|${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
     const buildSuggestions = async seeds => {
         const played=new Set(),prints=new Set();
         onlineHistory.slice(0,60).forEach(track=>{played.add(track.id);prints.add(fingerprint(track));});
@@ -845,8 +845,8 @@
         const queries=DAYPART_QUERIES[daypart()];
         const lists=await Promise.all(seeds.map(async seed=>{
             try{
-                if(seed.track && OnlineMusic.fetchRenderSuggestions) return await OnlineMusic.fetchRenderSuggestions(seed.track);
-                const found=await OnlineMusic.searchRenderSongs(`${seed.name} songs`);
+                if(seed.track && OnlineMusic.fetchWorkerSuggestions) return await OnlineMusic.fetchWorkerSuggestions(seed.track);
+                const found=await OnlineMusic.searchWorkerSongs(`${seed.name} songs`);
                 return found.filter(track=>{const key=artistKey(track.artist);return key&&(key.includes(seed.key)||seed.key.includes(key));});
             }catch(_){return [];}
         }));
@@ -866,7 +866,7 @@
         };
         let items=merge(lists);
         if(items.length<8){
-            const extra=await Promise.all(queries.map(async query=>{try{return await OnlineMusic.searchRenderSongs(query);}catch(_){return [];}}));
+            const extra=await Promise.all(queries.map(async query=>{try{return await OnlineMusic.searchWorkerSongs(query);}catch(_){return [];}}));
             items=merge([items,...extra]);
         }
         return items;
@@ -876,7 +876,7 @@
     };
     const restoreSuggest = () => {
         const stored=safeRead(KEYS.suggest,null);
-        if(!stored?.items?.length||!String(stored.sig||'').startsWith('render-v1|'))return;
+        if(!stored?.items?.length||!String(stored.sig||'').startsWith('worker-v2|'))return;
         suggestState={sig:String(stored.sig||''),savedAt:Number(stored.savedAt)||0,items:hydrate(stored.items),loading:''};
     };
     const updateSuggestNote = seeds => {
@@ -893,15 +893,15 @@
         if (quickPicksPromise) return quickPicksPromise;
         quickPicksPromise = (async () => {
             try {
-                const items = dedupeCatalogueTracks(await OnlineMusic.fetchRenderQuickPicks());
+                const items = dedupeCatalogueTracks(await OnlineMusic.fetchWorkerQuickPicks());
                 if (items.length) {
-                    homeShelves.quick = { kind: 'songs', items: items.slice(0, 40), savedAt: Date.now(), source: 'render' };
+                    homeShelves.quick = { kind: 'songs', items: items.slice(0, 40), savedAt: Date.now(), source: 'worker' };
                     cacheHomeShelves();
                     if (State.playbackSourceMode === 'online') renderShelfItem(HOME_DEFS[0], []);
                 }
                 return homeShelves.quick?.items || [];
             } catch (error) {
-                console.warn('[Mujic] Render Quick Picks unavailable; retaining cached/local picks.', error);
+                console.warn('[Mujic] Worker Quick Picks unavailable; retaining cached/local picks.', error);
                 return cached;
             } finally { quickPicksPromise = null; }
         })();
@@ -1862,7 +1862,7 @@
         const input=document.getElementById('online-search-input');
         if(input&&input.dataset.bound!=='1'){
             input.dataset.bound='1';let timer;
-            input.addEventListener('input',()=>{clearTimeout(timer);const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!input.value.trim();const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=input.value.trim().length>=2;if(input.value.trim().length<2){renderSearchBlank();return;}const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;timer=setTimeout(()=>performSearch(input.value),120);});
+            input.addEventListener('input',()=>{clearTimeout(timer);const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!input.value.trim();const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=input.value.trim().length>=2;if(input.value.trim().length<2){renderSearchBlank();return;}const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;timer=setTimeout(()=>performSearch(input.value),180);});
             input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);performSearch(input.value);}});
         }
         initBackToTop();restoreQueueSnapshot(State.playbackSourceMode==='online'?'online':'offline');updateWorkspaceUI();renderSearchHistory();setSearchTypeUI();renderSearchBlank();setLibraryTab('playlists');

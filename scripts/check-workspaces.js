@@ -59,8 +59,8 @@ for (const [label, token, source] of required) {
 if (events.includes('OnlineRecommendations.filterPlaybackContext(matches')) throw new Error('Manual search playback must not filter away user-selectable remix/alternate variants.');
 if (read('js/ui-library.js').includes('>ONLINE</span>')) throw new Error('Track rows must not repeat the Online label.');
 if (!player.includes('wasPlayedOrEquivalent(candidate)')) throw new Error('Natural queue advance must skip versions equivalent to already-played tracks.');
-if (provider.includes('/api/lyrics')) throw new Error('Do not invent a lyrics endpoint absent from the supplied OpenAPI.');
-if (!read('docs/api-integration.md').includes('does not define a lyrics endpoint')) throw new Error('API docs must state that the supplied schema does not specify a lyrics endpoint.');
+if (provider.includes('/api/lyrics')) throw new Error('Lyrics calls must use the Worker-backed lyrics routes, not an invented catalogue endpoint.');
+if (!read('docs/api-integration.md').includes('Worker-backed exact/search lyric routes')) throw new Error('API docs must describe Worker-backed lyrics routing.');
 if (!fs.existsSync(path.join(root, 'docs/api-integration.md'))) throw new Error('Catalogue API integration documentation must be included.');
 if (!sw.includes('./css/online-workspace.css')) throw new Error('The online workspace stylesheet must be cached by the service worker.');
 if (!fs.existsSync(path.join(root, 'icons/icon-192.png')) || !fs.existsSync(path.join(root, 'icons/icon-512.png'))) throw new Error('The manifest and service-worker PWA icon files must exist.');

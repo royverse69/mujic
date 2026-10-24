@@ -22,6 +22,23 @@ const mkContext = fetchImpl => {
     if (results.length !== 11) throw new Error(`Expected 11 unique search results; got ${results.length}.`);
     if (results.some(track => !track.id.startsWith('machhar:'))) throw new Error('Search results must use isolated remote IDs.');
 
+    const globalCalls = [];
+    const globalFixture = mkContext(async url => {
+        const parsed = new URL(String(url));
+        if (parsed.origin !== 'https://mujic.calverse.online') throw new Error(`Global search escaped the Worker origin: ${parsed.origin}`);
+        globalCalls.push(parsed.href);
+        return {ok:true,text:async()=>JSON.stringify({success:true,data:{
+            topQuery:{results:[]},
+            songs:{results:[{id:'global-cache-song',name:'Global Cache Song',duration:180,artists:{primary:[{name:'Cache Artist'}] } }]},
+            albums:{results:[]},artists:{results:[]},playlists:{results:[]}
+        }})};
+    });
+    const [globalA, globalB] = await Promise.all([globalFixture.music.globalSearch('dedupe query'), globalFixture.music.globalSearch('dedupe query')]);
+    if (globalCalls.length !== 1 || globalA.songs.length !== 1 || globalB.songs.length !== 1) throw new Error('Concurrent global searches must share one Worker request.');
+    globalA.songs.push({id:'caller-mutation'});
+    const globalC = await globalFixture.music.globalSearch('dedupe query');
+    if (globalCalls.length !== 1 || globalC.songs.length !== 1) throw new Error('Global search results must be cached and isolated from caller array mutations.');
+
     const streamPayload = { data: [{ downloadUrl: [
         { quality: '128kbps', codec: 'aac', link: 'https://audio.example/low.m4a' },
         { quality: '320kbps', codec: 'aac', link: 'https://audio.example/high.m4a' },
@@ -36,7 +53,7 @@ const mkContext = fetchImpl => {
     };
     if (typeof ctx2.music.resolvePlaybackCandidates !== 'function' || typeof ctx2.music.markStreamWorking !== 'function') throw new Error('OnlineMusic must expose the resolver and working-source cache updater used by the player.');
     const streamCandidates = await ctx2.music.resolvePlaybackCandidates(playbackFixture);
-    if (streamCandidates.length < 2 || !streamCandidates.some(url => url.includes('/media?url=')) || !streamCandidates.some(url => url.includes('aac.saavncdn.com'))) throw new Error('Playback resolution must provide proxy routes and a direct CDN fallback.');
+    if (streamCandidates.length !== 1 || !streamCandidates[0].startsWith('https://mujic.calverse.online/media?url=')) throw new Error('Supported catalogue media must use only the Cloudflare Worker proxy route.');
     const selectedCandidate = streamCandidates[streamCandidates.length - 1];
     if (!ctx2.music.markStreamWorking(playbackFixture.id, selectedCandidate)) throw new Error('A successful source must be recorded by the provider.');
     const reorderedCandidates = await ctx2.music.resolvePlaybackCandidates(playbackFixture);
@@ -127,6 +144,7 @@ const mkContext = fetchImpl => {
     await catalogue.music.fetchAlbumDetails('https://catalogue.example/album/fixture');
     await catalogue.music.fetchArtistDetails('https://catalogue.example/artist/fixture');
     if(!catalogueCalls.some(url=>new URL(url).pathname.endsWith('/playlists')&&new URL(url).searchParams.has('link'))||!catalogueCalls.some(url=>new URL(url).pathname.endsWith('/albums')&&new URL(url).searchParams.has('link'))||!catalogueCalls.some(url=>new URL(url).pathname.endsWith('/artists')&&new URL(url).searchParams.has('link')))throw new Error('Playlist, album and artist link lookup routes must be supported.');
+    if(catalogueCalls.some(url=>new URL(url).origin!=='https://mujic.calverse.online'))throw new Error('All catalogue request variants must be routed through the Cloudflare Worker origin.');
 
     const calls = { count: 0 };
     const ctx3 = mkContext(async () => { calls.count++; throw new Error('Network should not be called while offline'); });
@@ -134,5 +152,5 @@ const mkContext = fetchImpl => {
     let blocked = false;
     try { await ctx3.music.search('sample'); } catch (e) { blocked = /offline/i.test(e.message); }
     if (!blocked || calls.count !== 0) throw new Error('Online search must be blocked without connectivity.');
-    console.log('Online provider checks OK: search parsing, capped-page pagination, inferred artist page size, foreign artist song-search fallback, artwork fallback (including artist-map portraits), documented suggestions, link lookup, AAC source selection, stream resolver/route fallback caching, and offline request blocking.')
+    console.log('Online provider checks OK: search parsing, pagination, artist fallback/artwork, documented suggestions, link lookup, AAC source selection, Worker-only stream routing/cache, and offline request blocking.')
 })().catch(error => { console.error(error); process.exit(1); });

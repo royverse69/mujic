@@ -1,51 +1,20 @@
-## Mujic v13.0.20 — Onboarding, Install Banner & Faster Search Playback
+# Mujic v13.0.21 — Cloudflare-only routing and faster search
 
-- **Install banner** shows on the Offline and Online *Home* screens only, when the browser exposes install (or on iOS, with Add to Home Screen instructions). Dismissing it hides it for 7 days; it never shows in the installed app.
-- **First-run guide** explains the Offline/Online switch, how each mode works, turning on lyrics, Settings customization and extras. It appears once for new users and can be replayed from **Settings → App & About → App guide**.
-- **Wavy waveform** is now the default seek-bar effect (existing installs still on the old "off" default are migrated once).
-- **Greeting fix**: the Offline Home greeting follows the time of day instead of always showing "Good evening".
-- **Search playback**: tapped streaming search results request media from `mujic.calverse.online` first; Render remains the fallback. Quick Picks / Suggested shelves still use Render directly.
+Mujic is an offline-first local music player with an optional online streaming workspace. The local library, playlists, playback controls, lyrics display, sharing, Picture-in-Picture, settings, and offline playback remain part of the app.
 
-## Mujic v13.0.16 — Lyrics Card Refinement & Render Recommendations
+## API routing
 
-- **Share lyrics** stays in the full-screen player's **More Options** sheet, not alongside the primary playback controls. The action opens lyric selection, limited to five synced lines.
-- The share card follows the supplied portrait reference: a dark, subdued backdrop sampled from the song's actual album cover, large readable lyrics, the cover image, song title and artist, and the original repository Mujic icon. The generated image contains **no QR code**.
-- The card supports local and streaming tracks. When supported, sharing text can retain the song/timestamp link; this is separate from the QR-free image.
-- **Quick Picks** requests Render `/trending` directly. **Suggested for You** requests Render `/queue/<song_id>` and `/search?q=...` directly. Other catalogue shelves, general search, stream resolution, playlists and local library routes remain unchanged.
-- PWA version/cache and regression checks are updated for this release.
+All catalogue search, detail, recommendation, stream-metadata, lyrics-proxy, and supported media-proxy requests use the Cloudflare Worker origin configured in `js/backend-config.js` (`https://mujic.calverse.online`). The frontend no longer calls a direct catalogue API host or uses a second backend origin as fallback. Ensure the deployed Worker exposes the existing routes used by this build: `/api/*`, `/search`, `/trending`, `/queue/*`, `/stream/*`, `/lyrics*`, `/lyricsplus/*`, and `/media?url=...`.
 
-### Validate
+Supported catalogue CDN media URLs are restricted to known Saavn/JioSaavn hosts by the service-worker media route. Audio range requests are preserved for seeking; the worker does not download full tracks when warming a queue item.
 
-Run `npm run check`. The Render route tests stub the backend and verify that Quick Picks/Suggested requests use the Render origin rather than the Cloudflare primary. Live suggestions still depend on the deployed Render service and its CORS policy.
+## Performance and reliability
 
-### Previous update notes
+- Search calls are debounced and share the existing in-memory result cache; completed search, entity, stream, recommendation, and lyrics data is reused when valid.
+- The service worker caches bounded JSON responses from the Worker with short search freshness, stale-while-revalidate behavior, and stale cache fallback during transient failures.
+- Artwork remains lazy-loaded and cached within explicit entry/size limits; next-track prefetch remains capped to the first 256 KiB and is skipped on data saver/slow connections.
+- Release notes are bundled with `js/ui-settings.js`; there is no separate changelog asset to fetch.
 
-- The Home Radio shelf is a touch-friendly horizontal rail with scroll snapping; the All stations page remains a grid.
-- Restored the previous full-screen player header. The now-playing treatment applies to queue and playlist rows instead of altering the full-screen player UI.
-- Retained the 31-category discovery catalog, station-specific radio playback, and existing backend routes.
+## Development
 
-
-## v13.0.16 — Spotify-style lyric cards and mobile polish
-
-- Lyric sharing can be enabled or disabled from Settings → Lyrics.
-- Share cards use a square album-colour layout, artwork and song metadata at the top, left-aligned selected lyrics, and the repository’s black/white Spotify logo variant for contrast.
-- Redundant share-dialog subtitle and preview caption removed.
-- Smaller/low-end devices skip expensive glass blur layers and the card’s blurred full-canvas background.
-- Keep the existing `icons/Spotify Logo - Black.png` and `icons/Spotify Logo - White.png` files in the repository; the app references and service-worker caches those exact assets.
-
-
-## v13.0.18 changes
-
-- Document PiP is preferred when available and contains directly connected play/pause, previous/next, ±10-second seek and a seek bar. Browser-native video PiP remains as a fallback.
-- Media Session actions use the shared Player and current audio element to keep external controls and player state synchronized.
-- Settings → Lyrics now includes a persistent share-card style selector (Mujic or Spotify). Spotify cards use a complementary negative of the artwork palette.
-
-Document PiP requires a secure context (typically HTTPS) and a supporting browser. The fallback uses Media Session action handlers; exact native controls depend on browser/OS support.
-
-
-## v13.0.19 — PiP control synchronization
-
-- Native video PiP play/pause controls now operate the real music player; duplicate browser Media Session requests are deduplicated.
-- PiP playback state and metadata follow the audio element, with event listeners safely attached when PiP opens and removed when it closes.
-- PiP canvas drawing is cached by track/artwork so the background sync does not redraw unchanged pixels.
-- Settings → Lyrics continues to offer Mujic Style and Spotify Style share cards; Spotify backgrounds use the RGB negative of the sampled album-art palette.
+Run the app with a local static server (`npm start`) and execute the regression suite with `npm run check`. Live endpoint behavior still depends on the deployed Cloudflare Worker and its upstream availability/CORS headers; this ZIP does not include the deployed Worker source or credentials.

@@ -90,109 +90,32 @@
             loadChangeLog: async (force = false) => {
                 const root = document.getElementById('changelog-content');
                 if (!root || (root.dataset.loaded === '1' && !force)) return;
-                root.innerHTML = '<div class="changelog-empty">Loading release notes…</div>';
-                try {
-                    if (location.protocol === 'file:') throw new Error('Use bundled release notes for local-file mode');
-                    const changelogUrl = force ? `./changlog.json?refresh=${Date.now()}` : './changlog.json';
-                    const response = await fetch(changelogUrl, { cache: force ? 'no-store' : 'default' });
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    const data = await response.json();
-                    if (!data || !Array.isArray(data.entries)) throw new Error('Invalid changlog.json format');
-                    const entries = data.entries.slice(0, 20);
-                    root.innerHTML = entries.length ? entries.map(entry => {
-                        const changes = Array.isArray(entry.changes) ? entry.changes : [];
-                        return `<article class="changelog-entry"><div class="changelog-entry-head"><strong>${Utils.escapeHTML(entry.title || `Mujic ${entry.version || ''}`)}</strong><span>${Utils.escapeHTML(entry.date || '')}</span></div><div class="changelog-version">${Utils.escapeHTML(entry.version || '')}</div>${changes.length ? `<ul>${changes.map(item => `<li>${Utils.escapeHTML(item)}</li>`).join('')}</ul>` : '<p>No details provided.</p>'}</article>`;
-                    }).join('') : '<div class="changelog-empty">No release notes are available yet.</div>';
-                    root.dataset.loaded = '1';
-                } catch (error) {
-                    const fallbackEntries = [
-                        { version: '12.0.28', date: '2026-10-17', title: 'Artist profiles, suggestions and playlist deduplication', changes: [
-                            'Rebuilt Home artist discovery around exact artist names, clickable portrait cards and artist-specific artwork fallback from the documented API response.',
-                            'Fixed retry/pagination handling for artist catalogues and removed equivalent recordings from playlists, liked songs, history and automatic suggestions.',
-                            'Added initials-based artist portrait fallbacks, tightened Offline Home spacing, aligned the mode toggle and repaired Settings descriptions while preserving the Offline layout.'
-                        ]},
-                        { version: '12.0.27', date: '2026-10-17', title: 'Artist catalogue and workspace polish', changes: [
-                            'Added a swipeable, clickable Artist rail on Home and fixed artist-detail navigation.',
-                            'Improved paginated artist loading, retry behavior, duplicate filtering, artwork fallbacks and share-link/song-ID opening.',
-                            'Refined streaming Home spacing, mode-switch animation, Library-sharing copy and the Mujic footer wordmark while preserving the Offline workspace.'
-                        ]},
-                        { version: '12.0.20', date: '2026-10-17', title: 'Optional streaming playback (Beta)', changes: [
-                            'Added an Offline / Online source switch; Offline remains the default on fresh installations.',
-                            'Integrated the Machhar backend for online search and stream resolution while retaining Mujic’s audio engine and UI.',
-                            'Added first-use consent, a visible beta warning, request timeouts, and session-only remote tracks and URLs.'
-                        ]},
-                        { version: '12.0.15', date: '2026-10-14', title: 'Desktop playlist navigation and player visual polish', changes: [
-                            'Desktop users can scroll Home playlist and Top Picks rails with the mouse wheel; normal page scrolling is preserved at rail edges.',
-                            'Hardened playlist detail opening and artwork refresh so a previous playlist cover cannot carry over.',
-                            'Added a block-style drop shadow to the active Neon lyric line for more depth.',
-                            'Changed the Default seek-bar waveform to an audio-responsive bar waveform and updated its settings preview.',
-                            'Improved player-control tooltips and the Lyrics icon without changing playback or audio-processing behavior.',
-                            'Versioned the service-worker cache so installed PWAs fetch the updated assets.'
-                        ]},
-                        { version: '12.0.14', date: '2026-10-13', title: 'About, Search and playlist picker polish', changes: [
-                            'Added a proper GitHub brand icon and responsive About links for narrow screens.',
-                            'Search empty state opens the music downloader in a new tab with the encoded search query.',
-                            'Playlist Add Songs selects from tracks already in the library instead of opening the device picker.',
-                            'Improved visible selected-state styling for Audio Waveform options.'
-                        ]},
-                        { version: '12.0.13', date: '2026-10-13', title: 'Restored Settings and core interactions', changes: [
-                            'Restored missing action dispatch for song rows, Settings categories, library tabs, transport controls, history and playlist management.',
-                            'Search playback now falls back to the full library when there is only one matching song, so Next can continue playing.',
-                            'Wrapped delegated actions in error handling and guarded optional gesture controls to prevent silent UI failures.'
-                        ]},
-                        { version: '12.0.12', date: '2026-10-13', title: 'Startup and local-file navigation recovery', changes: [
-                            'Guarded history URL writes on file:// launches so a SecurityError cannot stop navigation handlers from initializing.',
-                            'Initialized UI subsystems independently so one optional UI failure cannot prevent main navigation from binding.',
-                            'Moved UI initialization inside the app bootstrap error boundary.'
-                        ]},
-                        { version: '12.0.11', date: '2026-10-13', title: 'Home rail scrolling and launch reliability', changes: [
-                            'Prevented a changelog fetch from file:// origins so the browser uses bundled release notes instead of logging a CORS failure.',
-                            'Made Home playlist and Top Picks rails horizontally touch-scrollable with non-shrinking cards.',
-                            'Renamed the player shortcut to Equalizer and the Bass preset label to Bass.'
-                        ]},
-                        { version: '12.0.10', date: '2026-10-13', title: 'Unified Audio Waveform settings and release consistency', changes: [
-                            'Merged waveform activation and waveform style into one settings row that opens the correct selector.',
-                            'Synchronized the application version, published VERSION and service-worker cache for reliable updates.',
-                            'Kept Gemini song identification marked Coming soon with no active key manager or API calls.'
-                        ]},
-                        { version: '12.0.9', date: '2026-10-13', title: 'Unified player effects, update flow and data import', changes: [
-                            'Merged Audio Waveform and seek-bar styling into one persistent setting and kept the effect stable across full and mini-player transitions.',
-                            'Made mobile sheets opaque, removed active Gemini key/API support in favor of a coming-soon notice, and cleaned obsolete key storage.',
-                            'Added automatic update notification, retained JSON settings/listening-data import, clarified Search empty states, and updated About links.'
-                        ]},
-                        { version: '12.0.8', date: '2026-10-13', title: 'Unified Audio Waveform and streamlined navigation', changes: [
-                            'Combined the seek-bar effect and Audio Waveform into one setting with Off, Default, Wavy, Slim and Squiggly styles.',
-                            'Favorite Artists now appears inside Your Playlists; search offers a music download link when no local results match.',
-                            'Added a version update prompt, JSON settings/listening-data import, and a clearer About page with GitHub links.',
-                            'Removed the experimental Gemini integration and purged saved Gemini keys from older settings data.'
-                        ]},
-                        { version: '12.0.7', date: '2026-10-12', title: 'Gemini API compatibility and key validation', changes: [
-                            'Switched to gemini-3.8-flash first with compatible stable Flash model fallbacks if Google reports a model is unavailable.',
-                            'Unified Gemini identification and Test keys requests, added detailed Google error messages, increased request timeout, and restored normal origin/referrer behavior for restricted keys.',
-                            'Key save is verified by reading the key list back from IndexedDB; Test keys saves current inputs before testing.'
-                        ]},
-                        { version: '12.0.6', date: '2026-10-12', title: 'Navigation and settings polish', changes: [
-                            'Added a compact Gemini API key help guide with key creation, paste/save instructions and common error tips.',
-                            'Added Favorite Artists beside Playlists on wide Home layouts and touch swipes between the four main tabs.',
-                            'Removed the old footer byline in favor of “Made with ♥ by Machhar” and cleared waveform visuals when disabled.'
-                        ]},
-                        { version: '12.0.5', date: '2026-10-11', title: 'Local Gemini keys and performance profile', changes: [
-                            'Added a key manager for up to four locally stored Gemini API keys, with test and fallback rotation.',
-                            'Removed the custom Gemini proxy and reduced waveform and artwork work on low-end devices.'
-                        ]},
-                        { version: '12.0.4', date: '2026-10-11', title: 'Performance and settings polish', changes: [
-                            'Grouped preferences into focused settings pages and moved lyrics styling into Lyrics Display.',
-                            'Added Low-End Device Mode to reduce GPU-heavy blur, shadows and nonessential motion.',
-                            'Bundled release notes fallback so update history remains readable offline.'
-                        ]},
-                        { version: '12.0.3', date: '2026-10-11', title: 'Waveform and lyrics refinement', changes: [
-                            'Reduced seek waveform height and movement, and limited drawing to the played section.',
-                            'Added saved lyrics position, text size, line spacing, width and emphasis preferences.'
-                        ]}
-                    ];
-                    root.innerHTML = fallbackEntries.map(entry => `<article class="changelog-entry"><div class="changelog-entry-head"><strong>${Utils.escapeHTML(entry.title)}</strong><span>${Utils.escapeHTML(entry.date)}</span></div><div class="changelog-version">${Utils.escapeHTML(entry.version)}</div><ul>${entry.changes.map(item => `<li>${Utils.escapeHTML(item)}</li>`).join('')}</ul></article>`).join('');
-                    root.dataset.loaded = '1';
-                }
+                const fallbackEntries = [
+                    { version: '13.0.21', date: '2026-10-23', title: 'Cloudflare-only API routing and search performance', changes: [
+                        'Unified catalogue search, Home recommendations, lyrics, stream metadata and supported media requests behind the Cloudflare Worker origin.',
+                        'Removed the secondary backend dependency and the separate changelog asset; release notes are now bundled with the app.',
+                        'Expanded Worker response caching, stale-response recovery and search debouncing to reduce repeated API calls and avoid long waits.'
+                    ]},
+                    { version: '13.0.20', date: '2026-10-22', title: 'Onboarding, install banner and playback refinements', changes: [
+                        'Added a first-run guide and install banner for supported browsers.',
+                        'Improved playback source ordering and synchronized native Picture-in-Picture controls.',
+                        'Retained offline library, playlists, queue, lyrics sharing, and player settings.'
+                    ]},
+                    { version: '13.0.19', date: '2026-10-21', title: 'Picture-in-Picture and lyric-share polish', changes: [
+                        'Improved real-time Picture-in-Picture synchronization and lyric share-card layout.',
+                        'Kept lyric sharing opt-in and retained existing playback controls.'
+                    ]},
+                    { version: '13.0.18', date: '2026-10-21', title: 'Search and player reliability', changes: [
+                        'Improved search result handling, online workspace behavior and playback recovery.',
+                        'Refined service-worker caching and lazy artwork loading.'
+                    ]},
+                    { version: '13.0.17', date: '2026-10-20', title: 'Lyrics cards and playback refinements', changes: [
+                        'Improved lyric-card rendering and metadata checks.',
+                        'Kept saved settings, playback history, and offline library data intact.'
+                    ]}
+                ];
+                root.innerHTML = fallbackEntries.map(entry => `<article class="changelog-entry"><div class="changelog-entry-head"><strong>${Utils.escapeHTML(entry.title)}</strong><span>${Utils.escapeHTML(entry.date)}</span></div><div class="changelog-version">${Utils.escapeHTML(entry.version)}</div><ul>${entry.changes.map(item => `<li>${Utils.escapeHTML(item)}</li>`).join('')}</ul></article>`).join('');
+                root.dataset.loaded = '1';
             },
             setAccent: (c) => {
                 const root = document.documentElement, b = document.body;

@@ -84,7 +84,7 @@
                     const imageFor = track => {
                         try {
                             if (track?.source === 'machhar-online' || window.OnlineMusic?.isOnlineTrack?.(track)) {
-                                const proxied=window.OnlineMusic?.getImage?.(track?.raw||{}, {renderProxy:true});
+                                const proxied=window.OnlineMusic?.getImage?.(track?.raw||{}, {workerProxy:true});
                                 if (proxied) return String(proxied);
                             }
                         } catch (_) {}
