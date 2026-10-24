@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic — Music Player</title>
-    <meta name="application-version" content="13.1.3">
+    <meta name="application-version" content="13.2.0">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -307,7 +307,7 @@
                     </div>
                 </header>
                 <div class="online-search-box"><span class="material-symbols-rounded">search</span><input id="online-search-input" type="text" enterkeyhint="search" placeholder="Songs, artists, albums, playlists…" autocomplete="off" spellcheck="false" aria-label="Search music"><button class="icon-btn online-search-clear" data-action="online-clear-search" aria-label="Clear search" title="Clear" hidden><span class="material-symbols-rounded">close</span></button></div>
-                <div id="online-search-suggestions" class="online-search-suggestions" aria-label="Suggested searches"><button class="online-chip" data-action="online-search-query" data-query="Hindi hits">Hindi hits</button><button class="online-chip" data-action="online-search-query" data-query="English hits">English hits</button><button class="online-chip" data-action="online-search-query" data-query="New releases">New releases</button><button class="online-chip" data-action="online-search-query" data-query="Arijit Singh">Arijit Singh</button><button class="online-chip" data-action="online-search-query" data-query="Bollywood love songs">Love songs</button><button class="online-chip" data-action="online-search-query" data-query="Punjabi hits">Punjabi hits</button><button class="online-chip" data-action="online-search-query" data-query="English pop playlists">Pop playlists</button><button class="online-chip" data-action="online-search-query" data-query="90s Bollywood songs">90s hits</button><button class="online-chip" data-action="online-search-query" data-query="lofi study beats">Lo-fi</button><button class="online-chip" data-action="online-search-query" data-query="workout music">Workout</button></div>
+                <div id="online-search-suggestions" class="online-search-suggestions" aria-label="Suggested searches"><button class="online-chip" data-action="online-search-query" data-query="Hindi hits">Hindi hits</button><button class="online-chip" data-action="online-search-query" data-query="English hits">English hits</button><button class="online-chip" data-action="online-search-query" data-query="New releases">New releases</button><button class="online-chip" data-action="online-search-query" data-query="Bollywood love songs">Love songs</button><button class="online-chip" data-action="online-search-query" data-query="Punjabi hits">Punjabi hits</button><button class="online-chip" data-action="online-search-query" data-query="English pop playlists">Pop playlists</button><button class="online-chip" data-action="online-search-query" data-query="90s Bollywood songs">90s hits</button><button class="online-chip" data-action="online-search-query" data-query="lofi study beats">Lo-fi</button><button class="online-chip" data-action="online-search-query" data-query="workout music">Workout</button></div>
                 <div class="online-search-tabs" role="tablist" aria-label="Search category">
                     <button class="online-search-tab active" role="tab" aria-selected="true" data-action="online-set-search-type" data-type="all">All</button>
                     <button class="online-search-tab" role="tab" aria-selected="false" data-action="online-set-search-type" data-type="songs">Songs</button>
@@ -392,10 +392,11 @@
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="textScale" aria-label="Text Size"><option value="compact">Compact</option><option value="normal">Standard</option><option value="large">Large</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Motion</div><div class="settings-desc">Animations and transitions</div></div>
+                        <div class="settings-text"><div class="settings-label">Motion</div><div class="settings-desc">Smooth transitions; Automatic adapts to device performance and system preferences.</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="motion-select" class="settings-control" data-setting="motion">
+                                    <option value="auto">Automatic (device-aware)</option>
                                     <option value="full">Full Motion</option>
                                     <option value="reduced">Reduced Motion</option>
                                 </select>

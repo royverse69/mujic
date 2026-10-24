@@ -1894,3 +1894,35 @@ body.theme-light .online-brand-wordmark {
 /* The online-only back-to-top control has no place in the offline workspace.
    It is styled and enabled by online-workspace.css after online mode is opened. */
 body:not(.online-mode) #online-back-top { display: none !important; }
+
+
+/* v13.2.0 — restrained native-feeling motion. Animates opacity/transform only. */
+:root { --mujic-motion-fast: 150ms; --mujic-motion-standard: 230ms; --mujic-motion-spring: cubic-bezier(.2,.78,.22,1); }
+.view.active { animation: mujic-view-enter 220ms var(--mujic-motion-spring) both; }
+@keyframes mujic-view-enter { from { opacity: .88; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+.btn,.icon-btn,.nav-item,.settings-category-card,.online-media-card,.online-category-card,.online-radio-card,.online-entity-card,.online-artist-card,.track-row,.online-compact-row { transition-duration: var(--mujic-motion-standard); transition-timing-function: var(--mujic-motion-spring); }
+@media (hover: hover) {
+  .online-media-card:hover,.online-category-card:hover,.online-entity-card:hover,.online-radio-card:hover { transform: translateY(-2px); }
+}
+.btn:active,.icon-btn:active,.online-card-play:active,.online-radio-play:active { transform: scale(.965); }
+#mini-player { transition: transform 320ms var(--mujic-motion-spring), opacity 180ms ease, background-color 220ms ease; will-change: transform; }
+#mini-player.scroll-hidden { transform: translate3d(0,calc(100% + 26px),0) !important; opacity: .2; pointer-events: none !important; }
+.lyrics-loading-state { display:flex; min-height:40vh; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:var(--text-secondary); text-align:center; animation:mujic-fade-up 220ms var(--mujic-motion-spring) both; }
+.lyrics-loading-orb { width:22px; height:22px; border-radius:50%; border:2px solid color-mix(in srgb,var(--accent-color) 22%,transparent); border-top-color:var(--accent-color); animation:mujic-lyrics-spin 850ms linear infinite; }
+@keyframes mujic-fade-up { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+@keyframes mujic-lyrics-spin { to { transform:rotate(360deg); } }
+.player-lyrics-container .lyric-line { transition: opacity 220ms ease, filter 220ms ease, color 220ms ease, background-color 220ms ease; }
+.player-lyrics-container .lyric-line.active { animation: mujic-lyric-focus 250ms var(--mujic-motion-spring) both; }
+@keyframes mujic-lyric-focus { from { opacity:.76; } to { opacity:1; } }
+.lyrics-unavailable-card { animation:mujic-fade-up 240ms var(--mujic-motion-spring) both; }
+body.low-end-mode .lyrics-loading-orb { animation:none; border-top-color:var(--accent-color); }
+body.reduced-motion .view.active,body.reduced-motion .lyrics-loading-state,body.reduced-motion .lyrics-unavailable-card,body.reduced-motion .player-lyrics-container .lyric-line.active { animation:none !important; }
+body.reduced-motion #mini-player { will-change:auto; }
+@media (prefers-reduced-motion: reduce) {
+  .view.active,.lyrics-loading-state,.lyrics-unavailable-card,.player-lyrics-container .lyric-line.active { animation:none !important; }
+  #mini-player { transition:opacity 120ms ease !important; }
+}
+@media (max-width: 767px) {
+  #mini-player.scroll-hidden { transform:translate3d(0,calc(100% + 22px),0) !important; }
+  .online-media-card:active,.online-category-card:active,.online-entity-card:active { transform:scale(.985); }
+}

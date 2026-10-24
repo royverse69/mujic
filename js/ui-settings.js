@@ -233,7 +233,7 @@
                         const allowed = new Set(['theme','accentPreset','accentColor','surfaceTheme','textScale','layoutDensity','lowEndMode','performanceProfile','lyricsStyle','lyricsShareStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsWordByWord','lyricsShareEnabled','lyricsShareStyle','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis','interfaceStyle','cornerRadius','motion','playerBackground','playerArtworkMode','resumePlayback','librarySort','librarySortDir','showArtworkLists','playbackRate','volume','muted','repeat','shuffle','eq','eqPreset','eqBands','visualizerMode','crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','lowEndModeActive']);
                         const boolKeys = new Set(['lowEndMode','resumePlayback','showArtworkLists','muted','shuffle','crossfade','skipSilence','instantSkipSilence','loudnessControl','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed','progressiveSeek','pauseWhenMuted','stopOnPageHide','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','lyricsWordByWord','lyricsShareEnabled']);
                         const stringEnums = {
-                            theme:['system','light','dark'], accentPreset:['dynamic','custom','default'], surfaceTheme:['oled','graphite','midnight','warm','forest'], textScale:['compact','normal','large'], layoutDensity:['compact','comfortable','spacious'], performanceProfile:['auto','low-end','full'], lyricsStyle:['apple','spotify','neon'], lyricsShareStyle:['mujic','spotify'], lyricsPosition:['upper','center','lower'], lyricsFontSize:['compact','normal','large','extra-large'], lyricsLineSpacing:['compact','normal','relaxed'], lyricsWidth:['narrow','standard','wide'], lyricsEmphasis:['soft','standard','strong','off'], interfaceStyle:['subtle','strong','off'], cornerRadius:['sharp','medium','rounded','extra'], motion:['full','reduced'], playerBackground:['artwork','solid','black'], playerArtworkMode:['full','contained'], librarySort:['dateAdded','title','artist','album'], librarySortDir:['asc','desc'], loudnessLevel:['soft','balanced','strong'], eq:['off','low','med','high'], eqPreset:['flat','bass','vocal','rock','treble','custom']
+                            theme:['system','light','dark'], accentPreset:['dynamic','custom','default'], surfaceTheme:['oled','graphite','midnight','warm','forest'], textScale:['compact','normal','large'], layoutDensity:['compact','comfortable','spacious'], performanceProfile:['auto','low-end','full'], lyricsStyle:['apple','spotify','neon'], lyricsShareStyle:['mujic','spotify'], lyricsPosition:['upper','center','lower'], lyricsFontSize:['compact','normal','large','extra-large'], lyricsLineSpacing:['compact','normal','relaxed'], lyricsWidth:['narrow','standard','wide'], lyricsEmphasis:['soft','standard','strong','off'], interfaceStyle:['subtle','strong','off'], cornerRadius:['sharp','medium','rounded','extra'], motion:['auto','full','reduced'], playerBackground:['artwork','solid','black'], playerArtworkMode:['full','contained'], librarySort:['dateAdded','title','artist','album'], librarySortDir:['asc','desc'], loudnessLevel:['soft','balanced','strong'], eq:['off','low','med','high'], eqPreset:['flat','bass','vocal','rock','treble','custom']
                         };
                         for (const [key,value] of Object.entries(settings)) {
                             if (!allowed.has(key)) continue;
@@ -417,7 +417,11 @@
                 root.style.setProperty('--radius-hero', radius.hero);
                 root.style.setProperty('--radius-action', radius.action);
 
-                document.body.classList.toggle('reduced-motion', State.motion === 'reduced' || reducedMotion);
+                const motionMode = ['auto','full','reduced'].includes(State.motion) ? State.motion : 'auto';
+                State.motion = motionMode;
+                document.body.dataset.motion = motionMode;
+                const adaptiveReducedMotion = reducedMotion || motionMode === 'reduced' || (motionMode === 'auto' && lowEndActive);
+                document.body.classList.toggle('reduced-motion', adaptiveReducedMotion);
                 
                 const cornerControl = document.getElementById('corner-radius'); if (cornerControl && cornerControl.value !== State.cornerRadius) cornerControl.value = State.cornerRadius || 'rounded';
                 const artContainer = document.getElementById('player-art-container');
@@ -455,7 +459,7 @@
                 UI.updatePlayerSettingsLabels(); UI.updateEQUI(); UI.updateVisualizerUI(); UI.updateWaveformStyleUI();
             },
             resetAppearance: () => {
-                State.theme = 'system'; State.accentPreset = 'dynamic'; State.accentColor = '#ffffff'; State.surfaceTheme = 'oled'; State.interfaceStyle = 'subtle'; State.cornerRadius = 'rounded'; State.motion = 'full'; State.lyricsStyle = 'apple'; State.textScale = 'normal'; State.layoutDensity = 'comfortable'; State.performanceProfile = 'auto';
+                State.theme = 'system'; State.accentPreset = 'dynamic'; State.accentColor = '#ffffff'; State.surfaceTheme = 'oled'; State.interfaceStyle = 'subtle'; State.cornerRadius = 'rounded'; State.motion = 'auto'; State.lyricsStyle = 'apple'; State.textScale = 'normal'; State.layoutDensity = 'comfortable'; State.performanceProfile = 'auto';
                 StorageAdapter.saveSettings(); UI.applySettings(); UI.showToast("Appearance restored", "refresh");
             },
             setupInstallPrompt: () => {

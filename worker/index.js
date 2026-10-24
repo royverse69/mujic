@@ -13,12 +13,7 @@ const LYRICSPLUS = [
   'https://lyricsplus.prjktla.workers.dev',
   'https://lyricsplus-seven.vercel.app'
 ];
-const TRENDING_ARTISTS = ['The Weeknd', 'Imagine Dragons', 'Taylor Swift', 'Arijit Singh'];
-const LANG_ARTISTS = {
-  english: ['The Weeknd', 'Imagine Dragons', 'Taylor Swift', 'OneRepublic', 'Ed Sheeran'],
-  hindi: ['Arijit Singh', 'Pritam', 'Shreya Ghoshal', 'Anirudh Ravichander', 'Vishal-Shekhar'],
-  spanish: ['Bad Bunny', 'J Balvin', 'Rosalía', 'Shakira']
-};
+const TRENDING_QUERIES = ['trending songs', 'latest Hindi songs', 'English pop hits'];
 
 // [fresh seconds, stale-while-revalidate seconds]
 const TTL = {
@@ -27,7 +22,7 @@ const TTL = {
   details: [1800, 21600],
   song: [900, 7200],
   suggestions: [1800, 7200],
-  trending: [900, 7200],
+  trending: [3600, 14400],
   lyrics: [86400, 604800],
   lyricsMiss: [1800, 3600]
 };
@@ -177,19 +172,23 @@ async function recommendations(ctx, id) {
     const current = data?.data?.[0];
     if (!current) return { payload: { current: null, queue: [] }, status: 200 };
     const name = String(current.name || current.title || '');
-    const artist = artistNames(current);
     const album = typeof current.album === 'object' ? String(current.album?.name || '') : String(current.album || '');
     const language = String(current.language || '').toLowerCase();
-    const jobs = [];
-    // Suggestions from the catalogue first (one call), then search-derived mixes in parallel.
-    jobs.push(upstreamJson(`${CATALOGUE}/songs/${encodeURIComponent(id)}/suggestions?limit=20`, { timeout: 6000 }, 1)
-      .then(r => (Array.isArray(r.payload?.data) ? r.payload.data : (r.payload?.data?.results || []))).catch(() => []));
-    if (album) jobs.push(searchSongs(ctx, album).then(r => r.slice(0, 12)));
-    if (artist) jobs.push(searchSongs(ctx, artist.split(',')[0]).then(r => r.slice(0, 9)));
-    if (artist && name) jobs.push(searchSongs(ctx, `${artist.split(',')[0]} ${name}`).then(r => r.slice(0, 8)));
-    const pool = LANG_ARTISTS[language];
-    if (pool) pool.slice(0, 2).forEach(a => jobs.push(searchSongs(ctx, a).then(r => r.slice(0, 3))));
-    const merged = (await Promise.all(jobs)).flat();
+    // Prefer the catalogue's purpose-built suggestions endpoint. Only make one contextual
+    // fallback search if it returned too few tracks; never fan out into repeated artist searches.
+    const suggestionResult = await upstreamJson(`${CATALOGUE}/songs/${encodeURIComponent(id)}/suggestions?limit=20`, { timeout: 6000 }, 1)
+      .catch(() => ({ payload: { data: [] }, status: 502 }));
+    const baseRows = Array.isArray(suggestionResult.payload?.data)
+      ? suggestionResult.payload.data
+      : (suggestionResult.payload?.data?.results || []);
+    let merged = baseRows.slice();
+    if (merged.length < 8) {
+      const fallbackQuery = album || name || `${language || 'popular'} songs`;
+      if (fallbackQuery) {
+        const fallbackRows = await searchSongs(ctx, fallbackQuery);
+        merged = merged.concat(fallbackRows.slice(0, 12));
+      }
+    }
     const seen = new Set([String(id)]);
     const titles = new Set();
     const queue = [];
@@ -201,15 +200,23 @@ async function recommendations(ctx, id) {
       seen.add(sid); titles.add(title); queue.push(song);
     }
     return { payload: { current, queue: queue.slice(0, 30) }, status: 200 };
-  }, { cacheable: p => p && Array.isArray(p.queue) && p.queue.length });
+  }, { cacheable: p => p && Array.isArray(p.queue) });
   return payload;
 }
 
 async function trending(ctx) {
   const cacheUrl = 'https://cache.mujic.internal/trending';
   const { payload, cache } = await cachedJson(ctx, cacheUrl, TTL.trending, async () => {
-    const lists = await Promise.all(TRENDING_ARTISTS.map(a => searchSongs(ctx, a)));
-    return { payload: { songs: lists.flatMap(list => list.slice(0, 5)) }, status: 200 };
+    const lists = await Promise.all(TRENDING_QUERIES.map(query => searchSongs(ctx, query)));
+    const seen = new Set();
+    const songs = [];
+    for (const song of lists.flat()) {
+      const key = String(song?.id || `${song?.name || song?.title || ''}|${artistNames(song)}`).toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key); songs.push(song);
+      if (songs.length >= 30) break;
+    }
+    return { payload: { songs }, status: 200 };
   }, { cacheable: p => p && p.songs?.length });
   return { payload, cache };
 }
@@ -223,7 +230,7 @@ const lyricsResponse = (result, hitTtl = TTL.lyrics) => {
 async function proxyLyrics(ctx, upstreamUrl, cacheKey) {
   try {
     const result = await cachedJson(ctx, `https://cache.mujic.internal/${cacheKey}`, TTL.lyrics,
-      () => upstreamJson(upstreamUrl, { timeout: 7000 }, 1),
+      () => upstreamJson(upstreamUrl, { timeout: 7000, headers: { 'X-User-Agent': 'Mujic/13.2.0 (https://royverse69.github.io/mujic/)' } }, 1),
       { cacheable: p => p && !p.error });
     return lyricsResponse(result);
   } catch (_) { return fail(502, 'Lyrics provider temporarily unavailable'); }

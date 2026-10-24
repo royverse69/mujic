@@ -146,25 +146,37 @@
                 }
                 setLyricRevealCount(model, revealCount);
             },
-            loadCurrentLyrics: async () => {
+            loadCurrentLyrics: async (options = {}) => {
                 if (!State.isLyricsMode) return;
                 const t = Player.getCurrentTrack(); if (!t) return;
                 const lyricsContent = document.getElementById('lyrics-content');
-                clearTimeout(State.lyricsTimeout);
+                if (!lyricsContent) return;
+                clearTimeout(State.lyricsTimeout); State.lyricsTimeout = null;
+                if (options.force) LyricsFetcher.cache.delete(t.id);
                 lyricsContent.className = `player-lyrics-container lyrics-style-${State.lyricsStyle || 'apple'}`;
-                lyricsContent.innerHTML = `<div style="text-align:center; font-size: 16px; font-weight: 400; color: var(--text-secondary); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">Loading lyrics...</div>`;
+                const showStatus = message => {
+                    if (!State.isLyricsMode || State.currentTrackId !== t.id) return;
+                    lyricsContent.innerHTML = `<div class="lyrics-loading-state" role="status"><span class="lyrics-loading-orb" aria-hidden="true"></span><span>${Utils.escapeHTML(message)}</span></div>`;
+                };
+                showStatus('Finding lyrics…');
                 State.currentLyrics = null; State.activeLyricIndex = -1;
-                State.lyricsTimeout = setTimeout(() => {
-                    if (State.isLyricsMode && State.currentTrackId === t.id && !State.currentLyrics) {
-                        UI.toggleLyricsMode();
-                        UI.showToast('Lyrics could not be loaded. Check your connection and try again.', 'lyrics');
-                    }
-                }, t.source === 'machhar-online' ? 14000 : 5000);
+                const delay = ms => new Promise(resolve => setTimeout(resolve,ms));
                 let lyricsData;
                 try { lyricsData = await LyricsFetcher.getLyrics(t); }
-                catch (e) { lyricsData = { text: "Lyrics unavailable offline.", isSynced: false, unavailable: true }; }
+                catch (_) { lyricsData = { text: 'Lyrics unavailable', isSynced: false, unavailable: true }; }
+                // LRCLIB can populate a missing track asynchronously. Retry the exact lookup
+                // twice with backoff instead of replaying the entire provider chain.
+                for (let attempt=1; attempt<=2 && lyricsData?.unavailable && navigator.onLine; attempt++) {
+                    if (!State.isLyricsMode || State.currentTrackId !== t.id) return;
+                    showStatus(attempt === 1 ? 'No lyrics yet. Checking again…' : 'Still looking for a verified match…');
+                    await delay(attempt === 1 ? 1700 : 3200);
+                    if (!State.isLyricsMode || State.currentTrackId !== t.id) return;
+                    try {
+                        const retried = await LyricsFetcher.retryLookup(t);
+                        if (retried?.text) { lyricsData = retried; break; }
+                    } catch (_) {}
+                }
                 if (!State.isLyricsMode || State.currentTrackId !== t.id) return;
-                clearTimeout(State.lyricsTimeout); State.lyricsTimeout = null;
                 State.currentLyrics = lyricsData;
                 if (!lyricsData.isSynced) {
                     lyricsContent.classList.add('un-synced');
@@ -173,20 +185,14 @@
                         const detailsQ = encodeURIComponent(`${t.title} ${t.artist} ${t.album || ''}`);
                         lyricsContent.innerHTML = `<div class="lyrics-unavailable-card">
                             <div class="lyrics-unavailable-title">Lyrics unavailable</div>
-                            <div class="lyrics-unavailable-text">${navigator.onLine ? 'No verified lyrics source matched this track.' : 'You are offline. Online lyrics need a connection.'}</div>
+                            <div class="lyrics-unavailable-text">${navigator.onLine ? 'We checked the available lyrics sources and retried twice, but no verified match was returned.' : 'You are offline. Connect to retry online lyrics.'}</div>
                             <div class="lyrics-unavailable-actions">
+                                <button class="btn btn-primary" data-action="retry-lyrics">Try again</button>
                                 <button class="btn" data-action="check-lyrics-cache" data-id="${Utils.escapeHTML(t.id)}">Check cache</button>
                                 <a class="btn" href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener noreferrer">Search lyrics on Google</a>
                                 <a class="btn" href="https://www.google.com/search?q=${detailsQ}" target="_blank" rel="noopener noreferrer">Song details</a>
                             </div>
                         </div>`;
-                        clearTimeout(State.lyricsTimeout);
-                        State.lyricsTimeout = setTimeout(() => {
-                            if (State.isLyricsMode && State.currentTrackId === t.id && State.currentLyrics?.unavailable) {
-                                UI.toggleLyricsMode();
-                                UI.showToast('No lyrics were found. Lyrics view closed.', 'lyrics');
-                            }
-                        }, 5000);
                     } else {
                         lyricsContent.innerHTML = Utils.escapeHTML(lyricsData.text);
                     }

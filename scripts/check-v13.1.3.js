@@ -7,8 +7,8 @@ const html = read('index.html');
 const pkg = JSON.parse(read('package.json'));
 const sw = read('sw.js');
 
-assert.strictEqual(pkg.version, '13.1.3', 'package version should be 13.1.3');
-assert.ok(html.includes('content="13.1.3"'), 'HTML should advertise the current version');
+assert.strictEqual(pkg.version, '13.2.0', 'package version should match the current release');
+assert.ok(html.includes(`content="${pkg.version}"`), 'HTML should advertise the current version');
 assert.strictEqual(read('VERSION').trim(), pkg.version, 'VERSION should agree with package version');
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`), 'service worker should invalidate the previous shell');
 assert.match(html, /class="workspace-toggle-mini"[\s\S]*?class="workspace-toggle-track"[\s\S]*?class="workspace-toggle-thumb"/, 'offline workspace switch markup should stay intact');

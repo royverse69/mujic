@@ -12,7 +12,7 @@ const pkg = JSON.parse(read('package.json'));
 const sw = read('sw.js');
 const settingsUI = read('js/ui-settings.js');
 
-assert.ok(/^13\.1\.\d+$/.test(pkg.version), 'package version should remain in the 13.1.x release line');
+assert.ok(/^13\.2\.\d+$/.test(pkg.version), 'package version should remain in the current 13.2.x release line');
 assert.ok(html.includes(`content="${pkg.version}"`), 'HTML should advertise the current app version');
 assert.ok(read('VERSION').trim() === pkg.version, 'VERSION should agree with package version');
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}`), 'service worker should invalidate the previous shell');

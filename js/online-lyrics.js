@@ -57,16 +57,6 @@
             } catch (_) { }
         }
 
-        if (track.provider === 'machhar') {
-            const title = String(track.title || '').split('(')[0].trim();
-            const artist = String(track.artist || '').split(',')[0].trim();
-            if (!title) return null;
-            try {
-                const payload = await fetchJson(`${LEGACY_BACKEND}lyrics?track=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`);
-                const result = hasText(payload);
-                if (result && metadataMatches(result, track)) return { text: result.text, isSynced: result.synced, source: 'Machhar music source' };
-            } catch (_) { }
-        }
         // LRCLIB is a secondary fallback only after the configured catalogue/backend failed.
         if (navigator.onLine && track.title) {
             const cacheKey = `mujic-lrclib:${norm(track.title)}:${norm(track.artist)}`;
@@ -86,9 +76,11 @@
                 let result = await fetchJson(`${LEGACY_BACKEND}lyrics/get?${params}`, 3200);
                 const valid = item => item && (item.syncedLyrics || item.plainLyrics) && metadataMatches({title:item.trackName, artist:item.artistName}, track);
                 if (!valid(result)) {
+                    // LRCLIB recommends sequential queries with a short pause; exact lookup may
+                    // also trigger indexing that makes a later retry succeed.
+                    await new Promise(resolve => setTimeout(resolve, 280));
                     const searchParams = new URLSearchParams({track_name:title, artist_name:artist});
                     if (track.album) searchParams.set('album_name', String(track.album));
-                    if (duration > 0) searchParams.set('duration', String(Math.round(duration)));
                     const results = await fetchJson(`${LEGACY_BACKEND}lyrics/search?${searchParams}`, 3200);
                     const list = Array.isArray(results) ? results : Array.isArray(results?.data) ? results.data : [];
                     result = list.find(valid) || null;
@@ -103,5 +95,23 @@
         }
         return null;
     };
-    window.OnlineLyrics = { fetchFromMusicSource };
+    const retryLrclib = async track => {
+        if (!track?.title || !navigator.onLine) return null;
+        const title = String(track.title || '').split('(')[0].trim();
+        const artist = String(track.artist || '').split(',')[0].trim();
+        if (!title || !artist) return null;
+        const params = new URLSearchParams({track_name:title, artist_name:artist});
+        if (track.album) params.set('album_name', String(track.album));
+        const duration = Number(track.duration) || 0;
+        if (duration > 0) params.set('duration', String(Math.round(duration)));
+        try {
+            const result = await fetchJson(`${LEGACY_BACKEND}lyrics/get?${params}`, 3000);
+            const text = String(result?.syncedLyrics || result?.plainLyrics || '').trim();
+            if (!text || !metadataMatches({title:result?.trackName,artist:result?.artistName},track)) return null;
+            const lyrics = {text,isSynced:Boolean(result?.syncedLyrics),source:'LRCLIB'};
+            try { sessionStorage.setItem(`mujic-lrclib:${norm(title)}:${norm(artist)}`,JSON.stringify(lyrics)); } catch (_) {}
+            return lyrics;
+        } catch (_) { return null; }
+    };
+    window.OnlineLyrics = { fetchFromMusicSource, retryLrclib };
 })();

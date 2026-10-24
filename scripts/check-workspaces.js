@@ -47,7 +47,7 @@ const required = [
   ['streaming workspace excluded from app-shell cache and loaded lazily', 'js/online-workspace.js', read('js/module-loader.js')],
   ['English hit album shelf is present', 'id="online-shelf-english-hit-albums"', index],
   ['English public playlist shelf is present', 'id="online-shelf-english-playlists"', index],
-  ['English discovery includes artist-focused queries', 'Taylor Swift hits', workspace],
+  ['English discovery retains language-based hit queries', "query:'English hits'", workspace],
   ['single app-controlled search clear button uses text input', 'id="online-search-input" type="text"', index],
   ['appearance values map into CSS data attributes', "setAttribute('data-interface-style'", read('js/ui-settings.js')],
   ['corner radius selection maps into CSS data attributes', "setAttribute('data-corner-radius'", read('js/ui-settings.js')],

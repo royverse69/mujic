@@ -741,10 +741,12 @@
                     else if (action === 'open-full-player') UI.openFullPlayer();
                     else if (action === 'close-full-player') UI.closeFullPlayer();
                     else if (action === 'install-pwa') { e.stopPropagation(); UI.installPWA(); }
+                    else if (action === 'retry-lyrics') { e.stopPropagation(); if (!navigator.onLine) { UI.showToast('Connect to the internet to retry lyrics.', 'wifi'); return; } UI.loadCurrentLyrics({force:true}); }
                     else if (action === 'check-lyrics-cache') {
                         e.stopPropagation();
                         const id = btn.dataset.id;
-                        const track = State.library.find(x => x.id === id);
+                        const currentTrack = Player.getCurrentTrack();
+                        const track = State.library.find(x => x.id === id) || (currentTrack?.id === id ? currentTrack : null);
                         const cached = track ? await LyricsFetcher.getCachedOnly(track) : null;
                         if (cached?.text) {
                             State.currentLyrics = cached;
@@ -839,6 +841,27 @@
             setupGestures: () => {
                 window.addEventListener('resize', () => { AudioAdapter.resizeVisualizer(); if (AudioAdapter.visualizerShouldRun()) AudioAdapter.renderScrubberVisualizerFrame(); });
                 const mainContent = document.getElementById('main-content');
+                const miniPlayer = document.getElementById('mini-player');
+                let previousMainScrollTop = mainContent?.scrollTop || 0;
+                let miniScrollFrame = 0;
+                mainContent?.addEventListener('scroll', () => {
+                    if (miniScrollFrame) return;
+                    miniScrollFrame = requestAnimationFrame(() => {
+                        miniScrollFrame = 0;
+                        const mobile = window.matchMedia('(max-width: 767px), (pointer: coarse)').matches;
+                        if (!mobile || State.isFullPlayerOpen || !miniPlayer?.classList.contains('visible')) {
+                            miniPlayer?.classList.remove('scroll-hidden');
+                            previousMainScrollTop = mainContent.scrollTop;
+                            return;
+                        }
+                        const currentTop = mainContent.scrollTop;
+                        const delta = currentTop - previousMainScrollTop;
+                        if (currentTop < 32) miniPlayer.classList.remove('scroll-hidden');
+                        else if (delta > 7) miniPlayer.classList.remove('scroll-hidden');
+                        else if (delta < -7 && currentTop > 72) miniPlayer.classList.add('scroll-hidden');
+                        previousMainScrollTop = currentTop;
+                    });
+                }, {passive:true});
                 const wheelRailSelector='.horizontal-rail,.online-card-rail';
                 const dragRailSelector='.online-card-rail';
                 const attachRailWheel = rail => {

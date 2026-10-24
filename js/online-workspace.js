@@ -456,22 +456,22 @@
             return await performSearch(q,true);
         } finally { isLoadingMore=false; attachSearchInfiniteScroll(document.getElementById('online-search-results')); }
     };
-    const HOME_TTL = 15 * 60 * 1000;
-    const HOME_CACHE_VERSION = 6;
+    const HOME_TTL = 45 * 60 * 1000;
+    const HOME_CACHE_VERSION = 7;
     const HOME_DEFS = [
         {key:'quick',kind:'quick',node:'online-shelf-quick',derived:true,stage:1},
         {key:'suggested',kind:'songs',query:'',node:'online-shelf-suggested',layout:'list',stage:1},
         {key:'romantic',kind:'playlists',query:'Hindi romantic playlists',node:'online-shelf-romantic',stage:1},
         {key:'trending',kind:'songs',query:'trending songs 2026',node:'online-shelf-trending',stage:1},
-        {key:'latest',kind:'songs',query:'latest new songs 2026',queries:['latest new songs 2026','new Hindi songs 2026','new Bollywood songs 2026','new Punjabi songs 2026','latest English pop songs 2026','latest Indian music releases 2026','popular new songs 2026'],node:'online-shelf-latest',stage:1},
+        {key:'latest',kind:'songs',query:'latest new songs 2026',queries:['latest new songs 2026','new Hindi songs 2026'],node:'online-shelf-latest',stage:1},
         {key:'artists',kind:'wall',node:'online-home-artists-mosaic',wrap:'online-shelf-artists-wrap',stage:2},
         {key:'hits',kind:'songs',query:'Hindi hits',node:'online-shelf-hits',stage:2},
-        {key:'englishHits',kind:'songs',query:'English hits',queries:['English hits','popular English songs','English pop hits','international pop hits','Taylor Swift hits','The Weeknd hits','Ed Sheeran hits','Dua Lipa hits'],node:'online-shelf-english-hits',stage:2},
-        {key:'englishHitAlbums',kind:'albums',query:'English hit albums',queries:['English hit albums','popular English albums','international pop albums','The Weeknd albums','Taylor Swift albums','Ed Sheeran albums'],node:'online-shelf-english-hit-albums',stage:2},
-        {key:'englishPlaylists',kind:'playlists',query:'English hits playlists',queries:['English hits playlists','English pop playlists','international hits playlist','top English songs playlist','global pop hits playlist','English party hits playlist','romantic English songs playlist','English workout playlist'],node:'online-shelf-english-playlists',stage:2},
+        {key:'englishHits',kind:'songs',query:'English hits',queries:['English hits'],node:'online-shelf-english-hits',stage:2},
+        {key:'englishHitAlbums',kind:'albums',query:'English hit albums',queries:['English hit albums'],node:'online-shelf-english-hit-albums',stage:2},
+        {key:'englishPlaylists',kind:'playlists',query:'English hits playlists',queries:['English hits playlists'],node:'online-shelf-english-playlists',stage:2},
         {key:'forYouArtists',kind:'artists',query:'',node:'online-shelf-for-you-artists',stage:2},
         {key:'punjabi',kind:'playlists',query:'Punjabi love songs',node:'online-shelf-punjabi',stage:3},
-        {key:'albums',kind:'albums',query:'Arijit Singh',node:'online-shelf-albums',stage:3}
+        {key:'albums',kind:'albums',query:'Hindi film albums',node:'online-shelf-albums',stage:3}
     ];
     const safeEntity = item => ({id:String(item.id||''),sourceId:String(item.sourceId||''),type:String(item.type||''),title:String(item.title||''),artist:String(item.artist||''),image:String(item.image||''),description:String(item.description||''),year:String(item.year||''),language:String(item.language||''),songCount:Number(item.songCount||0),playCount:Number(item.playCount||0)});
     const cacheHomeShelves = () => { try { localStorage.setItem(KEYS.shelves,JSON.stringify({version:HOME_CACHE_VERSION,savedAt:Date.now(),shelves:Object.fromEntries(Object.entries(homeShelves).map(([key,val])=>[key,{kind:val.kind,items:(val.items||[]).map(item=>val.kind==='songs'?serializeTrack(item):safeEntity(item))}]))})); } catch (_) {} };
@@ -557,41 +557,52 @@
     };
     const collectTrackPages = async query => {
         if(!navigator.onLine||State.playbackSourceMode!=='online')return [];
-        const queries=(Array.isArray(query)?query:[query]).map(value=>String(value||'').trim()).filter(Boolean);
+        const queries=(Array.isArray(query)?query:[query]).map(value=>String(value||'').trim()).filter(Boolean).slice(0,2);
         if(!queries.length)return [];
         let merged=[];
         try {
-            for(let offset=0;offset<queries.length;offset+=2){
-                const batch=queries.slice(offset,offset+2);
-                const pages=await Promise.all(batch.map(term=>OnlineMusic.search(term,{page:0,limit:30,background:true}).catch(()=>[])));
-                merged=dedupeCatalogueTracks([...merged,...pages.flatMap(items=>Array.from(items||[]))]);
-                if(merged.length>=16)break;
+            for(const term of queries){
+                const page=await OnlineMusic.search(term,{page:0,limit:24,background:true}).catch(()=>[]);
+                merged=dedupeCatalogueTracks([...merged,...Array.from(page||[])]);
+                if(merged.length>=8)break;
             }
             return merged.slice(0,24);
         } catch (_) { return merged.slice(0,24); }
     };
     const collectEntityPages = async (kind,query) => {
         if(!navigator.onLine||State.playbackSourceMode!=='online')return [];
-        const queries=(Array.isArray(query)?query:[query]).map(value=>String(value||'').trim()).filter(Boolean);
+        const queries=(Array.isArray(query)?query:[query]).map(value=>String(value||'').trim()).filter(Boolean).slice(0,2);
         if(!queries.length)return [];
         try {
-            const pages=await Promise.all(queries.map(term=>OnlineMusic.searchEntities(kind,term,{page:0,limit:25}).catch(()=>({items:[]}))));
             const seenIds=new Set(),seenNames=new Set(),merged=[];
-            for(const item of pages.flatMap(result=>result.items||[])){
-                const id=String(item.sourceId||item.id||'');
-                const name=String(item.title||'').toLocaleLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-                if(!id||seenIds.has(id)||!name||seenNames.has(name))continue;
-                seenIds.add(id);seenNames.add(name);merged.push(item);
+            for(const term of queries){
+                const result=await OnlineMusic.searchEntities(kind,term,{page:0,limit:20}).catch(()=>({items:[]}));
+                for(const item of result.items||[]){
+                    const id=String(item.sourceId||item.id||'');
+                    const name=String(item.title||'').toLocaleLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+                    if(!id||seenIds.has(id)||!name||seenNames.has(name))continue;
+                    seenIds.add(id);seenNames.add(name);merged.push(item);
+                }
+                if(merged.length>=8)break;
             }
             return merged.slice(0,30);
         } catch (_) { return []; }
     };
-    const HOME_ARTIST_QUERIES = [
-        'Arijit Singh','Shreya Ghoshal','Sonu Nigam','Neha Kakkar','Kumar Sanu','Udit Narayan','Sunidhi Chauhan','Shaan','Alka Yagnik','KK',
-        'Atif Aslam','Jubin Nautiyal','Armaan Malik','Pritam','Badshah','Diljit Dosanjh','Sidhu Moose Wala','AP Dhillon','Karan Aujla','Guru Randhawa',
-        'Yo Yo Honey Singh','A R Rahman','Lata Mangeshkar','Kishore Kumar','Mohammed Rafi','Asha Bhosle','B Praak','Shankar Mahadevan','Mohit Chauhan','Mika Singh',
-        'Rahat Fateh Ali Khan','Kailash Kher','Sukhwinder Singh','Taylor Swift','The Weeknd','Billie Eilish','Ed Sheeran','Justin Bieber','Dua Lipa','Adele'
-    ];
+    const getHomeArtistQueries = limit => {
+        const names = [];
+        const add = value => {
+            const name = String(value || '').trim();
+            const key = titleKey(name);
+            if (key && !names.some(existing => titleKey(existing) === key)) names.push(name);
+        };
+        for (const item of [...onlineHistory, ...onlineFavorites].slice(0, 18)) {
+            const artist = String(item?.artist || '').split(/,|&|\bfeat(?:uring)?\.?\b|\bft\.?\b/i)[0].trim();
+            if (artist) add(artist);
+            if (names.length >= limit) break;
+        }
+        for (const item of topArtistSeeds(limit)) { add(item.name); if (names.length >= limit) break; }
+        return names.slice(0, limit);
+    };
     const hasRealArtistImage = item => Boolean(item?.image && !OnlineMusic.isGenericArtistArtwork?.(item.image));
     const isNonArtistRawType = item => {
         const kind=String(item?.raw?.type||item?.raw?.resultType||item?.raw?.entityType||'').toLowerCase().trim().replace(/[_\s]+/g,'-');
@@ -661,33 +672,28 @@
                 seenIds.add(id);seenNames.add(name);selected.push({...item,image:hasRealArtistImage(item)?item.image:''});
             };
             const cachedNames=new Set(selected.map(item=>titleKey(item.title)));
-            const queryAllowance=Math.max(0,targetCount-selected.length+4);
-            const queues=HOME_ARTIST_QUERIES.filter(q=>!cachedNames.has(titleKey(q))).slice(0,queryAllowance);
-            for(let offset=0;offset<queues.length;offset+=5){
+            const queues=getHomeArtistQueries(Math.min(4, Math.max(0, targetCount-selected.length))).filter(q=>!cachedNames.has(titleKey(q)));
+            for(let offset=0;offset<queues.length;offset+=2){
                 if(!navigator.onLine||State.playbackSourceMode!=='online'||selected.length>=targetCount)break;
-                const batch=queues.slice(offset,offset+Math.min(5,targetCount-selected.length));
+                const batch=queues.slice(offset,offset+2);
                 const results=await Promise.all(batch.map(async query=>{
                     let items=[];try{const page=await OnlineMusic.searchEntities('artists',query,{page:0,limit:10});items=page.items||[];}catch(_){}
-                    if(!findArtistMatch(items,query)&&targetCount>=24){try{const global=await OnlineMusic.globalSearch(query);items=[...items,...(global.artists||[])];}catch(_) {}}
                     return {query,items};
                 }));
                 for(const result of results)accept(findArtistMatch(result.items,result.query),result.query);
                 artistCatalogue=selected.slice();onProgress?.(rankArtistItems(artistCatalogue).slice(0,targetCount));
             }
-            if(selected.length<targetCount&&targetCount>=24&&navigator.onLine&&State.playbackSourceMode==='online'){
-                for(const query of ['international pop artists','popular Indian artists']){
-                    if(selected.length>=targetCount)break;
-                    try{
-                        const page=await OnlineMusic.searchEntities('artists',query,{page:0,limit:30});
-                        for(const item of page.items||[]){
-                            const title=String(item.title||'');if(!item?.sourceId||!title||isNonArtistRawType(item)||/\b(?:playlist|mix|collection|compilation|singer rights|various artists|official audio|song collection|album collection|official video)\b/i.test(title))continue;
-                            const name=titleKey(title),id=String(item.sourceId);if(seenIds.has(id)||seenNames.has(name)||name.length<2)continue;
-                            seenIds.add(id);seenNames.add(name);selected.push({...item,image:hasRealArtistImage(item)?item.image:''});
-                            if(selected.length>=targetCount)break;
-                        }
-                    }catch(_){}
-                    artistCatalogue=selected.slice();onProgress?.(rankArtistItems(artistCatalogue).slice(0,targetCount));
-                }
+            if(selected.length<Math.min(8,targetCount)&&!onlineHistory.length&&!onlineFavorites.length&&navigator.onLine&&State.playbackSourceMode==='online'){
+                try{
+                    const page=await OnlineMusic.searchEntities('artists','popular music artists',{page:0,limit:20});
+                    for(const item of page.items||[]){
+                        const title=String(item.title||'');if(!item?.sourceId||!title||isNonArtistRawType(item)||/\b(?:playlist|mix|collection|compilation|singer rights|various artists|official audio|song collection|album collection|official video)\b/i.test(title))continue;
+                        const name=titleKey(title),id=String(item.sourceId);if(seenIds.has(id)||seenNames.has(name)||name.length<2)continue;
+                        seenIds.add(id);seenNames.add(name);selected.push({...item,image:hasRealArtistImage(item)?item.image:''});
+                        if(selected.length>=targetCount)break;
+                    }
+                }catch(_){}
+                artistCatalogue=selected.slice();onProgress?.(rankArtistItems(artistCatalogue).slice(0,targetCount));
             }
             const missing=targetCount>=24?selected.filter(item=>!item.image).slice(0,Math.min(4,selected.length)):[];
             for(let offset=0;offset<missing.length;offset+=2){
@@ -921,11 +927,11 @@
         }
         home.dataset.recommendationLanguage=profile.preferred;
     };
-    const SUGGEST_TTL = 3*60*60*1000;
+    const SUGGEST_TTL = 6*60*60*1000;
     const DAYPART_QUERIES = {
-        balanced:{morning:['Hindi morning songs','soft Hindi acoustic songs'],afternoon:['Hindi hits','Punjabi hits'],evening:['Hindi romantic songs','Arijit Singh romantic songs'],night:['Hindi lofi songs','late night Hindi songs']},
+        balanced:{morning:['Hindi morning songs','soft Hindi acoustic songs'],afternoon:['Hindi hits','Punjabi hits'],evening:['Hindi romantic songs','Bollywood love songs'],night:['Hindi lofi songs','late night Hindi songs']},
         english:{morning:['English acoustic pop','soft English songs'],afternoon:['popular English hits','global pop hits'],evening:['romantic English songs','English love songs'],night:['English chill pop','late night English songs']},
-        hindi:{morning:['Hindi morning songs','soft Hindi acoustic songs'],afternoon:['Hindi hits','Bollywood hits'],evening:['Hindi romantic songs','Arijit Singh romantic songs'],night:['Hindi lofi songs','late night Hindi songs']},
+        hindi:{morning:['Hindi morning songs','soft Hindi acoustic songs'],afternoon:['Hindi hits','Bollywood hits'],evening:['Hindi romantic songs','Bollywood love songs'],night:['Hindi lofi songs','late night Hindi songs']},
         punjabi:{morning:['soft Punjabi songs','Punjabi acoustic songs'],afternoon:['Punjabi hits','Punjabi pop hits'],evening:['Punjabi romantic songs','Punjabi love songs'],night:['Punjabi lofi songs','late night Punjabi songs']}
     };
     const suggestionSeeds = () => {
@@ -934,23 +940,23 @@
             const key=artistKey(track.artist);
             if(!key||seen.has(key))continue;
             seen.add(key);seeds.push({track,key});
-            if(seeds.length>=2)break;
+            if(seeds.length>=1)break;
         }
         for(const artist of topArtistSeeds(4)){
             if(seen.has(artist.key))continue;
             seen.add(artist.key);seeds.push({name:artist.name,key:artist.key});
-            if(seeds.length>=4)break;
+            if(seeds.length>=2)break;
         }
         return seeds;
     };
-    const suggestionSignature = seeds => `render-v1|${getLanguagePreference().language}|${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
+    const suggestionSignature = seeds => `render-v2|${getLanguagePreference().language}|${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
     const buildSuggestions = async seeds => {
         const played=new Set(),prints=new Set();
         onlineHistory.slice(0,60).forEach(track=>{played.add(track.id);prints.add(fingerprint(track));});
         onlineFavorites.forEach(track=>{played.add(track.id);prints.add(fingerprint(track));});
         const preferred=getLanguagePreference().language;
         const querySet=DAYPART_QUERIES[preferred]||DAYPART_QUERIES.balanced;
-        const queries=querySet[daypart()]||DAYPART_QUERIES.balanced[daypart()];
+        const queries=(querySet[daypart()]||DAYPART_QUERIES.balanced[daypart()]).slice(0,1);
         const lists=await Promise.all(seeds.map(async seed=>{
             try{
                 if(seed.track && OnlineMusic.fetchSuggestions) return await OnlineMusic.fetchSuggestions(seed.track);
@@ -984,7 +990,7 @@
     };
     const restoreSuggest = () => {
         const stored=safeRead(KEYS.suggest,null);
-        if(!stored?.items?.length||!String(stored.sig||'').startsWith('render-v1|'))return;
+        if(!stored||!Array.isArray(stored.items)||!String(stored.sig||'').startsWith('render-v2|'))return;
         suggestState={sig:String(stored.sig||''),savedAt:Number(stored.savedAt)||0,items:hydrate(stored.items),loading:''};
     };
     const updateSuggestNote = seeds => {
@@ -997,19 +1003,19 @@
     const refreshQuickPicks = async (force=false) => {
         if (State.playbackSourceMode !== 'online' || !navigator.onLine) return homeShelves.quick?.items || [];
         const cached = homeShelves.quick?.items || [];
-        if (!force && cached.length && Date.now() - (homeShelves.quick?.savedAt || homeLastLoaded || 0) < QUICK_PICKS_TTL) return cached;
+        if (!force && homeShelves.quick && Date.now() - (homeShelves.quick?.savedAt || homeLastLoaded || 0) < QUICK_PICKS_TTL) return cached;
         if (quickPicksPromise) return quickPicksPromise;
         quickPicksPromise = (async () => {
             try {
                 const items = dedupeCatalogueTracks(await OnlineMusic.fetchQuickPicks());
-                if (items.length) {
-                    homeShelves.quick = { kind: 'songs', items: items.slice(0, 40), savedAt: Date.now(), source: 'render' };
-                    cacheHomeShelves();
-                    if (State.playbackSourceMode === 'online') renderShelfItem(HOME_DEFS[0], []);
-                }
-                return homeShelves.quick?.items || [];
+                homeShelves.quick = { kind: 'songs', items: items.slice(0, 40), savedAt: Date.now(), source: 'render' };
+                cacheHomeShelves();
+                if (State.playbackSourceMode === 'online') renderShelfItem(HOME_DEFS[0], []);
+                return homeShelves.quick.items;
             } catch (error) {
                 console.warn('[Mujic] Render Quick Picks unavailable; retaining cached/local picks.', error);
+                homeShelves.quick = { kind: 'songs', items: cached.slice(0, 40), savedAt: Date.now(), source: homeShelves.quick?.source || 'render-miss' };
+                cacheHomeShelves();
                 return cached;
             } finally { quickPicksPromise = null; }
         })();
@@ -1019,16 +1025,16 @@
         if(State.playbackSourceMode!=='online'||!navigator.onLine)return suggestState.items;
         const seeds=suggestionSeeds(),sig=suggestionSignature(seeds);
         updateSuggestNote(seeds);
-        const fresh=sig===suggestState.sig&&Date.now()-suggestState.savedAt<SUGGEST_TTL&&suggestState.items.length;
+        const fresh=sig===suggestState.sig&&Date.now()-suggestState.savedAt<SUGGEST_TTL;
         if(!force&&fresh)return suggestState.items;
         if(suggestState.loading===sig)return suggestState.items;
         suggestState.loading=sig;
         try{
             const items=await buildSuggestions(seeds);
+            suggestState={sig,items,savedAt:Date.now(),loading:''};
+            persistSuggest();
             if(items.length){
-                suggestState={sig,items,savedAt:Date.now(),loading:''};
                 homeShelves.suggested={kind:'songs',items};
-                persistSuggest();
                 const def=HOME_DEFS.find(item=>item.key==='suggested');
                 if(def&&State.playbackSourceMode==='online')renderShelfItem(def,items);
                 renderShelfItem(HOME_DEFS[0],[]);
@@ -1052,7 +1058,7 @@
             homeShelves.forYouArtists={kind:'artists',items:list};
             HOME_DEFS.filter(def=>def.key==='artists').forEach(def=>renderShelfItem(def,list));
         };
-        try{const artists=await collectHomeArtists(items=>apply(items),24);apply(artists);}catch(_){}
+        try{const artists=await collectHomeArtists(items=>apply(items),12);apply(artists);}catch(_){}
     };
     const loadHomeShelves = async (force=false) => {
         if(homeLoadPromise)return homeLoadPromise;
@@ -1973,7 +1979,7 @@
         const input=document.getElementById('online-search-input');
         if(input&&input.dataset.bound!=='1'){
             input.dataset.bound='1';let timer;
-            input.addEventListener('input',()=>{clearTimeout(timer);const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!input.value.trim();const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=input.value.trim().length>=2;if(input.value.trim().length<2){renderSearchBlank();return;}const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;timer=setTimeout(()=>performSearch(input.value),140);});
+            input.addEventListener('input',()=>{clearTimeout(timer);const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!input.value.trim();const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=input.value.trim().length>=2;if(input.value.trim().length<2){renderSearchBlank();return;}const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;timer=setTimeout(()=>performSearch(input.value),360);});
             input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);performSearch(input.value);}});
         }
         initBackToTop();restoreQueueSnapshot(State.playbackSourceMode==='online'?'online':'offline');updateWorkspaceUI();renderSearchHistory();setSearchTypeUI();renderSearchBlank();setLibraryTab('playlists');
