@@ -1926,3 +1926,33 @@ body.reduced-motion #mini-player { will-change:auto; }
   #mini-player.scroll-hidden { transform:translate3d(0,calc(100% + 22px),0) !important; }
   .online-media-card:active,.online-category-card:active,.online-entity-card:active { transform:scale(.985); }
 }
+
+
+/* v13.2.2 — scroll-aware dock and corner-aware active navigation chip. */
+#bottom-nav { transition: transform 360ms var(--mujic-motion-spring, cubic-bezier(.2,.78,.22,1)), opacity 200ms ease; }
+#bottom-nav .nav-item { border-radius: var(--radius-md); transition: background-color 220ms ease, color 180ms ease, transform 260ms var(--mujic-motion-spring, cubic-bezier(.2,.78,.22,1)); }
+body[data-corner-radius="sharp"] #bottom-nav .nav-item.active { border-radius: 0 !important; }
+body[data-corner-radius="medium"] #bottom-nav .nav-item.active { border-radius: 8px !important; }
+body[data-corner-radius="rounded"] #bottom-nav .nav-item.active { border-radius: 14px !important; }
+body[data-corner-radius="extra"] #bottom-nav .nav-item.active { border-radius: 999px !important; }
+@media (max-width: 767px) {
+  #bottom-nav { transform: translate3d(0,0,0); will-change: transform; }
+  #bottom-nav.scroll-hidden { transform: translate3d(0,calc(100% + 18px),0) !important; opacity: 0; pointer-events: none !important; }
+  #mini-player { transition: transform 320ms var(--mujic-motion-spring, cubic-bezier(.2,.78,.22,1)), bottom 360ms var(--mujic-motion-spring, cubic-bezier(.2,.78,.22,1)), opacity 180ms ease, background-color 220ms ease; }
+  body.nav-scroll-hidden #mini-player.visible { bottom: calc(8px + var(--safe-bottom)); }
+  body.nav-scroll-hidden #mini-player.scroll-hidden { transform: translateY(0) !important; opacity: 1; pointer-events: auto !important; }
+}
+@media (min-width: 768px) { #bottom-nav { transition:none; } }
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  body:not(.low-end-mode):not(.reduced-motion) .view.active { animation: mujic-view-morph 340ms var(--mujic-motion-spring, cubic-bezier(.2,.78,.22,1)) both; }
+  @keyframes mujic-view-morph {
+    from { opacity: 0; transform: translateY(7px) scale(.992); clip-path: inset(0 round 28px); }
+    to { opacity: 1; transform: translateY(0) scale(1); clip-path: inset(0 round 0); }
+  }
+}
+body.low-end-mode #bottom-nav { transition: transform 180ms ease, opacity 120ms ease; }
+body.reduced-motion #bottom-nav { transition: opacity 120ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  #bottom-nav, #bottom-nav .nav-item, #mini-player { transition-duration: 120ms !important; animation:none !important; }
+  body.nav-scroll-hidden #mini-player.visible { bottom: calc(8px + var(--safe-bottom)); }
+}

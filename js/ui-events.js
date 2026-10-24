@@ -54,9 +54,12 @@
                     style.textContent = `
                         :root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#09090b;color:#f8fafc}
                         *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;background:#09090b;overflow:hidden}
-                        body{padding:12px}.pip{height:100%;display:flex;flex-direction:column;gap:10px}
-                        .track{display:flex;align-items:center;gap:11px;min-width:0;flex:1}
-                        .art{width:58px;height:58px;border-radius:9px;object-fit:cover;background:#19191f;flex:none}
+                        body{padding:12px;position:relative;isolation:isolate}.pip{height:100%;display:flex;flex-direction:column;gap:10px;position:relative;z-index:1}
+                        .pip-bg{position:absolute;inset:-18px;width:calc(100% + 36px);height:calc(100% + 36px);object-fit:cover;filter:blur(22px) saturate(1.25);opacity:.42;transform:scale(1.05);pointer-events:none;z-index:0}
+                        body:after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(6,7,10,.38),rgba(6,7,10,.86));pointer-events:none;z-index:1}
+                        .pip{z-index:2}
+                        .track{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+                        .art{width:72px;height:72px;border-radius:11px;object-fit:cover;background:#19191f;flex:none;box-shadow:0 8px 25px #0007}
                         .meta{min-width:0;flex:1}.title{font-size:13px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
                         .artist{font-size:11px;margin-top:4px;color:#a1a1aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
                         .status{font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:#a1a1aa;margin-top:5px}
@@ -70,8 +73,8 @@
                         @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
                     `;
                     pipDoc.head.appendChild(style);
-                    pipDoc.body.innerHTML = `<main class="pip" aria-label="Mujic mini player">
-                        <section class="track"><img class="art" id="mj-pip-art" alt="Album cover"><div class="meta"><div class="title" id="mj-pip-title">Mujic</div><div class="artist" id="mj-pip-artist">Ready to play</div><div class="status" id="mj-pip-status">NOW PLAYING</div></div></section>
+                    pipDoc.body.innerHTML = `<img class="pip-bg" id="mj-pip-bg" alt="" aria-hidden="true"><main class="pip" aria-label="Mujic mini player">
+                        <section class="track"><img class="art" id="mj-pip-art" width="72" height="72" alt="Album cover"><div class="meta"><div class="title" id="mj-pip-title">Mujic</div><div class="artist" id="mj-pip-artist">Ready to play</div><div class="status" id="mj-pip-status">NOW PLAYING</div></div></section>
                         <section class="timeline"><input class="seek" id="mj-pip-seek" type="range" min="0" max="1" value="0" step="0.1" aria-label="Seek through song"><div class="times"><span id="mj-pip-current">0:00</span><span id="mj-pip-duration">0:00</span></div></section>
                         <nav class="controls" aria-label="Playback controls"><button id="mj-pip-prev" title="Previous track" aria-label="Previous track">|◀</button><button id="mj-pip-back" class="skip" title="Back 10 seconds" aria-label="Back 10 seconds">−10s</button><button id="mj-pip-toggle" class="primary" title="Play" aria-label="Play">▶</button><button id="mj-pip-forward" class="skip" title="Forward 10 seconds" aria-label="Forward 10 seconds">+10s</button><button id="mj-pip-next" title="Next track" aria-label="Next track">▶|</button></nav>
                     </main>`;
@@ -105,9 +108,17 @@
                             get('mj-pip-artist').textContent = artist;
                             pipDoc.title = `${title} · Mujic`;
                             const cover = get('mj-pip-art');
+                            const backgroundArt = get('mj-pip-bg');
                             const src = imageFor(track);
-                            if (src && cover.src !== src) cover.src = src;
-                            cover.onerror = () => { const fallback=window.Utils?.defaultArt||''; if (fallback && cover.src !== fallback) cover.src=fallback; };
+                            if (src && cover.dataset.source !== src) { cover.dataset.source = src; cover.src = src; }
+                            if (src && backgroundArt.dataset.source !== src) { backgroundArt.dataset.source = src; backgroundArt.src = src; }
+                            cover.onerror = () => {
+                                const fallback=window.Utils?.defaultArt||'';
+                                if (fallback && cover.dataset.source !== fallback) {
+                                    cover.dataset.source=fallback; cover.src=fallback;
+                                    backgroundArt.dataset.source=fallback; backgroundArt.src=fallback;
+                                }
+                            };
                         }
                         const duration = Number(audio.duration);
                         const current = Math.max(0, Number(audio.currentTime) || Number(State.currentTime) || 0);
@@ -182,10 +193,19 @@
                             if(!force&&paintKey===lastCanvasPaintKey)return;
                             lastCanvasPaintKey=paintKey;
                             ctx.fillStyle='#09090b';ctx.fillRect(0,0,640,360);
-                            try{if(art?.complete&&art.naturalWidth){const size=250;ctx.save();ctx.beginPath();ctx.roundRect(36,55,size,size,22);ctx.clip();ctx.drawImage(art,36,55,size,size);ctx.restore();}}catch(_){}
-                            ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='600 25px system-ui';ctx.fillText(fit(title,290),320,150);
-                            ctx.fillStyle='#b9b9c2';ctx.font='18px system-ui';ctx.fillText(fit(artist,290),320,185);
-                            ctx.fillStyle='#777';ctx.font='14px system-ui';ctx.fillText('MUJIC · NOW PLAYING',320,225);
+                            try {
+                                if (art?.complete && art.naturalWidth) {
+                                    const aw=art.naturalWidth, ah=art.naturalHeight;
+                                    const coverScale=Math.max(640/aw,360/ah), bw=aw*coverScale, bh=ah*coverScale;
+                                    ctx.save();ctx.filter='blur(18px) saturate(1.2)';ctx.globalAlpha=.92;
+                                    ctx.drawImage(art,(640-bw)/2,(360-bh)/2,bw,bh);ctx.restore();
+                                    ctx.fillStyle='rgba(5,6,10,.68)';ctx.fillRect(0,0,640,360);
+                                    const size=224;ctx.save();ctx.filter='none';ctx.beginPath();ctx.roundRect(38,68,size,size,22);ctx.clip();ctx.drawImage(art,38,68,size,size);ctx.restore();
+                                }
+                            } catch (_) {}
+                            ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='600 25px system-ui';ctx.fillText(fit(title,300),292,148);
+                            ctx.fillStyle='#dedee5';ctx.font='18px system-ui';ctx.fillText(fit(artist,300),292,184);
+                            ctx.fillStyle='#c0c0ca';ctx.font='14px system-ui';ctx.fillText('MUJIC · NOW PLAYING',292,226);
                         };
                         video._pipPaint(true);
                         const pipAudioEvents=['play','playing','pause','timeupdate','loadedmetadata','durationchange','seeking','seeked','ratechange','ended','emptied','loadstart','canplay'];
@@ -358,9 +378,15 @@
                             case 'picture-in-picture':
                                 e.preventDefault(); e.stopPropagation(); await openPlayerPiP(); return;
                             case 'lyrics-share-start':
-                                e.preventDefault(); e.stopPropagation(); UI.closeSheets(true); window.LyricsShare?.startSelection(); return;
+                                e.preventDefault(); e.stopPropagation(); UI.closeSheets(true);
+                                try { await window.MujicModules?.ensureLyricsShare?.(); window.LyricsShare?.startSelection(); }
+                                catch (error) { console.warn('[Mujic] Could not load lyric share tools', error); UI.showToast('Lyric sharing could not load. Check storage and try again.', 'error'); }
+                                return;
                             case 'lyrics-share-open':
-                                e.preventDefault(); e.stopPropagation(); await window.LyricsShare?.openCard(); return;
+                                e.preventDefault(); e.stopPropagation();
+                                try { await window.MujicModules?.ensureLyricsShare?.(); await window.LyricsShare?.openCard(); }
+                                catch (error) { console.warn('[Mujic] Could not load lyric share tools', error); UI.showToast('Lyric sharing could not load. Try again.', 'error'); }
+                                return;
                             case 'lyrics-share-close':
                                 e.preventDefault(); e.stopPropagation(); window.LyricsShare?.closeCard(); return;
                             case 'lyrics-share-download':
@@ -818,6 +844,7 @@
                     if (key === 'keepScreenAwake') AudioAdapter.setWakeLock(State.keepScreenAwake);
                     if (key === 'lyricsShareEnabled') {
                         if (!State.lyricsShareEnabled) window.LyricsShare?.cancelSelection();
+                        else window.MujicModules?.ensureLyricsShare?.().catch(error => console.warn('[Mujic] Lyric sharing will load when used.', error));
                         UI.showToast(State.lyricsShareEnabled ? 'Lyric sharing enabled.' : 'Lyric sharing disabled.', 'check_circle');
                     }
                     if (key === 'lyricsTimingOffset') { State.activeLyricIndex = -1; UI.syncLyrics(State.currentTime); }
@@ -842,25 +869,41 @@
                 window.addEventListener('resize', () => { AudioAdapter.resizeVisualizer(); if (AudioAdapter.visualizerShouldRun()) AudioAdapter.renderScrubberVisualizerFrame(); });
                 const mainContent = document.getElementById('main-content');
                 const miniPlayer = document.getElementById('mini-player');
+                const bottomNav = document.getElementById('bottom-nav');
+                const setNavCollapsed = collapsed => {
+                    const shouldCollapse = Boolean(collapsed) && window.matchMedia('(max-width: 767px)').matches && !State.isFullPlayerOpen;
+                    bottomNav?.classList.toggle('scroll-hidden', shouldCollapse);
+                    document.body.classList.toggle('nav-scroll-hidden', shouldCollapse);
+                    if (bottomNav) {
+                        bottomNav.inert = shouldCollapse;
+                        bottomNav.setAttribute('aria-hidden', String(shouldCollapse));
+                    }
+                    miniPlayer?.classList.remove('scroll-hidden');
+                };
+                UI.setNavCollapsed = setNavCollapsed;
                 let previousMainScrollTop = mainContent?.scrollTop || 0;
-                let miniScrollFrame = 0;
+                let navScrollFrame = 0;
                 mainContent?.addEventListener('scroll', () => {
-                    if (miniScrollFrame) return;
-                    miniScrollFrame = requestAnimationFrame(() => {
-                        miniScrollFrame = 0;
-                        const mobile = window.matchMedia('(max-width: 767px), (pointer: coarse)').matches;
-                        if (!mobile || State.isFullPlayerOpen || !miniPlayer?.classList.contains('visible')) {
-                            miniPlayer?.classList.remove('scroll-hidden');
-                            previousMainScrollTop = mainContent.scrollTop;
+                    if (navScrollFrame) return;
+                    navScrollFrame = requestAnimationFrame(() => {
+                        navScrollFrame = 0;
+                        const currentTop = mainContent.scrollTop;
+                        const mobile = window.matchMedia('(max-width: 767px)').matches;
+                        if (!mobile || State.isFullPlayerOpen) {
+                            setNavCollapsed(false);
+                            previousMainScrollTop = currentTop;
                             return;
                         }
-                        const currentTop = mainContent.scrollTop;
                         const delta = currentTop - previousMainScrollTop;
-                        if (currentTop < 32) miniPlayer.classList.remove('scroll-hidden');
-                        else if (delta > 7) miniPlayer.classList.remove('scroll-hidden');
-                        else if (delta < -7 && currentTop > 72) miniPlayer.classList.add('scroll-hidden');
+                        if (currentTop < 24) setNavCollapsed(false);
+                        else if (delta > 6 && !bottomNav?.contains(document.activeElement)) setNavCollapsed(true);
+                        else if (delta < -6) setNavCollapsed(false);
                         previousMainScrollTop = currentTop;
                     });
+                }, {passive:true});
+                window.addEventListener('resize', () => {
+                    const mobile = window.matchMedia('(max-width: 767px)').matches;
+                    if (!mobile) setNavCollapsed(false);
                 }, {passive:true});
                 const wheelRailSelector='.horizontal-rail,.online-card-rail';
                 const dragRailSelector='.online-card-rail';

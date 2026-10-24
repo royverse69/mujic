@@ -1,5 +1,5 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.2.0-cloudflare-edge';
+const CACHE_NAME = 'mujic-pwa-v13.2.2-cloudflare-edge';
 const API_CACHE = 'mujic-api-v3';
 const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';
@@ -20,7 +20,7 @@ const MAX_MEDIA_IMAGE_ENTRIES = 400;
 const MAX_MEDIA_IMAGE_BYTES = 80 * 1024 * 1024;
 const APP_SHELL = [
   './', './index.html', './VERSION', './manifest.webmanifest', './css/app.css',
-  './js/vendor-loader.js', './js/vendor/qrcode-generator.js', './js/core.js', './js/storage.js', './js/backend-config.js', './js/module-loader.js', './js/online-provider.js', './js/lyrics.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/lyrics-share.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/onboarding.js', './js/app.js',
+  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/backend-config.js', './js/module-loader.js', './js/online-provider.js', './js/lyrics.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/lyrics-share.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/onboarding.js', './js/app.js',
   './data/discovery-catalog.json', './icons/icon-192.png', './icons/icon-512.png', './icons/Spotify%20Logo%20-%20Black.png', './icons/Spotify%20Logo%20-%20White.png'
 ];
 const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];

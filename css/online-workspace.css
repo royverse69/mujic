@@ -307,7 +307,8 @@ body.online-mode #view-online-home .online-home-heading{margin-top:0!important;m
 @media(min-width:1200px){#view-online-home .online-home-heading.home-header{margin-bottom:42px}}
 @media(max-width:380px){#view-online-home .online-home-heading .home-title{font-size:24px}#view-online-home .online-home-heading .home-action-btn{width:36px;height:36px;min-width:36px}}
 
-#view-online-home .online-shelf{content-visibility:auto;contain-intrinsic-size:auto 270px}
+#view-online-home .online-shelf{content-visibility:visible;contain:none}
+#view-online-home #online-shelf-artists-wrap, #view-online-home #online-shelf-for-you-artists-wrap, #view-online-home #online-shelf-recent-artists-wrap, #view-online-home #online-shelf-popular-artists-wrap, #view-online-home #online-shelf-radio-wrap { content-visibility:visible !important; contain:none !important; }
 
 @media(max-width:767px){
   #view-online-home .online-shelf{content-visibility:visible;contain-intrinsic-size:auto}
@@ -766,7 +767,9 @@ body.reduced-motion .view.active,body.low-end-mode .view.active{animation:none}
 #online-search-results.is-refreshing > :not(.online-search-loading-status) { opacity:.58; }
 #online-search-results[aria-busy="true"] { cursor:progress; }
 .online-network-description { max-width:520px; margin:0; color:var(--text-secondary); font-size:13px; line-height:1.55; }
-.online-workspace-view .track-row, .online-entity-grid > .online-entity-card, .online-card-rail > .online-media-card { content-visibility:auto; contain-intrinsic-size:auto 66px; }
+.online-workspace-view .track-row { content-visibility:auto; contain-intrinsic-size:auto 66px; }
+/* Image-bearing cards keep a stable paint layer while scrolling; lazy images have explicit dimensions. */
+.online-entity-grid > .online-entity-card, .online-card-rail > .online-media-card { content-visibility:visible; contain:layout style; }
 .online-media-art img, .online-entity-art img { aspect-ratio:1; }
 @media (pointer:coarse) { .online-load-more-wrap .btn, .online-search-tab { min-height:44px; } }
 

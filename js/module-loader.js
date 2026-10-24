@@ -3,6 +3,7 @@
     const onlineScripts = ['./js/online-cache.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/discovery-catalog-data.js', './js/online-workspace.js'];
     let onlinePromise = null;
     let onlineCssPromise = null;
+    let lyricsSharePromise = null;
     const loadScript = src => new Promise((resolve, reject) => {
         const url = new URL(src, document.baseURI).href;
         const existing = [...document.scripts].find(script => script.src === url);
@@ -45,6 +46,21 @@
             await loadScript(src); return true; })().catch(error => { onlinePromise = null; throw error; });
         return onlinePromise;
     };
-    window.MujicModules = { ensureOnline };
+    const ensureLyricsShare = () => {
+        if (window.LyricsShare) {
+            window.LyricsShare.init?.();
+            return Promise.resolve(true);
+        }
+        if (lyricsSharePromise) return lyricsSharePromise;
+        lyricsSharePromise = loadScript('./js/lyrics-share.js').then(() => {
+            window.LyricsShare?.init?.();
+            return true;
+        }).catch(error => {
+            lyricsSharePromise = null;
+            throw error;
+        });
+        return lyricsSharePromise;
+    };
+    window.MujicModules = { ensureOnline, ensureLyricsShare };
 })();
 

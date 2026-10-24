@@ -7,7 +7,7 @@ const html = read('index.html');
 const pkg = JSON.parse(read('package.json'));
 const sw = read('sw.js');
 
-assert.strictEqual(pkg.version, '13.2.0', 'package version should match the current release');
+assert.ok(/^13\.2\.\d+$/.test(pkg.version), 'package version should remain in the 13.2 patch line');
 assert.ok(html.includes(`content="${pkg.version}"`), 'HTML should advertise the current version');
 assert.strictEqual(read('VERSION').trim(), pkg.version, 'VERSION should agree with package version');
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`), 'service worker should invalidate the previous shell');

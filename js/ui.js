@@ -66,6 +66,7 @@
                     if (vid === 'online-search') vid = 'search'; else vid = 'home';
                 }
                 UI.closeSheets(true);
+                UI.setNavCollapsed?.(false);
                 const preservePlayer = fromHistory && !!history.state?.mujic && !!history.state?.player;
                 if (!preservePlayer) UI.closeFullPlayer(true);
                 if (!fromHistory) {

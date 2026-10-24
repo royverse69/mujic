@@ -7,7 +7,7 @@
                     const t=State.library.find(x=>x.id===ev.trackId); const title=ev.title||t?.title||'Unknown track'; const artist=ev.artist||t?.artist||'Unknown Artist';
                     const art=Utils.generateDefaultArt(title); const subtitle=ev.playedAt ? new Date(ev.playedAt).toLocaleString() : 'From listening history';
                     return `<div class="track-row" ${t?`data-action="play-track" data-id="${Utils.escapeHTML(t.id)}" data-context="library"`:''}>
-                        <img class="track-art-small lazy-art" src="${art}" data-seed="${Utils.escapeHTML(title)}" ${t?.artworkId?`data-art-id="${t.artworkId}"`:''} alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${art}';">
+                        <img width="48" height="48" class="track-art-small lazy-art" src="${art}" data-seed="${Utils.escapeHTML(title)}" ${t?.artworkId?`data-art-id="${t.artworkId}"`:''} alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${art}';">
                         <div class="track-meta"><div class="item-title">${Utils.escapeHTML(title)}</div><div class="item-subtitle">${Utils.escapeHTML(artist)} · ${Utils.escapeHTML(subtitle)}</div></div>
                         ${t?'<span class="material-symbols-rounded">play_arrow</span>':''}</div>`;
                 }).join('') : '<div class="empty-state"><div class="empty-desc">Your listening history will appear here.</div></div>';
