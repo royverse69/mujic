@@ -85,15 +85,17 @@
                     }
                 }
                 const searchInput=searchBar.querySelector('input');
+                let lastSettingsSearchTerm='';
+                let settingsFilterTimer=0;
                 const filterSettings=query=>{
                     const term=String(query||'').trim().toLowerCase();
+                    const enteringSearch=Boolean(term&&!lastSettingsSearchTerm);
                     const overviewShown=!term;
                     overview.classList.toggle('hidden',!overviewShown);
                     overview.querySelectorAll('.settings-category-card').forEach(card=>{
                         const match=!term||card.textContent.toLowerCase().includes(term);
                         card.hidden=!match;
                     });
-                    let firstMatch=null;
                     pages.querySelectorAll('.settings-subpage').forEach(page=>{
                         let pageMatches=false;
                         page.querySelectorAll('.settings-section').forEach(section=>{
@@ -112,13 +114,12 @@
                         const pageVisible=Boolean(term&&pageMatches);
                         page.classList.toggle('active',pageVisible);
                         page.classList.toggle('hidden',term?!pageVisible:true);
-                        if(pageVisible&&!firstMatch)firstMatch=page;
                     });
                     if(term){
                         const title=root.querySelector(':scope > h1');if(title)title.classList.add('hidden');
                         State.settingsGroup=null;
-                        const main=document.getElementById('main-content');if(main)main.scrollTop=0;
-                        if(firstMatch){const firstSection=firstMatch.querySelector('.settings-section:not([hidden])');firstSection?.scrollIntoView({block:'start',behavior:'auto'});}
+                        /* Only reset scroll when search starts; scrolling every keypress caused jumps and forced layout. */
+                        if(enteringSearch){const main=document.getElementById('main-content');if(main)main.scrollTop=0;else window.scrollTo({top:0,behavior:'auto'});}
                     } else {
                         const selected=State.settingsGroup;
                         const title=root.querySelector(':scope > h1');if(title)title.classList.toggle('hidden',Boolean(selected));
@@ -126,8 +127,12 @@
                         sections.forEach(section=>{section.hidden=false;section.querySelectorAll('.settings-row').forEach(row=>row.hidden=false);});
                         pages.querySelectorAll('.settings-subpage').forEach(page=>{const match=page.dataset.settingsGroup===selected;page.classList.toggle('active',Boolean(selected&&match));page.classList.toggle('hidden',!selected||!match);});
                     }
+                    lastSettingsSearchTerm=term;
                 };
-                searchInput?.addEventListener('input',()=>filterSettings(searchInput.value));
+                searchInput?.addEventListener('input',()=>{
+                    window.clearTimeout(settingsFilterTimer);
+                    settingsFilterTimer=window.setTimeout(()=>filterSettings(searchInput.value),45);
+                });
             },
             setSettingsGroup: (group, fromHistory = false) => {
                 const root=document.getElementById('view-settings'); if(!root) return;

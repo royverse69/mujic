@@ -172,10 +172,19 @@
                 if (State.isLyricsMode) UI.loadCurrentLyrics();
             },
             updatePlayPause: () => {
-                const icon = State.isPlaying ? 'pause' : 'play_arrow';
-                document.getElementById('mini-play-btn').innerText = icon; document.getElementById('full-play-btn').innerText = icon;
+                const isPlaying = Boolean(State.isPlaying);
+                const icon = isPlaying ? 'pause' : 'play_arrow';
+                const label = isPlaying ? 'Pause' : 'Play';
+                const miniIcon = document.getElementById('mini-play-btn');
+                const fullIcon = document.getElementById('full-play-btn');
+                if (miniIcon) miniIcon.textContent = icon;
+                if (fullIcon) fullIcon.textContent = icon;
+                const miniButton = miniIcon?.closest('button');
+                const fullButton = fullIcon?.closest('[data-action="toggle-play"]');
+                if (miniButton) miniButton.setAttribute('aria-label', label);
+                if (fullButton) { fullButton.setAttribute('aria-label', label); fullButton.setAttribute('title', `${label} playback`); }
                 const art = document.getElementById('player-art-container');
-                if(State.isPlaying) art.classList.remove('paused'); else art.classList.add('paused');
+                if (art) art.classList.toggle('paused', !isPlaying);
             },
             updateProgress: () => {
                 const p = State.duration > 0 ? Math.max(0, Math.min(100, (State.currentTime / State.duration) * 100)) : 0;

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic — Music Player</title>
-    <meta name="application-version" content="13.1.1">
+    <meta name="application-version" content="13.1.2">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -60,7 +60,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,650&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:FILL@0..1&icon_names=add,apps,arrow_back,arrow_forward,auto_awesome,bedtime,check,check_circle,chevron_right,clear_all,close,cloud_off,cloud_upload,delete,delete_forever,download,download_for_offline,drag_indicator,edit,equalizer,error,favorite,favorite_border,format_quote,fullscreen,fullscreen_exit,graphic_eq,history,home,hourglass_empty,info,ios_share,keyboard,keyboard_arrow_down,keyboard_arrow_up,library_add,library_music,link,lyrics,more_horiz,more_vert,music_note,north_east,open_in_new,palette,picture_in_picture_alt,play_arrow,playlist_add,playlist_add_check,playlist_play,queue_music,radio,refresh,remove,remove_circle_outline,repeat,repeat_one,search,settings,share,shuffle,skip_next,skip_previous,speaker,speed,star,step,swap_horiz,sync,timer,tips_and_updates,travel_explore,tune,verified,visibility,volume_down,volume_off,volume_up,wifi,wifi_off,system_update&display=block" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:FILL@0..1&icon_names=add,apps,arrow_back,arrow_forward,auto_awesome,bedtime,check,check_circle,chevron_right,clear_all,close,cloud_off,cloud_upload,delete,delete_forever,download,download_for_offline,drag_indicator,edit,equalizer,error,favorite,favorite_border,format_quote,fullscreen,fullscreen_exit,graphic_eq,history,home,hourglass_empty,info,ios_share,keyboard,keyboard_arrow_down,keyboard_arrow_up,library_add,library_music,link,lyrics,more_horiz,more_vert,music_note,north_east,open_in_new,palette,picture_in_picture_alt,play_arrow,playlist_add,playlist_add_check,playlist_play,queue_music,radio,refresh,remove,remove_circle_outline,repeat,repeat_one,search,settings,share,shuffle,skip_next,skip_previous,speaker,speed,star,step,pause,swap_horiz,sync,timer,tips_and_updates,travel_explore,tune,verified,visibility,volume_down,volume_off,volume_up,wifi,wifi_off,system_update&display=block" rel="stylesheet">
 
     <link rel="stylesheet" href="./css/app.css">
 </head>
@@ -552,7 +552,7 @@
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="stopOnPageHide" aria-label="Stop on page exit"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Keep screen awake</div><div class="settings-desc">Request a screen wake lock while the full player is open. Browser support varies.</div></div>
+                        <div class="settings-text"><div class="settings-label">Keep screen awake in full-screen player</div><div class="settings-desc">When enabled, prevent the display from sleeping while the player is open, including in landscape. Requires browser screen-wake-lock support.</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="keepScreenAwake" aria-label="Keep screen awake"></div>
                     </div>
                     <div class="settings-row">

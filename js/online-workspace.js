@@ -116,13 +116,24 @@
         }
         return out;
     };
+    const searchHistoryChip = query => `<div class="online-search-history-chip"><button type="button" class="online-chip" data-action="online-search-query" data-query="${esc(query)}">${esc(query)}</button><button type="button" class="online-search-history-remove" data-action="online-remove-search-history" data-query="${esc(query)}" aria-label="Remove search ${esc(query)}" title="Remove from search history"><span class="material-symbols-rounded" aria-hidden="true">close</span></button></div>`;
     const rememberSearch = q => {
         const value = String(q||'').trim(); if (!value) return;
         searchHistory = [value, ...searchHistory.filter(x => String(x).toLowerCase() !== value.toLowerCase())].slice(0,30); persist(); renderSearchHistory();
+        if (document.getElementById('view-online-search')?.classList.contains('active') && !document.getElementById('online-search-input')?.value?.trim()) renderSearchBlank();
+    };
+    const removeSearchHistory = query => {
+        const value=String(query||'').trim(); if(!value)return false;
+        const before=searchHistory.length;
+        searchHistory=searchHistory.filter(item=>String(item).toLocaleLowerCase()!==value.toLocaleLowerCase());
+        if(searchHistory.length===before)return false;
+        persist(); renderSearchHistory();
+        if(document.getElementById('view-online-search')?.classList.contains('active')&&!document.getElementById('online-search-input')?.value?.trim())renderSearchBlank();
+        return true;
     };
     const renderSearchHistory = () => {
         const el = document.getElementById('online-recent-searches'); if (!el) return;
-        el.innerHTML = searchHistory.slice(0,8).map(q => `<button type="button" class="online-chip" data-action="online-search-query" data-query="${esc(q)}">${esc(q)}</button>`).join('');
+        el.innerHTML = searchHistory.slice(0,8).map(searchHistoryChip).join('');
     };
     const renderTrackRows = (tracks, context, emptyText='Nothing here yet.') => {
         const list = (Array.isArray(tracks) ? tracks : []).filter(Boolean);
@@ -163,7 +174,7 @@
         setSearchTypeUI();
         if (!navigator.onLine) { renderConnectivityState(); return; }
         const recent = searchHistory.slice(0,8);
-        const chips = recent.map(q=>`<button type="button" class="online-chip" data-action="online-search-query" data-query="${esc(q)}">${esc(q)}</button>`).join('');
+        const chips = recent.map(searchHistoryChip).join('');
         const categories = discoveryCatalog?.categories || DISCOVERY_FALLBACK.categories;
         const categoryCards = categories.map(category => `<button type="button" class="online-category-card category-${esc(category.theme||category.id)}" data-action="online-open-category" data-id="${esc(category.id)}" aria-label="Explore ${esc(category.label)}"><img class="online-category-art" src="${esc(category.art)}" alt="" loading="lazy" decoding="async"><span class="online-category-kicker">Explore</span><strong>${esc(category.label)}</strong></button>`).join('');
         if(!discoveryCatalog)loadDiscoveryCatalog();
@@ -798,7 +809,7 @@
         const part=daypart(),language=String(track.language||'').toLowerCase().trim(),artist=artistKey(track.artist);
         taste.parts=taste.parts||{};
         const bucket=taste.parts[part]=taste.parts[part]||{langs:{},artists:{}};
-        if(language)bucket.langs[language]=(bucket.langs[language]||0)+1;
+        if(language&&language!=='unknown')bucket.langs[language]=(bucket.langs[language]||0)+1;
         if(artist)bucket.artists[artist]=(bucket.artists[artist]||0)+1;
         trimCounts(bucket.langs,8);trimCounts(bucket.artists,24);
         trackPlays[track.id]=(trackPlays[track.id]||0)+1;
@@ -842,7 +853,7 @@
             const stat=artistStatFor({title:String(track.artist||'').split(/,|&/)[0].trim()});
             if(stat)value+=Math.min(stat.plays||0,25)*.8+((Date.now()-(stat.lastPlayedAt||0))<604800000?4:0);
             value+=Math.min(bucket.artists[artistKey(track.artist)]||0,10)*1.2;
-            const language=String(track.language||'').toLowerCase();
+            const language=languageFamily(track);
             if(language&&bucket.langs[language])value+=Math.min(bucket.langs[language],12)*.5;
             if(!historyIndex.has(track.id)&&!favoriteIds.has(track.id))value-=2;
             return value;
@@ -857,8 +868,66 @@
         }
         return out;
     };
+    const languageFamily = track => {
+        const raw = [track?.language,track?.raw?.language,track?.raw?.more_info?.language,track?.raw?.songLanguage].filter(Boolean).join(' ').toLowerCase().trim();
+        if (/\b(english|eng|en|en-us|en-gb|international)\b/.test(raw)) return 'english';
+        if (/\b(hindi|hin|hi|bollywood)\b/.test(raw)) return 'hindi';
+        if (/\b(punjabi|panjabi|pun|pa)\b/.test(raw)) return 'punjabi';
+        if (/\b(spanish|español|spa)\b/.test(raw)) return 'spanish';
+        if (/\b(korean|kor|k-pop)\b/.test(raw)) return 'korean';
+        const title = String(track?.title || '');
+        if (/[\u0A00-\u0A7F]/.test(title)) return 'punjabi';
+        if (/[\u0900-\u097F]/.test(title)) return 'hindi';
+        return 'unknown';
+    };
+    const getLanguagePreference = () => {
+        const scores={english:0,hindi:0,punjabi:0,spanish:0,korean:0};
+        const history=onlineHistory.map(trackById).filter(Boolean).slice(0,80);
+        history.forEach((track,index)=>{
+            const family=languageFamily(track); if (!Object.prototype.hasOwnProperty.call(scores,family)) return;
+            const recency=Math.exp(-index/24);
+            const repeats=Math.min(2.6,1+Math.log1p(Number(trackPlays[track.id]||0))*.38);
+            scores[family]+=recency*repeats;
+        });
+        for (const bucket of Object.values(taste.parts||{})) {
+            for (const [language,count] of Object.entries(bucket?.langs||{})) {
+                const family=languageFamily({language});
+                if (Object.prototype.hasOwnProperty.call(scores,family)) scores[family]+=Math.min(35,Number(count)||0)*.075;
+            }
+        }
+        const ranked=Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+        const total=ranked.reduce((sum,row)=>sum+row[1],0);
+        const [leader,runner]=ranked;
+        return {language:total>0&&leader[1]>=Math.max(2.4,runner[1]*1.18)&&leader[1]/total>=.39?leader[0]:'balanced',scores,total};
+    };
+    const languageShelfOrder = () => {
+        const preferred=getLanguagePreference().language;
+        const orders={
+            english:['online-shelf-english-playlists-wrap','online-shelf-english-hits-wrap','online-shelf-english-hit-albums-wrap','online-shelf-trending-wrap','online-shelf-latest-wrap','online-shelf-romantic-wrap','online-shelf-punjabi-wrap','online-shelf-hits-wrap','online-shelf-albums-wrap','online-shelf-radio-wrap','online-shelf-artists-wrap','online-shelf-for-you-artists-wrap','online-shelf-recent-artists-wrap','online-shelf-popular-artists-wrap','online-shelf-recent-wrap'],
+            hindi:['online-shelf-romantic-wrap','online-shelf-hits-wrap','online-shelf-trending-wrap','online-shelf-latest-wrap','online-shelf-punjabi-wrap','online-shelf-english-playlists-wrap','online-shelf-english-hits-wrap','online-shelf-english-hit-albums-wrap','online-shelf-albums-wrap','online-shelf-radio-wrap','online-shelf-artists-wrap','online-shelf-for-you-artists-wrap','online-shelf-recent-artists-wrap','online-shelf-popular-artists-wrap','online-shelf-recent-wrap'],
+            punjabi:['online-shelf-punjabi-wrap','online-shelf-romantic-wrap','online-shelf-hits-wrap','online-shelf-trending-wrap','online-shelf-latest-wrap','online-shelf-english-playlists-wrap','online-shelf-english-hits-wrap','online-shelf-english-hit-albums-wrap','online-shelf-albums-wrap','online-shelf-radio-wrap','online-shelf-artists-wrap','online-shelf-for-you-artists-wrap','online-shelf-recent-artists-wrap','online-shelf-popular-artists-wrap','online-shelf-recent-wrap'],
+            balanced:['online-shelf-romantic-wrap','online-shelf-trending-wrap','online-shelf-latest-wrap','online-shelf-hits-wrap','online-shelf-english-hits-wrap','online-shelf-english-playlists-wrap','online-shelf-english-hit-albums-wrap','online-shelf-punjabi-wrap','online-shelf-albums-wrap','online-shelf-radio-wrap','online-shelf-artists-wrap','online-shelf-for-you-artists-wrap','online-shelf-recent-artists-wrap','online-shelf-popular-artists-wrap','online-shelf-recent-wrap']
+        };
+        return {preferred,ids:orders[preferred]||orders.balanced};
+    };
+    const arrangePersonalizedHomeShelves = () => {
+        const home=document.getElementById('view-online-home'); if(!home)return;
+        const footer=home.querySelector('.online-brand-footer');
+        const profile=languageShelfOrder();
+        const top=['online-shelf-quick-wrap','online-shelf-suggested-wrap','online-shelf-collections-wrap'];
+        for(const id of [...top,...profile.ids]) {
+            const section=document.getElementById(id);
+            if(section&&section.parentElement===home)home.insertBefore(section,footer||null);
+        }
+        home.dataset.recommendationLanguage=profile.preferred;
+    };
     const SUGGEST_TTL = 3*60*60*1000;
-    const DAYPART_QUERIES = {morning:['Hindi morning songs','soft Hindi acoustic songs'],afternoon:['Hindi hits','Punjabi hits'],evening:['Hindi romantic songs','Arijit Singh romantic songs'],night:['Hindi lofi songs','late night Hindi songs']};
+    const DAYPART_QUERIES = {
+        balanced:{morning:['Hindi morning songs','soft Hindi acoustic songs'],afternoon:['Hindi hits','Punjabi hits'],evening:['Hindi romantic songs','Arijit Singh romantic songs'],night:['Hindi lofi songs','late night Hindi songs']},
+        english:{morning:['English acoustic pop','soft English songs'],afternoon:['popular English hits','global pop hits'],evening:['romantic English songs','English love songs'],night:['English chill pop','late night English songs']},
+        hindi:{morning:['Hindi morning songs','soft Hindi acoustic songs'],afternoon:['Hindi hits','Bollywood hits'],evening:['Hindi romantic songs','Arijit Singh romantic songs'],night:['Hindi lofi songs','late night Hindi songs']},
+        punjabi:{morning:['soft Punjabi songs','Punjabi acoustic songs'],afternoon:['Punjabi hits','Punjabi pop hits'],evening:['Punjabi romantic songs','Punjabi love songs'],night:['Punjabi lofi songs','late night Punjabi songs']}
+    };
     const suggestionSeeds = () => {
         const seeds=[],seen=new Set();
         for(const track of onlineHistory.map(trackById).filter(Boolean)){
@@ -874,12 +943,14 @@
         }
         return seeds;
     };
-    const suggestionSignature = seeds => `render-v1|${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
+    const suggestionSignature = seeds => `render-v1|${getLanguagePreference().language}|${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
     const buildSuggestions = async seeds => {
         const played=new Set(),prints=new Set();
         onlineHistory.slice(0,60).forEach(track=>{played.add(track.id);prints.add(fingerprint(track));});
         onlineFavorites.forEach(track=>{played.add(track.id);prints.add(fingerprint(track));});
-        const queries=DAYPART_QUERIES[daypart()];
+        const preferred=getLanguagePreference().language;
+        const querySet=DAYPART_QUERIES[preferred]||DAYPART_QUERIES.balanced;
+        const queries=querySet[daypart()]||DAYPART_QUERIES.balanced[daypart()];
         const lists=await Promise.all(seeds.map(async seed=>{
             try{
                 if(seed.track && OnlineMusic.fetchSuggestions) return await OnlineMusic.fetchSuggestions(seed.track);
@@ -1032,6 +1103,7 @@
     };
     const renderHomePersonal = () => {
         updateGreeting();
+        arrangePersonalizedHomeShelves();
         renderShelfItem(HOME_DEFS[0],[]);
         const suggestedDef=HOME_DEFS.find(def=>def.key==='suggested');
         if(suggestedDef)renderShelfItem(suggestedDef,homeShelves.suggested?.items||[]);
@@ -2046,5 +2118,5 @@
     const backToPlaylists = () => { activePlaylistId=null; renderPlaylists(); };
     const getOnlineHistory = () => onlineHistory.map(trackById).filter(Boolean);
     const getSearchResults = () => searchResults.slice();
-    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,saveQueueSnapshot,setSearchType,openRemoteEntity,openCurrentArtist,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,openCategory,openRadioDirectory,openRadioStation,startRadio,startArtistRadio,extendRadioQueue,playCategory,loadMoreCategory,isRadioActive:()=>Boolean(activeRadioSession&&State.playbackSourceMode==='online'),getPlaybackLabel,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},playTrackFromShelf:(id,context)=>{const list=shelfContexts.get(context)||[];const ix=list.findIndex(t=>t.id===id);if(ix>=0){const ordered=[...list.slice(ix),...list.slice(0,ix)];setSearchContext(list);Player.playContext(ordered,0);}else{const t=trackById(id);if(t)Player.playContext([t],0);}},clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,openLikedFromHome,renderSettings,renderSettingsStats,renderSettingsCache,setCaching,clearAllCaches,resetTaste,exportStreamingLibrary,importStreamingLibrary,getListeningStats,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal};
+    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,removeSearchHistory,saveQueueSnapshot,setSearchType,openRemoteEntity,openCurrentArtist,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,openCategory,openRadioDirectory,openRadioStation,startRadio,startArtistRadio,extendRadioQueue,playCategory,loadMoreCategory,isRadioActive:()=>Boolean(activeRadioSession&&State.playbackSourceMode==='online'),getPlaybackLabel,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},playTrackFromShelf:(id,context)=>{const list=shelfContexts.get(context)||[];const ix=list.findIndex(t=>t.id===id);if(ix>=0){const ordered=[...list.slice(ix),...list.slice(0,ix)];setSearchContext(list);Player.playContext(ordered,0);}else{const t=trackById(id);if(t)Player.playContext([t],0);}},clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,openLikedFromHome,renderSettings,renderSettingsStats,renderSettingsCache,setCaching,clearAllCaches,resetTaste,exportStreamingLibrary,importStreamingLibrary,getListeningStats,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal,getLanguagePreference};
 })();

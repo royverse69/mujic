@@ -1,7 +1,7 @@
 /* Copyright mujic@royverse69 */
         const AudioAdapter = {
             audio: new Audio(), ctx: null, source: null, analyser:null, eqFilters:[], compressor:null, masterGain:null, mediaMetadataRequestId:0,
-            currentObjectUrl:null, visualizerRAF:0, visualizerLastFrameAt:0, visualizerFreqData:null, silenceStart:0, lastSilenceCheck:0, wakeLock:null, lastMediaSeekAt:0, progressiveSeekCount:0,
+            currentObjectUrl:null, visualizerRAF:0, visualizerLastFrameAt:0, visualizerFreqData:null, silenceStart:0, lastSilenceCheck:0, wakeLock:null, wakeLockRequest:null, wakeLockToastAt:0, lastMediaSeekAt:0, progressiveSeekCount:0,
             remoteAttemptInProgress:false, remoteAttemptToken:0, lastRemoteError:null, remoteRecoveryTrackId:null, remoteRecoveryAttempted:false,
             init: () => {
                 AudioAdapter.audio.addEventListener('timeupdate', () => {
@@ -104,7 +104,15 @@
                     else { console.error("Audio error", e); UI.showToast("Playback error occurred", "error"); Player.pause(); }
                 });
                 AudioAdapter.setupMediaSession();
-                document.addEventListener('visibilitychange', () => { if (State.keepScreenAwake && document.visibilityState === 'visible') AudioAdapter.setWakeLock(true); });
+                const refreshScreenWakeLock = () => {
+                    if (State.keepScreenAwake && State.isFullPlayerOpen && document.visibilityState === 'visible') {
+                        AudioAdapter.setWakeLock(true);
+                    }
+                };
+                document.addEventListener('visibilitychange', refreshScreenWakeLock);
+                window.addEventListener('orientationchange', refreshScreenWakeLock, {passive:true});
+                window.screen?.orientation?.addEventListener?.('change', refreshScreenWakeLock);
+                window.addEventListener('resize', refreshScreenWakeLock, {passive:true});
                 window.addEventListener('focus', () => Player.syncNowPlaying?.());
                 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Player.syncNowPlaying?.(); });
                 window.addEventListener('pagehide', () => { if (State.stopOnPageHide) AudioAdapter.pause(); });
@@ -201,14 +209,36 @@
                 } catch(e) { AudioAdapter.silenceStart = 0; }
             },
             setWakeLock: async (enabled = State.keepScreenAwake) => {
-                const shouldHold = !!(enabled && State.keepScreenAwake && State.isFullPlayerOpen);
-                if (!shouldHold) { try { await AudioAdapter.wakeLock?.release(); } catch (e) { Utils.warn(e); } AudioAdapter.wakeLock = null; return; }
-                if (!('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
-                if (AudioAdapter.wakeLock) return;
-                try {
-                    AudioAdapter.wakeLock = await navigator.wakeLock.request('screen');
-                    AudioAdapter.wakeLock.addEventListener('release', () => { AudioAdapter.wakeLock = null; });
-                } catch(e) { if (State.keepScreenAwake && State.isFullPlayerOpen) UI.showToast('Screen wake lock is unavailable in this browser.', 'info'); }
+                const shouldHold = Boolean(enabled && State.keepScreenAwake && State.isFullPlayerOpen && document.visibilityState === 'visible');
+                if (!shouldHold) {
+                    const held = AudioAdapter.wakeLock;
+                    AudioAdapter.wakeLock = null;
+                    try { await held?.release(); } catch (e) { Utils.warn(e); }
+                    return;
+                }
+                if (!('wakeLock' in navigator)) return;
+                if (AudioAdapter.wakeLock && !AudioAdapter.wakeLock.released) return;
+                if (AudioAdapter.wakeLockRequest) return AudioAdapter.wakeLockRequest;
+                AudioAdapter.wakeLockRequest = (async () => {
+                    let lock = null;
+                    try {
+                        lock = await navigator.wakeLock.request('screen');
+                        const stillNeeded = Boolean(State.keepScreenAwake && State.isFullPlayerOpen && document.visibilityState === 'visible');
+                        if (!stillNeeded) { await lock.release(); return; }
+                        AudioAdapter.wakeLock = lock;
+                        lock.addEventListener('release', () => {
+                            if (AudioAdapter.wakeLock === lock) AudioAdapter.wakeLock = null;
+                            if (State.keepScreenAwake && State.isFullPlayerOpen && document.visibilityState === 'visible') {
+                                window.setTimeout(() => AudioAdapter.setWakeLock(true), 120);
+                            }
+                        });
+                    } catch (e) {
+                        if (State.keepScreenAwake && State.isFullPlayerOpen && Date.now()-AudioAdapter.wakeLockToastAt>10000) { AudioAdapter.wakeLockToastAt=Date.now(); UI.showToast('Screen wake lock is unavailable in this browser.', 'info'); }
+                    } finally {
+                        AudioAdapter.wakeLockRequest = null;
+                    }
+                })();
+                return AudioAdapter.wakeLockRequest;
             },
             handlePlaybackFailure: (requestId, trackName, err) => {
                 if (requestId !== State.playbackRequestId) return;

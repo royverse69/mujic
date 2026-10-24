@@ -443,6 +443,8 @@
                             }
                             case 'online-clear-search':
                                 e.preventDefault(); e.stopPropagation(); OnlineWorkspace.clearSearch(); return;
+                            case 'online-remove-search-history':
+                                e.preventDefault(); e.stopPropagation(); OnlineWorkspace.removeSearchHistory(btn.dataset.query); return;
                             case 'online-toggle-artist-bio': {
                                 e.preventDefault(); e.stopPropagation(); const bio=document.getElementById('online-artist-bio'); if(bio){const expanded=bio.classList.toggle('is-expanded');btn.textContent=expanded?'Read less':'Read more';btn.setAttribute('aria-expanded',String(expanded));} return;
                             }
