@@ -765,7 +765,7 @@ The final network fallback uses the configured backend:
 
 ```js
 const BACKEND_BASE =
-  'https://gaana-suno-varna-machhar-aajayega.onrender.com/';
+  'https://mujic.calverse.online/';
 ```
 
 The request format is:
@@ -777,7 +777,7 @@ GET /lyrics?track=SONG_TITLE&artist=ARTIST_NAME
 Full endpoint form:
 
 ```text
-https://gaana-suno-varna-machhar-aajayega.onrender.com/lyrics?track=SONG_TITLE&artist=ARTIST_NAME
+https://mujic.calverse.online/lyrics?track=SONG_TITLE&artist=ARTIST_NAME
 ```
 
 The frontend accepts several common response shapes (`lyrics`, `syncedLyrics`, `plainLyrics`, `text`, or nested data) to make the fallback tolerant of backend response variations.
@@ -2288,7 +2288,7 @@ Mujic is built using browser-native web technologies and the following external 
 The lyrics subsystem can use:
 
 - LRCLIB
-- the configured Render backend at `gaana-suno-varna-machhar-aajayega.onrender.com`
+- the configured Render backend at `mujic.calverse.online`
 
 These services are optional enhancement paths; the core local audio library does not depend on them for offline playback.
 

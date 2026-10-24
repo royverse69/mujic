@@ -1,0 +1,11 @@
+name = "mujic-api"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+# Serve the Worker on the hostname the PWA talks to.
+routes = [
+  { pattern = "mujic.calverse.online", custom_domain = true }
+]
+
+[observability]
+enabled = true

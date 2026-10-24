@@ -1,13 +1,14 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.0.21-cloudflare-only-search-cache-hardening';
+const CACHE_NAME = 'mujic-pwa-v13.1.1-cloudflare-edge';
 const API_CACHE = 'mujic-api-v3';
 const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';
 const API_ORIGIN = 'https://mujic.calverse.online';
 const API_FRESH_MS = 30 * 60 * 1000;
-const API_SONG_FRESH_MS = 10 * 60 * 1000;
-const API_SEARCH_FRESH_MS = 45 * 1000;
-const API_SEARCH_STALE_MS = 10 * 60 * 1000;
+const API_SONG_FRESH_MS = 4 * 60 * 1000;
+const API_SEARCH_FRESH_MS = 5 * 60 * 1000;
+const API_SEARCH_STALE_MS = 60 * 60 * 1000;
+const NAVIGATION_TIMEOUT_MS = 3500;
 const API_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_API_ENTRIES = 400;
 const MAX_ART_ENTRIES = 600;
@@ -18,8 +19,8 @@ const MAX_MEDIA_CHUNK_BYTES = 262144;
 const MAX_MEDIA_IMAGE_ENTRIES = 400;
 const MAX_MEDIA_IMAGE_BYTES = 80 * 1024 * 1024;
 const APP_SHELL = [
-  './', './index.html', './VERSION', './manifest.webmanifest', './css/app.css', './css/online-workspace.css',
-  './js/vendor-loader.js', './js/vendor/qrcode-generator.js', './js/core.js', './js/storage.js', './js/backend-config.js', './js/lyrics.js', './js/online-cache.js', './js/online-provider.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/discovery-catalog-data.js', './js/online-workspace.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/lyrics-share.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/onboarding.js', './js/app.js',
+  './', './index.html', './VERSION', './manifest.webmanifest', './css/app.css',
+  './js/vendor-loader.js', './js/vendor/qrcode-generator.js', './js/core.js', './js/storage.js', './js/backend-config.js', './js/module-loader.js', './js/online-provider.js', './js/lyrics.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/lyrics-share.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/onboarding.js', './js/app.js',
   './data/discovery-catalog.json', './icons/icon-192.png', './icons/icon-512.png', './icons/Spotify%20Logo%20-%20Black.png', './icons/Spotify%20Logo%20-%20White.png'
 ];
 const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];
@@ -55,7 +56,7 @@ const mediaRouteKey = (pathname, source) => {
   key.searchParams.set('src', source);
   return new Request(key.href, { method:'GET' });
 };
-const fetchBackendMedia = async (source, request, rangeOverride = '') => {
+const fetchBackendMedia = (source, request, rangeOverride = '') => {
   const target = new URL(BACKEND_MEDIA_BASE);
   target.searchParams.set('url', source);
   const headers = new Headers();
@@ -64,14 +65,9 @@ const fetchBackendMedia = async (source, request, rangeOverride = '') => {
     if (value) headers.set(name, value);
   }
   if (rangeOverride) headers.set('Range', rangeOverride);
-  const controller = new AbortController();
-  const timeoutMs = rangeOverride ? 12000 : 25000;
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(target.href, {
-      method:'GET', headers, credentials:'omit', cache:'no-store', redirect:'follow', signal:controller.signal
-    });
-  } finally { clearTimeout(timer); }
+  /* One retry on a network error; the Worker already caches media at the edge. */
+  const go = () => fetch(target.href, { method:'GET', headers, credentials:'omit', redirect:'follow' });
+  return go().catch(() => go());
 };
 const storeMediaChunk = async (cache, key, response) => {
   const range = response.headers.get('Content-Range') || '';
@@ -154,54 +150,41 @@ const trimEntries = async (cache, max) => {
   const keys = await cache.keys();
   if (keys.length > max) await Promise.all(keys.slice(0, keys.length - max).map(key => cache.delete(key)));
 };
-const cacheableWorkerPath = pathname =>
-  pathname.startsWith('/api/') || pathname === '/search' || pathname.startsWith('/search/') ||
-  pathname === '/trending' || pathname.startsWith('/queue/') || pathname.startsWith('/stream/') ||
-  pathname === '/lyrics' || pathname.startsWith('/lyrics/') || pathname.startsWith('/lyricsplus/');
-const normalizeApiCacheUrl = value => {
-  const url = new URL(value);
-  url.searchParams.delete('__mujic_backend_origin');
-  url.searchParams.sort();
-  return url.href;
-};
 const storeApi = async (cache, url, response) => {
   if (!response || response.status !== 200 || !/json/i.test(response.headers.get('Content-Type') || '')) return;
   const body = await response.clone().arrayBuffer();
   if (!body.byteLength || body.byteLength > 1536 * 1024) return;
   const headers = new Headers(response.headers);
   headers.set('X-Mujic-Cached-At', String(Date.now()));
-  await cache.put(normalizeApiCacheUrl(url), new Response(body, {status:200, headers}));
+  const cacheUrl = new URL(url);
+  await cache.put(cacheUrl.href, new Response(body, {status:200, headers}));
   await trimEntries(cache, MAX_API_ENTRIES);
 };
+const isCacheableApiPath = pathname => pathname.startsWith('/api/') || /^\/(?:trending|queue\/|search$|suggest$|lyrics(?:\/|$)|lyricsplus\/)/.test(pathname);
 const handleApi = async (request, event) => {
   if (!(await cachingEnabled())) return fetch(request);
   const cache = await caches.open(API_CACHE);
-  const cacheKey = normalizeApiCacheUrl(request.url);
-  const cached = await cache.match(cacheKey);
+  const cacheKey = new URL(request.url);
+  const cached = await cache.match(cacheKey.href);
   const age = cached ? Date.now() - Number(cached.headers.get('X-Mujic-Cached-At') || 0) : Infinity;
-  const parsed = new URL(request.url);
-  const pathname = parsed.pathname;
-  const isSearch = /(?:^|\/)search(?:\/|$)/.test(pathname);
-  const isSong = /(?:^|\/)(?:songs?|stream)(?:\/|$)/.test(pathname);
-  const isQueue = pathname.startsWith('/queue/');
-  const isLyrics = pathname === '/lyrics' || pathname.startsWith('/lyrics/');
-  const fresh = isSearch ? API_SEARCH_FRESH_MS : (isSong ? API_SONG_FRESH_MS : (isQueue ? 3 * 60 * 1000 : (isLyrics ? 24 * 60 * 60 * 1000 : API_FRESH_MS)));
-  const staleLimit = isSearch || isQueue ? API_SEARCH_STALE_MS : API_STALE_MS;
+  const pathname = new URL(request.url).pathname;
+  const isSearch = /^\/(?:api\/)?search(?:\/|$)/.test(pathname);
+  const isSong = /^\/(?:api\/songs|song|stream)(?:\/|$)/.test(pathname);
+  const fresh = isSearch ? API_SEARCH_FRESH_MS : (isSong ? API_SONG_FRESH_MS : API_FRESH_MS);
+  const staleLimit = isSearch ? API_SEARCH_STALE_MS : API_STALE_MS;
   if (cached && age < fresh) return cached;
   const refresh = async () => {
-    const response = await fetch(request.url, {credentials:'omit', mode:'cors', cache:'no-store'});
+    const response = await fetch(request.url, {credentials:'omit', mode:'cors'});
     await storeApi(cache, request.url, response);
-    if (!response.ok && cached && age < staleLimit) return cached;
     return response;
   };
-  if (cached && age < staleLimit && !isSong && !isLyrics) {
+  if (cached && age < staleLimit && !isSong) {
     event.waitUntil(refresh().catch(() => {}));
     return cached;
   }
   try {
     const response = await fetch(request);
     await storeApi(cache, request.url, response).catch(() => {});
-    if (!response.ok && cached && age < staleLimit) return cached;
     return response;
   } catch (error) {
     if (cached && age < staleLimit) return cached;
@@ -283,7 +266,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(handleMediaRoute(req).catch(() => new Response('Media proxy unavailable', {status:502,headers:{'Content-Type':'text/plain; charset=utf-8'}})));
     return;
   }
-  if (url.origin === API_ORIGIN && cacheableWorkerPath(url.pathname)) {
+  if (url.origin === API_ORIGIN && isCacheableApiPath(url.pathname) && !req.headers.has('Range')) {
     event.respondWith(handleApi(req, event).catch(() => Response.error()));
     return;
   }
@@ -299,11 +282,16 @@ self.addEventListener('fetch', event => {
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(req);
     if (req.mode === 'navigate') {
+      /* Network first, but never hang: a stalled connection falls back to the cached shell after a short wait. */
+      const shell = cached || await cache.match('./index.html');
+      const controller = new AbortController();
+      const timer = shell ? setTimeout(() => controller.abort(), NAVIGATION_TIMEOUT_MS) : null;
       try {
-        const res = await fetch(req);
+        const res = await fetch(req, shell ? { signal: controller.signal } : undefined);
         if (res && res.ok) cache.put('./index.html', res.clone()).catch(()=>{});
         return res;
-      } catch (e) { return cached || cache.match('./index.html') || Response.error(); }
+      } catch (e) { return shell || Response.error(); }
+      finally { if (timer) clearTimeout(timer); }
     }
     if ((same || isFontCss || isFontFile) && cached) return cached;
     try {

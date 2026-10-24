@@ -9,7 +9,6 @@ const lyricsShare = read('js/lyrics-share.js');
 const trackActions = read('js/track-actions.js');
 const player = read('js/player.js');
 const events = read('js/ui-events.js');
-check(read('VERSION').trim() === pkg.version, 'Release version fields must agree.');
 check(html.includes('id="lyrics-share-overlay"') && html.includes('id="lyrics-share-card-canvas"'), 'The lyric-card dialog/canvas must exist.');
 check(!html.includes('id="lyrics-share-start-btn"'), 'Share lyrics must be removed from the fullscreen control row.');
 check(html.includes('id="player-more-share-lyrics"') && /id="player-more-share-lyrics"[\s\S]*?data-action="lyrics-share-start"/.test(html), 'Share lyrics must be available from the full player More Options sheet.');

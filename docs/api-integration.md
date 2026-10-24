@@ -1,43 +1,30 @@
-# Music catalogue integration reference
+# API integration
 
-## Routing architecture
+The PWA talks to a single backend: the Cloudflare Worker at `https://mujic.calverse.online` (`worker/index.js`).
 
-The frontend uses one API origin: the Cloudflare Worker configured as `PRIMARY` in `js/backend-config.js` (`https://mujic.calverse.online`). Catalogue requests use `/api/*`; legacy compatibility endpoints for Home discovery and stream metadata use `/search`, `/trending`, `/queue/*`, and `/stream/*`. Lyrics routes use `/lyrics`, `/lyrics/get`, `/lyrics/search`, `/lyrics/ovh`, and `/lyricsplus/v2/lyrics/get`. Known Saavn/JioSaavn audio and artwork CDN URLs use `/media?url=...` through the same Worker.
+## Catalogue
+`/api/<search|songs|albums|artists|playlists>/...` is relayed to `https://saavn.sumit.co/api` with a fixed allowlist.
+Queries are normalised (sorted parameters) so equivalent requests share one cache entry.
 
-The frontend has no direct catalogue API request and no secondary backend failover. To keep the app functional, the deployed Worker must forward the documented catalogue paths to its upstream and retain the allowlist and redirect validation for media URLs. The source ZIP does not contain the Worker implementation, deployment configuration, or its secrets, so live Worker routes must be checked separately.
-
-## Catalogue paths
-
-| Request | Purpose |
-|---|---|
-| `GET /api/search?query={q}` | Global catalogue search |
-| `GET /api/search/songs?query={q}&page={page}&limit={limit}` | Song search and pagination |
-| `GET /api/search/playlists?query={q}&page={page}&limit={limit}` | Playlist search |
-| `GET /api/search/albums?query={q}&page={page}&limit={limit}` | Album search |
-| `GET /api/search/artists?query={q}&page={page}&limit={limit}` | Artist search |
-| `GET /api/songs/{id}` | Song details and stream choices |
-| `GET /api/songs?ids={ids}` or `?link={url}` | Batch/share-link lookup |
-| `GET /api/songs/{id}/suggestions?limit={n}` | Similar-track suggestions |
-| `GET /api/artists/{id}` | Artist metadata, songs and albums |
-| `GET /api/albums?id={id}` | Album metadata and songs |
-| `GET /api/playlists?id={id}&page={page}&limit={limit}` | Public playlist metadata and songs |
-
-The API response parser supports `data.results`, `data.songs.results`, entity result groups, quality-ranked artwork arrays, song duration, album/artist data, and stream choice metadata. Unknown or unavailable upstream fields fall back without removing existing UI features.
-
-## Caching and search
-
-The service worker caches JSON responses only from the Worker origin and only for known API/metadata paths. Search responses use a short fresh window and can be served stale while revalidation runs; older cached data can be returned during transient network/server failures. Song/stream metadata, recommendation results, and lyrics use bounded route-specific freshness. The cache has a fixed maximum entry count and rejects oversized/non-JSON bodies.
-
-The page also uses bounded in-memory search, entity, related-track and stream caches. Search input debounce is 180 ms to avoid issuing a request for every keystroke pause; an explicit Enter submits immediately. Artist-detail pagination remains user-triggered and bounded, and artwork stays lazy-loaded.
-
-## Media and playback
-
-Known `saavncdn.com` and `jiosaavn.com` media URLs are routed through the Worker media endpoint where supported. The service worker can warm only the initial 256 KiB of the next track and preserves byte ranges for seeking. It does not silently import streaming audio into the local Offline library. Unknown-host URLs retain the prior compatibility handling where the catalogue supplies them.
+| Route | Edge fresh | Stale-while-revalidate |
+| --- | --- | --- |
+| song search | 10 min | 1 h |
+| artist/album/playlist search | 30 min | 2 h |
+| song details | 15 min | 2 h |
+| suggestions / `/queue` / `/trending` | 15–30 min | 2 h |
+| details (albums, artists, playlists) | 30 min | 6 h |
+| lyrics (hit) | 24 h | 7 d |
+| lyrics (miss) | 30 min | 1 h |
 
 ## Lyrics
+`/lyrics/get`, `/lyrics/search` (LRCLIB), `/lyrics/ovh` (Lyrics.ovh) and `/lyricsplus/v2/lyrics/get`
+(LyricsPlus mirrors raced in parallel; the first healthy answer wins). All origins are fixed server-side.
 
-The app prioritizes embedded or locally saved lyrics, then Worker-backed exact/search lyric routes, an optional community lyrics fallback, and an optional LyricsPlus route. Exact matches are validated against track title and artist metadata when the provider returns that information. Cached lyric content remains available offline.
+## Media
+`/media?url=` accepts HTTPS URLs on `saavncdn.com` / `jiosaavn.com` only, validates every redirect hop,
+supports `Range`, sends CORS headers for the equalizer/visualizer, and is cached by Cloudflare.
 
-## Limitations
-
-This repository snapshot configures the Worker origin but does not include its deployed source code. A frontend build alone cannot guarantee Worker route availability, CORS settings, upstream search availability, or upstream geo-catalogue behavior. Validate `/api/search/songs?query=Billie%20Eilish&limit=5`, `/trending`, `/queue/{song_id}`, `/lyrics/search?q=...`, and ranged `/media` requests against the deployed Worker before release.
+## Browser side
+- `js/backend-config.js` — the single origin, a bounded retry on network/gateway errors.
+- `js/online-provider.js` — in-memory SWR cache, request coalescing, abort-safe searches.
+- `sw.js` — API stale-while-revalidate, artwork cache, first-chunk media prefetch, network-first navigation with a timeout.

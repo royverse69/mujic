@@ -4,6 +4,10 @@
                 try {
                     UI.init();
                     await StorageAdapter.init(); await StorageAdapter.loadSettings();
+                    if (State.playbackSourceMode === 'online') {
+                        try { await window.MujicModules?.ensureOnline?.(); window.OnlineWorkspace?.init(); }
+                        catch (error) { State.playbackSourceMode = 'offline'; console.warn('Saved streaming workspace could not load; opening local library instead.', error); }
+                    }
                     OnlineMusic.updateModeUI();
                     if (!State.eqPreset) State.eqPreset = State.eq === 'off' ? 'flat' : 'custom';
                     try { if (navigator.storage?.persist) navigator.storage.persist().catch(()=>{}); } catch (e) { Utils.warn(e); }
@@ -15,12 +19,12 @@
                     State.playHistoryOffset = State.playHistory.length;
                     State.playHistoryHasMore = historyPage.length > 150;
                     Library.sortLibrary();
-                    ArtworkCache.warmLibrary(State.library);
+                    try { ArtworkCache.warmLibrary(State.library); } catch (error) { console.warn('Artwork warm-up skipped', error); }
                     
                     AudioAdapter.init(); AudioAdapter.applySettings(); UI.updateVolumeUI(); UI.updatePlayerSettingsLabels(); UI.updateVisualizerUI(); UI.updateStatsUI(); UI.renderHome(); AudioAdapter.resizeVisualizer(); UI.updateLibraryStorageStats();
                     
                     UI.renderLibrary(); UI.renderPlaylists();
-                    if (window.OnlineWorkspace) OnlineWorkspace.init();
+                    try { if (window.OnlineWorkspace) OnlineWorkspace.init(); } catch (error) { console.error('Streaming workspace failed to initialise; the rest of the app keeps running.', error); }
                     OnlineMusic.updateModeUI();
                     if (State.playbackSourceMode === 'online') UI.switchView('online-home', true);
                     
@@ -62,11 +66,23 @@
                     // First-run guide + Home install banner. A shared-song link goes straight to the song, so skip the tour then.
                     try { window.Onboarding?.start({ suppressGuide: Boolean(sharedSongId) }); } catch (error) { console.warn('Onboarding failed to start', error); }
                 } catch (e) {
-                    console.error("Initialization failed", e); UI.showToast("Database initialization failed.", "error");
+                    console.error("Initialization failed", e); UI.showToast("Something went wrong while starting Mujic. Reload if a section looks empty.", "error");
                 }
             }
         };
 
+        // One misbehaving promise or listener must never take the player down. Aborted requests (new search,
+        // navigation) are expected and silent; everything else is logged for diagnosis.
+        window.addEventListener('unhandledrejection', (event) => {
+            const reason = event.reason;
+            if (reason?.name === 'AbortError' || /cancel|abort/i.test(String(reason?.message || ''))) { event.preventDefault(); return; }
+            console.warn('Unhandled promise rejection', reason);
+            event.preventDefault();
+        });
+        window.addEventListener('error', (event) => {
+            if (event.target && event.target !== window) return; // resource load failures are handled where they occur
+            console.warn('Uncaught error', event.error || event.message);
+        });
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault(); State.deferredInstallPrompt = e;
             if (document.readyState !== 'loading' && UI.updateInstallUI) UI.updateInstallUI();

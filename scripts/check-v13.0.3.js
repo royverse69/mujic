@@ -9,7 +9,7 @@ const player=read('js/ui-player.js');
 const html=read('index.html');
 const css=read('css/app.css');
 check(provider.includes('relatedRateLimitedUntil')&&provider.includes('relatedCache')&&provider.includes('suggestions?limit=20'),'Related API must cache results and respect suggestion rate limiting.');
-check(lyrics.includes('https://lrclib.net/api/search?')&&lyrics.includes('metadataMatches'),'LRCLIB must fall back to verified search results when exact lookup misses.');
+check(lyrics.includes('lyrics/search?')&&lyrics.includes('metadataMatches'),'LRCLIB (via the Worker) must fall back to verified search results when exact lookup misses.');
 check(uiLyrics.includes('revealCount')&&uiLyrics.includes('is-revealed'),'Word-wise lyric emphasis must progress with line timing.');
 check(player.includes('player-artist-marquee')&&player.includes('data-artist-id'),'Every available artist credit must be rendered as an individually clickable link.');
 check(workspace.includes('online-artist-bio')&&workspace.includes('online-toggle-artist-bio'),'Artist biography must support collapsed and expanded reading.');

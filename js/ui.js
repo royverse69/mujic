@@ -19,8 +19,7 @@
                     ['touch gestures', UI.setupGestures],
                     ['PWA install prompt', UI.setupInstallPrompt],
                     ['global interactions', UI.setupGlobalDelegation],
-                    ['listening stats', UI.updateStatsUI],
-                    ['release notes', UI.loadChangeLog]
+                    ['listening stats', UI.updateStatsUI]
                 ];
                 for (const [label, initialize] of initSteps) {
                     try { initialize.call(UI); }
@@ -107,6 +106,7 @@
                     State.isFullPlayerOpen = true; const fp = document.getElementById('full-player'); fp.style.pointerEvents = 'auto'; fp.setAttribute('aria-hidden','false'); fp.classList.add('active'); document.body.classList.add('player-open');
                     if (!fromHistory) UI.pushHistoryState({ mujic:true, view:(document.querySelector('.view.active')?.id || 'view-home').replace('view-',''), player:true, sheet:null }, '#player');
                 }
+                UI.loadPlayerArtworkLarge?.(Player.getCurrentTrack());
                 if (State.isLyricsMode && State.currentLyrics && State.currentLyrics.isSynced) UI.syncLyrics(State.currentTime);
                 AudioAdapter.setWakeLock(State.keepScreenAwake);
                 UI.updateVisualizerUI();

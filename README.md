@@ -1,20 +1,34 @@
-# Mujic v13.0.21 — Cloudflare-only routing and faster search
+# Mujic
 
-Mujic is an offline-first local music player with an optional online streaming workspace. The local library, playlists, playback controls, lyrics display, sharing, Picture-in-Picture, settings, and offline playback remain part of the app.
+Offline-first music player PWA with optional streaming, synced lyrics and artwork-led lyric cards.
 
-## API routing
+## Architecture (v13.1.0)
 
-All catalogue search, detail, recommendation, stream-metadata, lyrics-proxy, and supported media-proxy requests use the Cloudflare Worker origin configured in `js/backend-config.js` (`https://mujic.calverse.online`). The frontend no longer calls a direct catalogue API host or uses a second backend origin as fallback. Ensure the deployed Worker exposes the existing routes used by this build: `/api/*`, `/search`, `/trending`, `/queue/*`, `/stream/*`, `/lyrics*`, `/lyricsplus/*`, and `/media?url=...`.
+Every network request the app makes — catalogue search, artist/album/playlist details, recommendations,
+lyrics and audio/artwork media — goes to **one origin: the Cloudflare Worker at `https://mujic.calverse.online`**
+(source in [`worker/`](worker/)). There is no Render service and no direct browser-to-upstream traffic.
 
-Supported catalogue CDN media URLs are restricted to known Saavn/JioSaavn hosts by the service-worker media route. Audio range requests are preserved for seeking; the worker does not download full tracks when warming a queue item.
+Caching, from the outside in:
 
-## Performance and reliability
+1. **In memory** (`online-provider.js`): finished catalogue answers are reused instantly (stale-while-revalidate),
+   identical in-flight requests share one network call, and abandoned requests still finish to warm the cache.
+2. **Service worker** (`sw.js`): JSON from the Worker is cached with stale-while-revalidate (search fresh 5 min,
+   usable stale for 1 h); artwork and the first 256 KiB of the next track are cached separately.
+3. **Cloudflare edge** (`worker/index.js`): the Cache API stores every JSON route with per-route TTLs and
+   stale-while-revalidate; `/media` is cached by Cloudflare (including byte ranges). The upstream catalogue is
+   contacted only on a miss.
 
-- Search calls are debounced and share the existing in-memory result cache; completed search, entity, stream, recommendation, and lyrics data is reused when valid.
-- The service worker caches bounded JSON responses from the Worker with short search freshness, stale-while-revalidate behavior, and stale cache fallback during transient failures.
-- Artwork remains lazy-loaded and cached within explicit entry/size limits; next-track prefetch remains capped to the first 256 KiB and is skipped on data saver/slow connections.
-- Release notes are bundled with `js/ui-settings.js`; there is no separate changelog asset to fetch.
+## Deploying the Worker
 
-## Development
+```bash
+cd worker
+npx wrangler deploy      # serves mujic.calverse.online (see wrangler.toml)
+```
 
-Run the app with a local static server (`npm start`) and execute the regression suite with `npm run check`. Live endpoint behavior still depends on the deployed Cloudflare Worker and its upstream availability/CORS headers; this ZIP does not include the deployed Worker source or credentials.
+Check it: `/health`, `/api/search/songs?query=Billie%20Eilish&limit=5`, `/trending`, `/lyrics/search?q=...`.
+Routes: `/api/*`, `/media`, `/search`, `/trending`, `/queue/:id`, `/stream/:id`, `/song/:id`, `/suggest`,
+`/lyrics`, `/lyrics/get`, `/lyrics/search`, `/lyrics/ovh`, `/lyricsplus/v2/lyrics/get`.
+
+## Run locally
+
+`npm start` serves the static app on port 3000. `npm run check` runs the syntax and regression checks.

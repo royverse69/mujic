@@ -4,6 +4,7 @@
     let onlineHistory = [], searchHistory = [], playlists = [], onlineFavorites = [], searchQuery = '', searchPage = 0, searchType = 'all';
     let searchResults = [], entityResults = [], allSearchResults = null, activePlaylistId = null, pendingTrackId = null, requestSequence = 0, visibleSearchCount = 8, searchHasMore = false;
     let libraryTab = 'playlists', remoteRequestSequence = 0;
+    let initialized = false, isLoadingMore = false, searchMoreObserver = null;
     let linked = false, queueSnapshots = {offline:null, online:null};
     let taste = {parts:{}}, trackPlays = {}, suggestState = {sig:'',items:[],savedAt:0,loading:''}, personalTimer = null, greetingTimer = null;
     let artistCatalogue = [], artistCataloguePromise = null, artistSortMode = 'recommended', artistStats = {};
@@ -207,6 +208,7 @@
     };
     const renderAllSearchResults = (q, hasMore = false) => {
         const target=document.getElementById('online-search-results');if(!target)return;
+        target.classList.remove('is-refreshing');target.removeAttribute('aria-busy');
         const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;
         const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=true;
         const data=allSearchResults||{topQuery:[],albums:[],artists:[],playlists:[]};
@@ -232,11 +234,13 @@
         target.innerHTML=html;
         if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50));
         const topSongsForWarm=(Array.isArray(data.topQuery)?data.topQuery:[]).filter(item=>item?.onlineTrackId).slice(0,1);
-        OnlineMusic.warmPlaybackCandidates?.([...topSongsForWarm,...searchResults.slice(0,1)],2,{primaryFirst:true}).catch(()=>{});
+        OnlineMusic.warmPlaybackCandidates?.([...topSongsForWarm,...searchResults.slice(0,8)],8,{primaryFirst:true}).catch(()=>{});
         UI.lazyLoadArtwork();
+        attachSearchInfiniteScroll(target);
     };
     const paintSearchResults = (q, total = 0, hasMore = false) => {
         const target=document.getElementById('online-search-results');if(!target)return;
+        target.classList.remove('is-refreshing');target.removeAttribute('aria-busy');
         const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;
         const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=true;
         searchHasMore=Boolean(hasMore);
@@ -249,8 +253,9 @@
         else body=renderEntityGrid(list,searchType,'Search to discover more.');
         const more=(hasMore||sourceList.length>list.length)?'<div class="online-load-more-wrap"><button class="btn" data-action="online-load-more">Load more</button></div>':'';
         target.innerHTML=`<div class="online-results-toolbar"><strong>${esc(count)} ${searchTypeLabels[searchType].toLowerCase()}</strong></div>${body}${more}`;
-        if(searchType==='songs') { setSearchContext(searchResults); if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50)); OnlineMusic.warmPlaybackCandidates?.(searchResults.slice(0,2),2,{primaryFirst:true}).catch(()=>{}); }
+        if(searchType==='songs') { setSearchContext(searchResults); if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50)); OnlineMusic.warmPlaybackCandidates?.(searchResults.slice(0,8),8,{primaryFirst:true}).catch(()=>{}); }
         UI.lazyLoadArtwork();
+        attachSearchInfiniteScroll(target);
     };
     const getSearchExpansions = (query, kind) => {
         const q=String(query||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
@@ -269,14 +274,25 @@
         }
         return [];
     };
+    let searchAbort = null;
+    /* Pages 1-2 are requested together so the fill loop below finds them already in flight instead of paying one round trip per page. */
+    const warmSearchPages = q => { const pages = {}; for (const warmPage of [1, 2]) pages[warmPage] = OnlineMusic.search(q, { page:warmPage, limit:10, background:true }).catch(() => []); return pages; };
     const performSearch = async (query, append = false) => {
         const input=document.getElementById('online-search-input');
         const target=document.getElementById('online-search-results');if(!target)return [];
         const q=String(query ?? input?.value ?? '').trim();
-        if(!q){searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;renderSearchBlank();return [];}
+        if(!q){searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;searchMoreObserver?.disconnect();searchMoreObserver=null;target.classList.remove('is-refreshing');target.removeAttribute('aria-busy');renderSearchBlank();return [];}
         if(State.playbackSourceMode!=='online')return [];
         if(!navigator.onLine){renderConnectivityState();return [];}
-        if(!append){searchQuery=q;searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;const requestId=++requestSequence;target.dataset.requestId=String(requestId);target.innerHTML='<div class="online-skeleton-list"><span></span><span></span><span></span></div>';rememberSearch(q);}
+        if(!append){
+            const hadVisibleResults=Boolean(target.querySelector('.track-row,.online-entity-card,.online-media-card,.online-all-search-section'));
+            searchQuery=q;searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;
+            const requestId=++requestSequence;target.dataset.requestId=String(requestId);try{searchAbort?.abort();}catch(_){}searchAbort=new AbortController();
+            target.classList.add('is-refreshing');target.setAttribute('aria-busy','true');
+            if(hadVisibleResults) target.insertAdjacentHTML('afterbegin','<div class="online-search-loading-status" role="status">Updating results…</div>');
+            else target.innerHTML='<div class="online-skeleton-list" aria-hidden="true"><span></span><span></span><span></span></div>';
+            rememberSearch(q);
+        }
         else if(q!==searchQuery)return [];
         const requestId=Number(target.dataset.requestId||requestSequence);
         const page=append?searchPage+1:0;
@@ -284,7 +300,8 @@
         try{
             if(!append&&searchType==='all'){
                 try {
-                    allSearchResults=await OnlineMusic.globalSearch(q);
+                    const searchSignal=searchAbort?.signal;
+                    allSearchResults=await OnlineMusic.globalSearch(q,searchSignal);
                     if(!isCurrent())return [];
                     const globalHasResults=Boolean((allSearchResults.topQuery||[]).length||(allSearchResults.songs||[]).length||(allSearchResults.albums||[]).length||(allSearchResults.artists||[]).length||(allSearchResults.playlists||[]).length);
                     if(!globalHasResults)throw new Error('Global search returned no usable results');
@@ -294,6 +311,7 @@
                     if(window.OnlineCache)OnlineCache.warmTracks(searchResults.slice(0,50));
                     return searchResults;
                 } catch (_) {
+                    if(!isCurrent())return [];
                     const [songs,artists,albums,playlists]=await Promise.all([
                         OnlineMusic.search(q,{page:0,limit:10}).catch(()=>[]),
                         OnlineMusic.searchEntities('artists',q,{page:0,limit:20}).catch(()=>({items:[]})),
@@ -306,9 +324,10 @@
                     allSearchResults={topQuery:[],songs:searchResults,artists:artists.items||[],albums:albums.items||[],playlists:playlists.items||[]};
                     setSearchContext(searchResults);
                     paintSearchResults(q,Number(pageMeta.total)||searchResults.length,Boolean(pageMeta.hasMore));
+                    const warmed=pageMeta?.hasMore&&searchResults.length<24?warmSearchPages(q):{};
                     for(let nextPage=1;nextPage<8&&searchResults.length<24&&pageMeta?.hasMore&&isCurrent();nextPage++){
                         await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
-                        const next=await OnlineMusic.search(q,{page:nextPage,limit:10,background:true}).catch(()=>[]);
+                        const next=await (warmed[nextPage]||OnlineMusic.search(q,{page:nextPage,limit:10,background:true}).catch(()=>[]));
                         if(!isCurrent())return [];
                         if(!Array.isArray(next)||!next.length)break;
                         const mergedPage=mergeUnique(searchResults,next,'songs');
@@ -358,9 +377,10 @@
                     }).catch(()=>{});
                 }
                 if(!append){
+                    const warmed=meta?.hasMore&&searchResults.length<24?warmSearchPages(q):{};
                     for(let nextPage=1;nextPage<8&&searchResults.length<24&&meta?.hasMore&&isCurrent();nextPage++){
                         await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
-                        const next=await OnlineMusic.search(q,{page:nextPage,limit:10,background:true}).catch(()=>[]);
+                        const next=await (warmed[nextPage]||OnlineMusic.search(q,{page:nextPage,limit:10,background:true}).catch(()=>[]));
                         if(!isCurrent())return [];
                         if(!Array.isArray(next)||!next.length)break;
                         merged=mergeUnique(searchResults,next,'songs');
@@ -392,24 +412,41 @@
             return entityResults;
         }catch(error){
             if(!isCurrent())return [];
-            target.innerHTML=`<div class="online-network-state"><span class="material-symbols-rounded">${navigator.onLine?'cloud_off':'wifi_off'}</span><div class="empty-title">${navigator.onLine?'Search unavailable':'No connection'}</div><div class="online-network-actions"><button class="btn" data-action="retry-online-search">Retry</button><button class="btn" data-action="toggle-playback-mode">Offline library</button></div></div>`;
+            target.classList.remove('is-refreshing');target.removeAttribute('aria-busy');
+            const offline=!navigator.onLine;
+            target.innerHTML=`<div class="online-network-state"><span class="material-symbols-rounded">${offline?'wifi_off':'cloud_off'}</span><div class="empty-title">${offline?'You’re offline':'Streaming search is temporarily unavailable'}</div><p class="online-network-description">${offline?'Reconnect to search the streaming catalogue. Your local music remains available.':'The streaming service did not return usable results. This may be a temporary service or network issue; try again in a moment.'}</p><div class="online-network-actions"><button class="btn" data-action="retry-online-search">Retry</button><button class="btn" data-action="toggle-playback-mode">Offline library</button></div></div>`;
             return [];
         }
+    };
+    const attachSearchInfiniteScroll = target => {
+        searchMoreObserver?.disconnect();searchMoreObserver=null;
+        if(!target||!('IntersectionObserver' in window))return;
+        const sentinel=target.querySelector('.online-load-more-wrap');if(!sentinel)return;
+        searchMoreObserver=new IntersectionObserver(entries=>{
+            if(!entries.some(entry=>entry.isIntersecting)||isLoadingMore||State.playbackSourceMode!=='online')return;
+            const button=sentinel.querySelector('[data-action="online-load-more"]');
+            if(button&&!button.disabled){button.dataset.autoLoading='1';loadMore();}
+        },{root:null,rootMargin:'280px 0px',threshold:0});
+        searchMoreObserver.observe(sentinel);
     };
     const loadMore = async () => {
         const q=searchQuery||document.getElementById('online-search-input')?.value||'';
         const available=searchType==='songs'||searchType==='all'?searchResults:entityResults;
-        if(!q)return [];
-        if(available.length>visibleSearchCount){
-            visibleSearchCount=Math.min(available.length,visibleSearchCount+8);
-            paintSearchResults(q,available.length,searchHasMore);
-            return available;
-        }
-        visibleSearchCount+=8;
-        return performSearch(q,true);
+        if(!q||isLoadingMore)return [];
+        isLoadingMore=true;
+        const button=document.querySelector('#online-search-results [data-action="online-load-more"]');if(button){button.disabled=true;button.textContent='Loading…';}
+        try {
+            if(available.length>visibleSearchCount){
+                visibleSearchCount=Math.min(available.length,visibleSearchCount+8);
+                paintSearchResults(q,available.length,searchHasMore);
+                return available;
+            }
+            visibleSearchCount+=8;
+            return await performSearch(q,true);
+        } finally { isLoadingMore=false; attachSearchInfiniteScroll(document.getElementById('online-search-results')); }
     };
     const HOME_TTL = 15 * 60 * 1000;
-    const HOME_CACHE_VERSION = 7;
+    const HOME_CACHE_VERSION = 6;
     const HOME_DEFS = [
         {key:'quick',kind:'quick',node:'online-shelf-quick',derived:true,stage:1},
         {key:'suggested',kind:'songs',query:'',node:'online-shelf-suggested',layout:'list',stage:1},
@@ -438,7 +475,7 @@
         homeLastLoaded=stale?0:(Number(stored.savedAt)||0);return true;
     };
     const menuButton = t => `<button type="button" class="icon-btn online-card-menu" data-action="track-options" data-id="${esc(t.id)}" aria-label="More actions for ${esc(t.title)}" title="More actions"><span class="material-symbols-rounded">more_vert</span></button>`;
-    const compactRow = (t, context, menu) => `<div class="online-compact-row" role="button" tabindex="0" data-action="online-play-track" data-id="${esc(t.id)}" data-context="${esc(context)}"><img loading="lazy" decoding="async" src="${esc(t.artworkUrl||'')||'./icons/icon-192.png'}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-compact-meta"><span class="online-compact-artist">${esc(t.artist||'')}</span><span class="online-compact-title">${esc(t.title)}</span></span>${menu?menuButton(t):''}</div>`;
+    const compactRow = (t, context, menu) => `<div class="online-compact-row" role="button" tabindex="0" data-action="online-play-track" data-id="${esc(t.id)}" data-context="${esc(context)}"><img width="48" height="48" loading="lazy" decoding="async" src="${esc(t.artworkUrl||'')||'./icons/icon-192.png'}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-compact-meta"><span class="online-compact-artist">${esc(t.artist||'')}</span><span class="online-compact-title">${esc(t.title)}</span></span>${menu?menuButton(t):''}</div>`;
     const renderCompactRows = (tracks, context, menu=true, limit=8) => {
         const items=(tracks||[]).filter(Boolean);
         shelfContexts.set(context,items);
@@ -455,7 +492,7 @@
         const items=(tracks||[]).filter(Boolean).slice(0,24);
         if(!items.length)return emptyText?`<div class="online-empty-inline">${esc(emptyText)}</div>`:'';
         shelfContexts.set(context,items);
-        return items.map(t=>`<div class="online-media-card is-song" role="button" tabindex="0" data-action="online-play-track" data-id="${esc(t.id)}" data-context="${esc(context)}"><span class="online-media-art"><img loading="lazy" decoding="async" src="${esc(t.artworkUrl||'')||'./icons/icon-192.png'}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-card-play material-symbols-rounded">play_arrow</span></span><span class="online-media-info"><span class="online-media-text"><span class="online-media-artist">${esc(t.artist||'')}</span><span class="online-media-title">${esc(t.title)}</span></span>${menuButton(t)}</span></div>`).join('');
+        return items.map(t=>`<div class="online-media-card is-song" role="button" tabindex="0" data-action="online-play-track" data-id="${esc(t.id)}" data-context="${esc(context)}"><span class="online-media-art"><img width="180" height="180" loading="lazy" decoding="async" src="${esc(t.artworkMediumUrl||t.artworkUrl||'')||'./icons/icon-192.png'}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"><span class="online-card-play material-symbols-rounded">play_arrow</span></span><span class="online-media-info"><span class="online-media-text"><span class="online-media-artist">${esc(t.artist||'')}</span><span class="online-media-title">${esc(t.title)}</span></span>${menuButton(t)}</span></div>`).join('');
     };
     const renderEntityGrid = (items, kind, emptyText='') => {
         if(!items?.length)return emptyText?`<div class="online-empty-inline">${esc(emptyText)}</div>`:'';
@@ -464,14 +501,14 @@
             const initials=title.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase();
             const image=item.image&&!OnlineMusic.isGenericArtistArtwork?.(item.image)?item.image:'';
             const id=item.sourceId||String(item.id||'').split(':').slice(1).join(':');
-            return `<button class="online-entity-card is-artist" data-action="online-open-entity" data-type="artists" data-id="${esc(id)}"><span class="online-entity-art online-artist-grid-orb"><span class="online-artist-placeholder" aria-hidden="true">${esc(initials||'♪')}</span>${image?`<img loading="lazy" decoding="async" src="${esc(image)}" alt="${esc(title)}" onerror="this.onerror=null;this.remove();this.closest('.online-entity-art').classList.add('has-no-art')">`:''}</span><span class="online-entity-title">${esc(title)}</span></button>`;
+            return `<button class="online-entity-card is-artist" data-action="online-open-entity" data-type="artists" data-id="${esc(id)}"><span class="online-entity-art online-artist-grid-orb"><span class="online-artist-placeholder" aria-hidden="true">${esc(initials||'♪')}</span>${image?`<img width="280" height="280" loading="lazy" decoding="async" src="${esc(image)}" alt="${esc(title)}" onerror="this.onerror=null;this.remove();this.closest('.online-entity-art').classList.add('has-no-art')">`:''}</span><span class="online-entity-title">${esc(title)}</span></button>`;
         }).join('')}</div>`;
-        return `<div class="online-entity-grid">${items.map(item=>`<button class="online-entity-card" data-action="online-open-entity" data-type="${esc(kind)}" data-id="${esc(item.sourceId||String(item.id||'').split(':').slice(1).join(':'))}"><span class="online-entity-art"><img loading="lazy" decoding="async" src="${esc(item.image||'./icons/icon-192.png')}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"></span><span class="online-entity-title">${esc(item.title||item.name||'Untitled')}</span><span class="online-entity-subtitle">${esc(item.artist||item.description||((item.songCount||item.total)?`${item.songCount||item.total} songs`:''))}</span></button>`).join('')}</div>`;
+        return `<div class="online-entity-grid">${items.map(item=>`<button class="online-entity-card" data-action="online-open-entity" data-type="${esc(kind)}" data-id="${esc(item.sourceId||String(item.id||'').split(':').slice(1).join(':'))}"><span class="online-entity-art"><img width="280" height="280" loading="lazy" decoding="async" src="${esc(item.image||'./icons/icon-192.png')}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"></span><span class="online-entity-title">${esc(item.title||item.name||'Untitled')}</span><span class="online-entity-subtitle">${esc(item.artist||item.description||((item.songCount||item.total)?`${item.songCount||item.total} songs`:''))}</span></button>`).join('')}</div>`;
     };
     const renderEntityRail = (items, kind) => {
         const list=(items||[]).filter(Boolean).slice(0,40);if(!list.length)return '';
-        if(kind==='artists')return `${list.map(item=>{const title=item.title||'Artist';const initials=title.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase();const image=item.image&&!OnlineMusic.isGenericArtistArtwork?.(item.image)?item.image:'';return `<button class="online-artist-card" data-action="online-open-entity" data-type="artists" data-id="${esc(item.sourceId||String(item.id||'').split(':').slice(1).join(':'))}" aria-label="Open artist ${esc(title)}"><span class="online-artist-orb"><span class="online-artist-placeholder" aria-hidden="true">${esc(initials||'♪')}</span>${image?`<img loading="lazy" decoding="async" src="${esc(image)}" alt="${esc(title)}" onerror="this.onerror=null;this.closest('.online-artist-orb').classList.add('has-no-art');this.remove()">`:''}</span><span class="online-artist-name">${esc(title)}</span></button>`;}).join('')}`;
-        return `${list.map(item=>`<button class="online-media-card" data-action="online-open-entity" data-type="${esc(kind)}" data-id="${esc(item.sourceId||String(item.id||'').split(':').slice(1).join(':'))}"><span class="online-media-art"><img loading="lazy" decoding="async" src="${esc(item.image||'./icons/icon-192.png')}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"></span><span class="online-media-title">${esc(item.title||'Untitled')}</span><span class="online-media-subtitle">${esc(item.description||((item.songCount||item.total)?`${item.songCount||item.total} songs`:''))}</span></button>`).join('')}`;
+        if(kind==='artists')return `${list.map(item=>{const title=item.title||'Artist';const initials=title.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase();const image=item.image&&!OnlineMusic.isGenericArtistArtwork?.(item.image)?item.image:'';return `<button class="online-artist-card" data-action="online-open-entity" data-type="artists" data-id="${esc(item.sourceId||String(item.id||'').split(':').slice(1).join(':'))}" aria-label="Open artist ${esc(title)}"><span class="online-artist-orb"><span class="online-artist-placeholder" aria-hidden="true">${esc(initials||'♪')}</span>${image?`<img width="280" height="280" loading="lazy" decoding="async" src="${esc(image)}" alt="${esc(title)}" onerror="this.onerror=null;this.closest('.online-artist-orb').classList.add('has-no-art');this.remove()">`:''}</span><span class="online-artist-name">${esc(title)}</span></button>`;}).join('')}`;
+        return `${list.map(item=>`<button class="online-media-card" data-action="online-open-entity" data-type="${esc(kind)}" data-id="${esc(item.sourceId||String(item.id||'').split(':').slice(1).join(':'))}"><span class="online-media-art"><img width="280" height="280" loading="lazy" decoding="async" src="${esc(item.image||'./icons/icon-192.png')}" alt="" onerror="this.onerror=null;this.src='./icons/icon-192.png'"></span><span class="online-media-title">${esc(item.title||'Untitled')}</span><span class="online-media-subtitle">${esc(item.description||((item.songCount||item.total)?`${item.songCount||item.total} songs`:''))}</span></button>`).join('')}`;
     };
     const renderUserPlaylistCards = list => {
         const items=(list||[]).filter(Boolean);
@@ -727,7 +764,7 @@
         const list=rankArtistItems(artistCatalogue,artistSortMode);
         const total=document.getElementById('online-artists-total');if(total)total.textContent=`${list.length} artists`;
         document.querySelectorAll('.online-artist-sort [data-sort]').forEach(button=>button.classList.toggle('active',button.dataset.sort===artistSortMode));
-        node.innerHTML=list.length?`<div class="online-artist-directory-grid">${list.map(item=>{const title=item.title||'Artist',id=String(item.sourceId||item.id||'').replace(/^(?:saavn|machhar):/,''),image=hasRealArtistImage(item)?item.image:'',initials=title.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'♪',st=artistStatFor(item);return `<button class="online-artist-directory-card" data-action="online-open-entity" data-type="artists" data-id="${esc(id)}"><span class="online-artist-directory-orb"><span class="online-artist-placeholder" aria-hidden="true">${esc(initials)}</span>${image?`<img loading="lazy" decoding="async" src="${esc(image)}" alt="${esc(title)}" onerror="this.onerror=null;this.remove();this.closest('.online-artist-directory-orb').classList.add('has-no-art')">`:''}</span><span class="online-artist-directory-name">${esc(title)}</span><span class="online-artist-directory-meta">${st?.plays?`${st.plays} plays`:st?.lastPlayedAt?'Played recently':'Artist'}</span></button>`;}).join('')}</div>`:'<div class="online-empty-inline">No artists have loaded yet. Check your connection and retry Home.</div>';
+        node.innerHTML=list.length?`<div class="online-artist-directory-grid">${list.map(item=>{const title=item.title||'Artist',id=String(item.sourceId||item.id||'').replace(/^(?:saavn|machhar):/,''),image=hasRealArtistImage(item)?item.image:'',initials=title.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'♪',st=artistStatFor(item);return `<button class="online-artist-directory-card" data-action="online-open-entity" data-type="artists" data-id="${esc(id)}"><span class="online-artist-directory-orb"><span class="online-artist-placeholder" aria-hidden="true">${esc(initials)}</span>${image?`<img width="280" height="280" loading="lazy" decoding="async" src="${esc(image)}" alt="${esc(title)}" onerror="this.onerror=null;this.remove();this.closest('.online-artist-directory-orb').classList.add('has-no-art')">`:''}</span><span class="online-artist-directory-name">${esc(title)}</span><span class="online-artist-directory-meta">${st?.plays?`${st.plays} plays`:st?.lastPlayedAt?'Played recently':'Artist'}</span></button>`;}).join('')}</div>`:'<div class="online-empty-inline">No artists have loaded yet. Check your connection and retry Home.</div>';
         renderArtistMosaic(list,'online-artists-feature-mosaic');UI.lazyLoadArtwork();
     };
     const renderArtistExplorer = async () => {
@@ -837,7 +874,7 @@
         }
         return seeds;
     };
-    const suggestionSignature = seeds => `worker-v2|${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
+    const suggestionSignature = seeds => `render-v1|${daypart()}|${seeds.map(seed=>seed.track?seed.track.id:`a:${seed.key}`).join(',')}`;
     const buildSuggestions = async seeds => {
         const played=new Set(),prints=new Set();
         onlineHistory.slice(0,60).forEach(track=>{played.add(track.id);prints.add(fingerprint(track));});
@@ -845,8 +882,8 @@
         const queries=DAYPART_QUERIES[daypart()];
         const lists=await Promise.all(seeds.map(async seed=>{
             try{
-                if(seed.track && OnlineMusic.fetchWorkerSuggestions) return await OnlineMusic.fetchWorkerSuggestions(seed.track);
-                const found=await OnlineMusic.searchWorkerSongs(`${seed.name} songs`);
+                if(seed.track && OnlineMusic.fetchSuggestions) return await OnlineMusic.fetchSuggestions(seed.track);
+                const found=await OnlineMusic.searchSongsFast(`${seed.name} songs`);
                 return found.filter(track=>{const key=artistKey(track.artist);return key&&(key.includes(seed.key)||seed.key.includes(key));});
             }catch(_){return [];}
         }));
@@ -866,7 +903,7 @@
         };
         let items=merge(lists);
         if(items.length<8){
-            const extra=await Promise.all(queries.map(async query=>{try{return await OnlineMusic.searchWorkerSongs(query);}catch(_){return [];}}));
+            const extra=await Promise.all(queries.map(async query=>{try{return await OnlineMusic.searchSongsFast(query);}catch(_){return [];}}));
             items=merge([items,...extra]);
         }
         return items;
@@ -876,7 +913,7 @@
     };
     const restoreSuggest = () => {
         const stored=safeRead(KEYS.suggest,null);
-        if(!stored?.items?.length||!String(stored.sig||'').startsWith('worker-v2|'))return;
+        if(!stored?.items?.length||!String(stored.sig||'').startsWith('render-v1|'))return;
         suggestState={sig:String(stored.sig||''),savedAt:Number(stored.savedAt)||0,items:hydrate(stored.items),loading:''};
     };
     const updateSuggestNote = seeds => {
@@ -893,15 +930,15 @@
         if (quickPicksPromise) return quickPicksPromise;
         quickPicksPromise = (async () => {
             try {
-                const items = dedupeCatalogueTracks(await OnlineMusic.fetchWorkerQuickPicks());
+                const items = dedupeCatalogueTracks(await OnlineMusic.fetchQuickPicks());
                 if (items.length) {
-                    homeShelves.quick = { kind: 'songs', items: items.slice(0, 40), savedAt: Date.now(), source: 'worker' };
+                    homeShelves.quick = { kind: 'songs', items: items.slice(0, 40), savedAt: Date.now(), source: 'render' };
                     cacheHomeShelves();
                     if (State.playbackSourceMode === 'online') renderShelfItem(HOME_DEFS[0], []);
                 }
                 return homeShelves.quick?.items || [];
             } catch (error) {
-                console.warn('[Mujic] Worker Quick Picks unavailable; retaining cached/local picks.', error);
+                console.warn('[Mujic] Render Quick Picks unavailable; retaining cached/local picks.', error);
                 return cached;
             } finally { quickPicksPromise = null; }
         })();
@@ -1836,6 +1873,8 @@
         updateWorkspaceUI(); renderHome(); UI.showToast(linked?'Workspaces linked. Playlist-copy actions are enabled.':'Workspaces separated. No playlists were changed.',linked?'check_circle':'info');
     };
     const init = () => {
+        if(initialized)return;
+        initialized=true;
         onlineHistory=dedupePlaylistTracks(hydrate(safeRead(KEYS.history,[]))).slice(0,100);
         onlineFavorites=dedupePlaylistTracks(hydrate(safeRead(KEYS.favorites,[]))).slice(0,500);
         artistStats=safeRead(KEYS.artistStats,{});if(!artistStats||typeof artistStats!=='object'||Array.isArray(artistStats))artistStats={};
@@ -1862,7 +1901,7 @@
         const input=document.getElementById('online-search-input');
         if(input&&input.dataset.bound!=='1'){
             input.dataset.bound='1';let timer;
-            input.addEventListener('input',()=>{clearTimeout(timer);const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!input.value.trim();const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=input.value.trim().length>=2;if(input.value.trim().length<2){renderSearchBlank();return;}const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;timer=setTimeout(()=>performSearch(input.value),180);});
+            input.addEventListener('input',()=>{clearTimeout(timer);const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!input.value.trim();const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=input.value.trim().length>=2;if(input.value.trim().length<2){renderSearchBlank();return;}const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=false;timer=setTimeout(()=>performSearch(input.value),140);});
             input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);performSearch(input.value);}});
         }
         initBackToTop();restoreQueueSnapshot(State.playbackSourceMode==='online'?'online':'offline');updateWorkspaceUI();renderSearchHistory();setSearchTypeUI();renderSearchBlank();setLibraryTab('playlists');

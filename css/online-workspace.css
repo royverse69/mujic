@@ -759,3 +759,13 @@ body.reduced-motion .view.active,body.low-end-mode .view.active{animation:none}
 @media(prefers-reduced-motion:reduce) {
   #view-online-home .online-radio-home-grid { scroll-behavior:auto !important; scroll-snap-type:x proximity; }
 }
+
+
+/* Online search refresh is non-destructive: keep the previous result list visible while updating. */
+.online-search-loading-status { position:sticky; top:0; z-index:3; margin:0 0 10px; padding:9px 12px; border:1px solid var(--border-subtle); border-radius:10px; background:var(--bg-elevated); color:var(--text-secondary); font-size:12px; }
+#online-search-results.is-refreshing > :not(.online-search-loading-status) { opacity:.58; }
+#online-search-results[aria-busy="true"] { cursor:progress; }
+.online-network-description { max-width:520px; margin:0; color:var(--text-secondary); font-size:13px; line-height:1.55; }
+.online-workspace-view .track-row, .online-entity-grid > .online-entity-card, .online-card-rail > .online-media-card { content-visibility:auto; contain-intrinsic-size:auto 66px; }
+.online-media-art img, .online-entity-art img { aspect-ratio:1; }
+@media (pointer:coarse) { .online-load-more-wrap .btn, .online-search-tab { min-height:44px; } }

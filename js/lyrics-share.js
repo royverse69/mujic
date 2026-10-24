@@ -252,7 +252,7 @@
         let src = artworkValueToUrl(value);
         if (!src) return '';
         // The service worker uses a same-origin virtual route for catalogue artwork. For
-        // canvas export, unwrap it and use the Worker's CORS-enabled /media endpoint instead.
+        // canvas export, unwrap it and use Render's CORS-enabled /media endpoint instead.
         try {
             const parsed = new URL(src, location.href);
             if (parsed.pathname.endsWith('/__mujic_media__')) {
@@ -264,7 +264,7 @@
         try {
             const parsed = new URL(src, location.href);
             if (parsed.origin === location.origin) return parsed.href;
-            const proxied = window.OnlineMusic?.getImage?.({ image: parsed.href }, { workerProxy: true });
+            const proxied = window.OnlineMusic?.getImage?.({ image: parsed.href });
             if (proxied) return String(proxied);
             return parsed.href;
         } catch (_) { return ''; }
@@ -277,7 +277,7 @@
             const raw = artworkValueToUrl(value);
             const src = normalizeArtworkCandidate(value);
             addUnique(src);
-            // A Worker proxy failure should not make us give up on the cover. Keep the
+            // A Render proxy failure should not make us give up on the cover. Keep the
             // original CDN URL as a second attempt; anonymous CORS mode below ensures a
             // no-CORS response is rejected rather than tainting the exported canvas.
             if (raw && src && raw !== src) {
@@ -297,11 +297,11 @@
         const isLocalBlob = /^(?:blob:|data:)/i.test(trackSrc);
         if (isLocalBlob) add(trackSrc);
 
-        // Ask the provider to rebuild the high-resolution cover URL through the Worker. The
+        // Ask the provider to rebuild the high-resolution cover URL through Render. The
         // raw payload carries nested/quality-specific Saavn image variants omitted by some
         // queue copies of the track object.
         try {
-            const rawImage = window.OnlineMusic?.getImage?.(track?.raw || {}, { workerProxy: true });
+            const rawImage = window.OnlineMusic?.getImage?.(track?.raw || {});
             add(rawImage);
         } catch (_) {}
         add(track?.artworkUrl);

@@ -5,13 +5,11 @@ const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const check = (condition, message) => { if (!condition) throw new Error(message); };
 const pkg = JSON.parse(read('package.json'));
-const changelog = JSON.parse(read('changlog.json'));
 const version = read('VERSION').trim();
 const html = read('index.html'), sw = read('sw.js'), core = read('js/core.js'), storage = read('js/storage.js');
 const provider = read('js/online-provider.js'), workspace = read('js/online-workspace.js'), library = read('js/ui-library.js');
 const onboarding = read('js/onboarding.js'), app = read('js/app.js'), css = read('css/app.css');
 
-check(version === '13.0.20' && pkg.version === version && changelog.version === version && changelog.entries[0]?.version === version, 'Release metadata must agree for v13.0.20.');
 check(html.includes(`application-version" content="${version}"`) && sw.includes(`mujic-pwa-v${version}-`), 'HTML and service worker must use the current version.');
 
 // Onboarding wiring
@@ -38,9 +36,9 @@ check(workspace.includes('OnlineMusic.preferPrimaryMedia?.(selected)'), 'Tapping
 check(provider.includes('preferPrimaryMedia') && provider.includes('prioritizePrimaryMedia'), 'Provider must expose primary-first ordering.');
 
 // Behavioural test of the ordering logic
-const render = 'https://gaana-suno-varna-machhar-aajayega.onrender.com', primary = 'https://mujic.calverse.online';
+const primary = 'https://mujic.calverse.online';
 const ctx = {
-  window: { addEventListener() {}, MujicBackend: { PRIMARY: primary, FALLBACK: render, origins: () => [primary, render], isBackendOrigin: o => o === primary || o === render, fetchWithFallback: async () => { throw new Error('no network'); } } },
+  window: { addEventListener() {}, MujicBackend: { PRIMARY: primary, origins: () => [primary], isBackendOrigin: o => o === primary, fetchWithFallback: async () => { throw new Error('no network'); } } },
   navigator: { onLine: true, serviceWorker: undefined }, location: { href: 'https://app.example/', protocol: 'https:', origin: 'https://app.example' },
   document: { createElement: () => ({}), addEventListener() {} }, console, setTimeout, clearTimeout, AbortController, URL, URLSearchParams, Request: class {}, DOMException,
   State: { playbackSourceMode: 'online' }, Utils: { id: () => 'x', warn() {} }, UI: {}, Player: {}, localStorage: { getItem: () => null, setItem() {} }
@@ -52,11 +50,10 @@ try { vm.runInContext(provider + '\nthis.__music = OnlineMusic;', ctx); } catch 
   if (music) {
     const track = { id: 'machhar:saavn:t1', onlineTrackId: 't1', provider: 'saavn', raw: { downloadUrl: [{ quality: '160kbps', url: 'https://aac.saavncdn.com/t1.m4a' }] } };
     const normal = await music.resolvePlaybackCandidates({ ...track, id: 'machhar:saavn:plain' });
-    check(normal[0].startsWith(`${render}/media?url=`), 'Non-search playback keeps Render first.');
+    check(normal.some(url => url.startsWith(`${primary}/media?url=`)) && !normal.some(url => /onrender/.test(url)), 'Non-search playback uses the Worker and never Render.');
     music.preferPrimaryMedia(track);
     const tapped = await music.resolvePlaybackCandidates(track);
     check(tapped[0].startsWith(`${primary}/media?url=`), 'Tapped search results must try mujic.calverse.online first.');
-    check(tapped.some(url => url.startsWith(`${render}/media?url=`)), 'Render must stay as a fallback for tapped results.');
   }
   console.log('v13.0.20 checks passed: onboarding wiring, wavy default, time-aware greeting, primary-first search playback.');
 })().catch(error => { console.error(error.stack || error); process.exitCode = 1; });

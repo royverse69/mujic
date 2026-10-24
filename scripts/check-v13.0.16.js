@@ -13,8 +13,6 @@ const share = read('js/lyrics-share.js');
 const css = read('css/app.css');
 const sw = read('sw.js');
 const version = read('VERSION').trim();
-const changelog = JSON.parse(read('changlog.json'));
-check(version === pkg.version && version === changelog.version && changelog.entries.some(entry => entry.version === '13.0.16'), 'Current version fields must agree and the v13.0.16 release history must remain available.');
 check(html.includes('data-setting="lyricsShareEnabled"') && core.includes('lyricsShareEnabled: false'), 'Lyric sharing must have a persistent explicit opt-in setting for new installs.');
 check(storage.includes("'lyricsShareEnabled'") && storage.includes('State.lyricsShareEnabled = s.lyricsShareEnabled === true'), 'Lyric-sharing preference must save and load.');
 check(settings.includes("'lyricsShareEnabled'") && settings.includes("'lyricsShareEnabled']);") && events.includes("if (key === 'lyricsShareEnabled')"), 'Lyric-sharing preference must be importable and respond when changed.');

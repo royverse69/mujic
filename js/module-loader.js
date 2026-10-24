@@ -1,6 +1,6 @@
 /* Copyright mujic@royverse69 */
 (() => {
-    const onlineScripts = ['./js/online-cache.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/online-workspace.js'];
+    const onlineScripts = ['./js/online-cache.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js', './js/discovery-catalog-data.js', './js/online-workspace.js'];
     let onlinePromise = null;
     let onlineCssPromise = null;
     const loadScript = src => new Promise((resolve, reject) => {

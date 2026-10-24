@@ -21,6 +21,10 @@
                         UI.syncLyrics(State.currentTime);
                     }
                 });
+                AudioAdapter.audio.addEventListener('waiting', () => { UI.setMiniPlayerBuffering?.(State.playbackSourceMode === 'online', Player.getCurrentTrack()); });
+                AudioAdapter.audio.addEventListener('stalled', () => { UI.setMiniPlayerBuffering?.(State.playbackSourceMode === 'online', Player.getCurrentTrack()); });
+                AudioAdapter.audio.addEventListener('playing', () => { UI.setMiniPlayerBuffering?.(false); });
+                AudioAdapter.audio.addEventListener('error', () => { UI.setMiniPlayerBuffering?.(false); });
                 AudioAdapter.audio.addEventListener('loadedmetadata', () => {
                     State.duration = AudioAdapter.audio.duration;
                     const t = Player.getCurrentTrack();
@@ -680,10 +684,16 @@
                 UI.updateProgress(); UI.updateDuration(); AudioAdapter.updateMediaSessionMeta(track); window.MujicPiP?.sync?.();
                 
                 const isOnline = track.source === 'machhar-online';
+                // Render the mini-player before stream resolution or IndexedDB reads complete.
+                UI.updatePlayerMeta(track).catch(err => console.warn('Player metadata update failed', err));
+                UI.showMiniPlayer();
+                UI.setMiniPlayerBuffering?.(isOnline, track);
+                UI.updateMiniNextUp?.();
                 if (isOnline && State.playbackSourceMode !== 'online') {
                     // Stop the previous track and refresh the UI so the player never shows one song while state points at another.
                     AudioAdapter.pause();
                     UI.updatePlayerMeta(track).catch(() => {}); UI.showMiniPlayer(); UI.updatePlayPause(); UI.renderQueue();
+                    UI.setMiniPlayerBuffering?.(false);
                     UI.showToast('Switch to streaming playback to play catalogue tracks.', 'info');
                     return;
                 }
@@ -710,8 +720,7 @@
 
                 const fadeIn = !!State.transitionFadePending;
                 State.transitionFadePending = false;
-                UI.updatePlayerMeta(track).catch(err => console.warn('Player metadata update failed', err));
-                UI.showMiniPlayer(); UI.updateHighlights(false); UI.renderQueue();
+                UI.updateHighlights(false); UI.renderQueue();
                 try {
                     let played = false;
                     if (isOnline) {
@@ -772,6 +781,7 @@
                 } catch(e) {
                     if (requestId === State.playbackRequestId) {
                         State.isPlaying = false;
+                        UI.setMiniPlayerBuffering?.(false);
                         try { AudioAdapter.audio.pause(); } catch (_) {}
                         UI.updatePlayPause(); UI.updateProgress(); UI.updateDuration();
                         try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; } catch (_) {}

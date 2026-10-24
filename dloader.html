@@ -182,7 +182,7 @@ main { flex: 1; width: 100%; max-width: 724px; margin: 0 auto; padding: 0 16px 4
       <p>This tool is designed to be fully private and local to your device.</p>
       <ul>
         <li>No analytics, trackers, or ads are included in this interface.</li>
-        <li>Searches are sent through the configured Cloudflare Worker API; this page does not store your search history.</li>
+        <li>Searches are sent directly to the backend API; we do not store your search history.</li>
         <li>Audio processing (M4A tagging and MP3 encoding) happens entirely inside your browser using Web Workers.</li>
         <li>Your files never touch our servers after they are initially fetched.</li>
       </ul>
@@ -193,17 +193,6 @@ main { flex: 1; width: 100%; max-width: 724px; margin: 0 auto; padding: 0 16px 4
 <script>
 (() => {
   const BACKEND = "https://mujic.calverse.online/";
-  const workerMediaUrl = value => {
-    try {
-      const url = new URL(String(value || ''));
-      const host = url.hostname.toLowerCase();
-      const supported = host === 'saavncdn.com' || host.endsWith('.saavncdn.com') || host === 'jiosaavn.com' || host.endsWith('.jiosaavn.com');
-      if (!supported) return url.href;
-      const proxied = new URL('media', BACKEND);
-      proxied.searchParams.set('url', url.href);
-      return proxied.href;
-    } catch (_) { return value; }
-  };
   const $ = id => document.getElementById(id);
   const SOURCE_TAG_TEXT = "downloaded from https://royverse69.github.io/mujic/dloader.html";
   
@@ -290,12 +279,8 @@ main { flex: 1; width: 100%; max-width: 724px; margin: 0 auto; padding: 0 16px 4
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-      const parsed = new URL(String(url || "/"), BACKEND);
-      const route = `${parsed.pathname}${parsed.search}`;
-      const res = await fetch(new URL(route, BACKEND).href, {
-        headers: { Accept: "application/json" }, credentials: "omit", signal: controller.signal
-      });
-      if (!res.ok) throw new Error(`Music service returned HTTP ${res.status}`);
+      const res = await fetch(url, { headers: { Accept: "application/json" }, signal: controller.signal });
+      if (!res.ok) throw new Error("API Error");
       const text = await res.text();
       try { return JSON.parse(text); } catch { return text; }
     } finally { clearTimeout(timeout); }
@@ -326,7 +311,7 @@ main { flex: 1; width: 100%; max-width: 724px; margin: 0 auto; padding: 0 16px 4
 
   async function fetchCover(url) {
     if (!url) return null;
-    const candidates = [workerMediaUrl(url), workerMediaUrl(url.replace(/500x500/, "150x150"))];
+    const candidates = [url, url.replace(/500x500/, "150x150")];
     for (const u of [...new Set(candidates)]) {
       try {
         const r = await fetch(u); if(!r.ok) continue;
@@ -343,9 +328,9 @@ main { flex: 1; width: 100%; max-width: 724px; margin: 0 auto; padding: 0 16px 4
     const urls = s?.downloadUrl || s?.url || data?.stream;
     if (Array.isArray(urls)) {
       const match = urls.find(u => u.quality.includes(quality)) || urls[urls.length-1];
-      return workerMediaUrl(match?.link || match?.url || match?.downloadUrl);
+      return match?.link || match?.url || match?.downloadUrl;
     }
-    if (typeof urls === "string") return workerMediaUrl(urls);
+    if (typeof urls === "string") return urls;
     throw new Error("Stream missing");
   }
 
@@ -357,9 +342,9 @@ main { flex: 1; width: 100%; max-width: 724px; margin: 0 auto; padding: 0 16px 4
     if (Array.isArray(urls)) {
       // Sort ascending by parsed bitrate
       const sorted = [...urls].sort((a,b) => (parseInt(a.quality)||999) - (parseInt(b.quality)||999));
-      return workerMediaUrl(sorted[0]?.link || sorted[0]?.url || sorted[0]?.downloadUrl);
+      return sorted[0]?.link || sorted[0]?.url || sorted[0]?.downloadUrl;
     }
-    if (typeof urls === "string") return workerMediaUrl(urls);
+    if (typeof urls === "string") return urls;
     throw new Error("Preview missing");
   }
 

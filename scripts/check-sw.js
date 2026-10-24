@@ -36,6 +36,7 @@ vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
 const assert = (condition, message) => { if (!condition) throw new Error(`Service worker check failed: ${message}`); };
 const API = 'https://mujic.calverse.online';
+const DIRECT_API = 'https://saavn.sumit.co';
 const dispatch = async (url, extra = {}) => {
   const request = Object.assign(new Request(url), {});
   const pending = [];
@@ -54,22 +55,22 @@ const dispatch = async (url, extra = {}) => {
 (async () => {
   await handlers.message({ data: { type: 'SET_CACHING', enabled: true }, waitUntil: p => p });
   const url = `${API}/api/artists/artist-id`;
-  const workerSearchUrl = `${API}/api/search/songs?query=arijit&page=0&limit=10`; 
+  const directSearchUrl = `${DIRECT_API}/api/search/songs?query=arijit&page=0&limit=10`;
   fetchCalls = [];
   let result = await dispatch(url);
   assert(result.response && fetchCalls.length === 1, 'first API call reaches the network once');
   assert(stores.get('mujic-api-v3').map.size === 1, 'API JSON response is cached');
   result = await dispatch(url);
   assert(fetchCalls.length === 1, 'fresh cached API response is served without a network call');
+  result = await dispatch(directSearchUrl);
+  assert(result.passthrough, 'the upstream catalogue host is never contacted by the browser; only the Worker is');
   fetchCalls = [];
-  result = await dispatch(workerSearchUrl);
-  assert(result.response && fetchCalls.length === 1, 'Worker catalogue search is intercepted and cached');
-  const normalizedSearchUrl = new URL(workerSearchUrl); normalizedSearchUrl.searchParams.sort();
-  const workerSearchCacheKey = normalizedSearchUrl.href;
-  const workerSearchCached = stores.get('mujic-api-v3').map.has(workerSearchCacheKey);
-  assert(workerSearchCached, 'Worker catalogue search JSON is cached under a canonical query key');
-  result = await dispatch(workerSearchUrl);
-  assert(fetchCalls.length === 1, 'fresh Worker search cache avoids a second network request');
+  const searchUrl = `${API}/api/search/songs?query=arijit&page=0&limit=10`;
+  await dispatch(searchUrl); now += 4 * 60 * 1000; await dispatch(searchUrl);
+  assert(fetchCalls.length === 1, 'search results stay fresh for five minutes');
+  const legacyUrl = `${API}/trending`;
+  await dispatch(legacyUrl); await dispatch(legacyUrl);
+  assert(fetchCalls.length === 2, 'legacy Worker routes such as /trending are cached too');
   fetchCalls = [];
   result = await dispatch(url);
   now += 31 * 60 * 1000;
@@ -83,9 +84,9 @@ const dispatch = async (url, extra = {}) => {
   networkUp = true;
   await dispatch(songUrl);
   const before = fetchCalls.length;
-  now += 11 * 60 * 1000;
+  now += 5 * 60 * 1000;
   await dispatch(songUrl);
-  assert(fetchCalls.length === before + 1, 'stream-link lookups are refreshed from the network once older than ten minutes');
+  assert(fetchCalls.length === before + 1, 'stream-link lookups are refreshed from the network once older than four minutes');
   nextResponse = () => new Response('<html></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
   await dispatch(`${API}/api/other`);
   assert(![...stores.get('mujic-api-v3').map.keys()].some(key => key.endsWith('/api/other')), 'non-JSON API responses are never cached');
@@ -107,5 +108,5 @@ const dispatch = async (url, extra = {}) => {
   await handlers.message({ data: { type: 'SET_CACHING', enabled: true }, waitUntil: p => p });
   await handlers.message({ data: { type: 'CLEAR_ONLINE_MEDIA_CACHE' }, waitUntil: p => p });
   assert(!stores.has('mujic-api-v3') && !stores.has('mujic-art-v3'), 'clearing removes API and artwork caches');
-  console.log('Service worker checks OK: Worker-only API stale-while-revalidate, offline fallback, artwork caching, opt-out and cache clearing.');
+  console.log('Service worker checks OK: API stale-while-revalidate, offline fallback, artwork caching, opt-out and cache clearing.');
 })().catch(error => { console.error(error.message); process.exit(1); });

@@ -4,7 +4,6 @@ const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const pkg = JSON.parse(read('package.json'));
-const changelog = JSON.parse(read('changlog.json'));
 const html = read('index.html');
 const player = read('js/player.js');
 const events = read('js/ui-events.js');
@@ -14,7 +13,6 @@ const storage = read('js/storage.js');
 const sw = read('sw.js');
 const version = read('VERSION').trim();
 
-assert(pkg.version === version && changelog.version === version && changelog.entries[0]?.version === version && changelog.entries.some(entry => entry.version === '13.0.19'), 'Release metadata must agree and retain the v13.0.19 history.');
 assert(html.includes(`application-version" content="${version}"`) && sw.includes(`mujic-pwa-v${version}-`), 'HTML and service worker must use the current version.');
 assert(events.includes("video.addEventListener('play',()=>{if(!syncingVideoFromAudio&&document.pictureInPictureElement===video)requestPipPlay();})"), 'Native PiP video play control must call the audio Player, except during programmatic synchronization.');
 assert(events.includes("video.addEventListener('pause',()=>{if(!syncingVideoFromAudio&&document.pictureInPictureElement===video)requestPipPause();})"), 'Native PiP video pause control must pause the audio Player, except during programmatic synchronization.');

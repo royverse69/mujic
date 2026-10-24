@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic — Music Player</title>
-    <meta name="application-version" content="13.0.21">
+    <meta name="application-version" content="13.1.1">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,25 +19,50 @@
             document.head.appendChild(mujicManifest);
         }
     </script>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1690950053974135"
-     crossorigin="anonymous"></script>
  
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-9HWTBD3DH6"></script>
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-9HWTBD3DH6');
+  // Analytics is opt-in. No Google request is made until the user enables it in Settings.
+  (() => {
+    const measurementId = 'G-9HWTBD3DH6';
+    const consentKey = 'mujic-analytics-consent-v1';
+    let loaded = false;
+    const hasConsent = () => { try { return localStorage.getItem(consentKey) === 'yes'; } catch (_) { return false; } };
+    window['ga-disable-' + measurementId] = !hasConsent();
+    const load = () => {
+      if (loaded || !hasConsent()) return;
+      loaded = true;
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = window.gtag || function gtag(){ window.dataLayer.push(arguments); };
+      window.gtag('js', new Date());
+      window.gtag('config', measurementId, { anonymize_ip: true });
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(measurementId);
+      script.onerror = () => { loaded = false; };
+      document.head.appendChild(script);
+    };
+    window.MujicAnalytics = {
+      isEnabled: hasConsent,
+      setEnabled(enabled) {
+        try { localStorage.setItem(consentKey, enabled ? 'yes' : 'no'); } catch (_) {}
+        window['ga-disable-' + measurementId] = !enabled;
+        if (enabled) load();
+        return Boolean(enabled);
+      },
+      init: load
+    };
+    if (hasConsent()) load();
+  })();
 </script>
     <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <link rel="preconnect" href="https://mujic.calverse.online" crossorigin>
+    <link rel="dns-prefetch" href="https://c.saavncdn.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,650&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:FILL@0..1&icon_names=add,apps,arrow_back,arrow_forward,auto_awesome,bedtime,check,check_circle,chevron_right,clear_all,close,cloud_off,cloud_upload,delete,delete_forever,download,download_for_offline,drag_indicator,edit,equalizer,error,favorite,favorite_border,format_quote,fullscreen,fullscreen_exit,graphic_eq,history,home,hourglass_empty,info,ios_share,keyboard,keyboard_arrow_down,keyboard_arrow_up,library_add,library_music,link,lyrics,more_horiz,more_vert,music_note,north_east,open_in_new,palette,picture_in_picture_alt,play_arrow,playlist_add,playlist_add_check,playlist_play,queue_music,radio,refresh,remove,remove_circle_outline,repeat,repeat_one,search,settings,share,shuffle,skip_next,skip_previous,speaker,speed,star,step,swap_horiz,sync,timer,tips_and_updates,travel_explore,tune,verified,visibility,volume_down,volume_off,volume_up,wifi,wifi_off,system_update&display=block" rel="stylesheet">
 
     <link rel="stylesheet" href="./css/app.css">
-    <link rel="stylesheet" href="./css/online-workspace.css">
 </head>
 <body>
     <div id="app-layout">
@@ -544,11 +569,11 @@
                 <div class="settings-section">
                     <h2 class="section-title">Lyrics Providers</h2>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Community lyrics fallback</div><div class="settings-desc">Uses the configured lyrics fallback through the Mujic Cloudflare Worker when an earlier lyrics lookup has no match. Turn off to disable this fallback.</div></div>
-                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsRenderEnabled" aria-label="Enable community lyrics fallback"></div>
+                        <div class="settings-text"><div class="settings-label">Community lyrics server</div><div class="settings-desc">Sends the song title and artist to the Mujic API (a Cloudflare Worker) when LRCLIB has no match. Turn off to keep lookups to LRCLIB only.</div></div>
+                        <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsRenderEnabled" aria-label="Enable community lyrics server fallback"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">LyricsPlus fallback</div><div class="settings-desc">Try the LyricsPlus synchronized-lyrics API through the Mujic Worker after embedded lyrics, cache and earlier lookups. Requires an internet connection.</div></div>
+                        <div class="settings-text"><div class="settings-label">LyricsPlus fallback</div><div class="settings-desc">Try the LyricsPlus synchronized-lyrics API only after embedded lyrics, cache, LRCLIB and the community lyrics server. Requires an internet connection.</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsPlusEnabled" aria-label="Enable LyricsPlus fallback"></div>
                     </div>
                     <div class="settings-row" hidden>
@@ -782,6 +807,14 @@
                     </div>
                 </div>
 
+                <div class="settings-section" id="settings-privacy-section">
+                    <h2 class="section-title">Privacy</h2>
+                    <div class="settings-row keep-desc">
+                        <div class="settings-text"><div class="settings-label">Anonymous usage analytics</div><div class="settings-desc">Optional Google Analytics usage data. Off by default; enabling it sends standard usage events to Google. Your local music library is not uploaded.</div></div>
+                        <div class="settings-control-group"><input type="checkbox" id="analytics-consent-toggle" class="settings-control" aria-label="Allow anonymous usage analytics"></div>
+                    </div>
+                </div>
+
                 <div class="settings-section" id="settings-about-section">
                     <h2 class="section-title">About Mujic</h2>
                     <div class="about-mujic-copy">Mujic was created by Ashutosh Roy (Machhar) out of curiosity and the need for a simple, lightweight player for music already on your device. There are many music apps, some with more features, but this one is special because it grew from a personal need. Thanks for being part of the journey. If you enjoy Mujic, please consider starring the open-source project on GitHub.</div>
@@ -794,12 +827,6 @@
                     </div>
                 </div>
 
-                <div class="settings-section" id="settings-changelog-section">
-                    <h2 class="section-title">Change &amp; Update Log</h2>
-                    <div id="changelog-content" class="changelog-content" aria-live="polite"><div class="settings-row"><div class="settings-text"><div class="settings-label">Loading updates…</div><div class="settings-desc">Recent improvements and fixes.</div></div></div></div>
-                    <div class="settings-row"><div class="settings-text"><div class="settings-label">Refresh update log</div><div class="settings-desc">Reload the latest release notes.</div></div><div class="settings-control-group"><button class="btn" type="button" data-action="refresh-changelog">Refresh</button></div></div>
-                </div>
-
                 <div class="app-footer">Made with <span aria-label="love">♥</span> by Machhar</div>
             </section>
         <button type="button" id="online-back-top" class="online-back-top" aria-label="Back to top" title="Back to top"><span class="material-symbols-rounded">keyboard_arrow_up</span></button>
@@ -807,10 +834,12 @@
     </div>
 
     <div id="mini-player" class="glass-surface" data-action="open-full-player">
-        <img id="mini-art" src="" alt="" onerror="this.onerror=null; if(window.Utils && window.Utils.defaultArt){this.src=window.Utils.defaultArt;}">
+        <img id="mini-art" src="" width="44" height="44" alt="" onerror="this.onerror=null; if(window.Utils && window.Utils.defaultArt){this.src=window.Utils.defaultArt;}">
         <div class="mini-meta">
             <div class="item-title" id="mini-title">Not Playing</div>
             <div class="item-subtitle" id="mini-artist">--</div>
+            <div class="mini-next-up" id="mini-next-up" hidden></div>
+            <span class="mini-buffering-status" id="mini-buffering-status" role="status" aria-live="polite"></span>
         </div>
         <div class="mini-controls">
             <button class="icon-btn mini-action" data-action="toggle-play" aria-label="Play/Pause"><span class="material-symbols-rounded" id="mini-play-btn" style="font-variation-settings: 'FILL' 1;">play_arrow</span></button>
@@ -1087,14 +1116,9 @@
     <script defer src="./js/core.js"></script>
     <script defer src="./js/storage.js"></script>
     <script defer src="./js/backend-config.js"></script>
+    <script defer src="./js/module-loader.js"></script>
     <script defer src="./js/lyrics.js"></script>
-    <script defer src="./js/online-cache.js"></script>
     <script defer src="./js/online-provider.js"></script>
-    <script defer src="./js/online-lyrics.js"></script>
-    <script defer src="./js/online-recommendations.js"></script>
-    <script defer src="./js/online-downloader.js"></script>
-    <script defer src="./js/discovery-catalog-data.js"></script>
-    <script defer src="./js/online-workspace.js"></script>
     <script defer src="./js/dialogs.js"></script>
     <script defer src="./js/player.js"></script>
     <script defer src="./js/library.js"></script>

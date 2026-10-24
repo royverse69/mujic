@@ -84,7 +84,7 @@
                     const imageFor = track => {
                         try {
                             if (track?.source === 'machhar-online' || window.OnlineMusic?.isOnlineTrack?.(track)) {
-                                const proxied=window.OnlineMusic?.getImage?.(track?.raw||{}, {workerProxy:true});
+                                const proxied=window.OnlineMusic?.getImage?.(track?.raw||{});
                                 if (proxied) return String(proxied);
                             }
                         } catch (_) {}
@@ -759,7 +759,6 @@
                     else if (action === 'export-stats') UI.exportData('stats');
                     else if (action === 'import-data') { e.preventDefault(); e.stopPropagation(); document.getElementById('data-import-input')?.click(); }
                     else if (action === 'check-updates') { e.preventDefault(); e.stopPropagation(); UI.checkForUpdates(true); }
-                    else if (action === 'refresh-changelog') { e.stopPropagation(); UI.loadChangeLog(true); }
                     else if (action === 'reset-appearance') UI.resetAppearance();
                     else if (action === 'open-external') { const target = btn.dataset.url || ''; if (/^https:\/\//.test(target)) window.open(target, '_blank', 'noopener,noreferrer'); }
                     else if (action === 'seek-lyric') { if (window.LyricsShare?.handleLyricClick(btn)) return; AudioAdapter.seek(parseFloat(btn.dataset.time)); }

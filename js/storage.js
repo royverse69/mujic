@@ -2,10 +2,25 @@
         const StorageAdapter = {
             db: null,
             init: () => {
-                return new Promise((resolve, reject) => {
-                    const req = indexedDB.open('MujicDB', 6);
-                    req.onerror = (e) => reject(e);
-                    req.onsuccess = (e) => { StorageAdapter.db = e.target.result; resolve(); };
+                // Never let a blocked/failed database take the whole app down: resolve without a db and the
+                // adapter's helpers (all guarded on StorageAdapter.db) keep the session working in memory.
+                return new Promise(resolve => {
+                    let settled = false;
+                    const done = () => { if (!settled) { settled = true; resolve(); } };
+                    let req;
+                    try { req = indexedDB.open('MujicDB', 6); }
+                    catch (error) { console.warn('IndexedDB unavailable; continuing without persistence', error); return done(); }
+                    const guard = setTimeout(() => { console.warn('IndexedDB open timed out; continuing without persistence'); done(); }, 8000);
+                    req.onerror = () => { clearTimeout(guard); console.warn('IndexedDB open failed', req.error); done(); };
+                    req.onblocked = () => console.warn('IndexedDB upgrade is blocked by another Mujic tab; close it to finish updating.');
+                    req.onsuccess = (e) => {
+                        clearTimeout(guard);
+                        const db = e.target.result;
+                        if (settled) { try { db.close(); } catch (_) {} return; }
+                        db.onversionchange = () => { try { db.close(); } catch (_) {} if (StorageAdapter.db === db) StorageAdapter.db = null; };
+                        db.onclose = () => { if (StorageAdapter.db === db) StorageAdapter.db = null; };
+                        StorageAdapter.db = db; done();
+                    };
                     req.onupgradeneeded = (e) => {
                         const db = e.target.result;
                         if(!db.objectStoreNames.contains('tracks')) db.createObjectStore('tracks', { keyPath: 'id' });
@@ -18,27 +33,25 @@
                     };
                 });
             },
-            _put: (storeName, val, key) => new Promise(r => {
-                if(!StorageAdapter.db) return r();
-                const tx = StorageAdapter.db.transaction(storeName, 'readwrite');
-                const req = key ? tx.objectStore(storeName).put(val, key) : tx.objectStore(storeName).put(val);
-                req.onsuccess = () => r(req.result); req.onerror = () => r(null);
+            // Every helper settles on success, request error, transaction abort (e.g. quota) or a thrown
+            // InvalidStateError, so an awaiting caller can never hang forever.
+            _run: (storeName, mode, fallback, work) => new Promise(resolve => {
+                if (!StorageAdapter.db) return resolve(fallback);
+                let result = fallback, tx;
+                try {
+                    tx = StorageAdapter.db.transaction(storeName, mode);
+                    const req = work(tx.objectStore(storeName));
+                    req.onsuccess = () => { result = req.result; if (mode === 'readonly') resolve(result === undefined ? fallback : result); };
+                    req.onerror = () => resolve(fallback);
+                    tx.oncomplete = () => resolve(result === undefined ? fallback : result);
+                    tx.onabort = () => resolve(fallback);
+                    tx.onerror = () => resolve(fallback);
+                } catch (error) { Utils.warn(error); resolve(fallback); }
             }),
-            _get: (storeName, key) => new Promise(r => {
-                if(!StorageAdapter.db) return r(null);
-                const req = StorageAdapter.db.transaction(storeName).objectStore(storeName).get(key);
-                req.onsuccess = () => r(req.result); req.onerror = () => r(null);
-            }),
-            _delete: (storeName, key) => new Promise(r => {
-                if(!StorageAdapter.db) return r();
-                const req = StorageAdapter.db.transaction(storeName, 'readwrite').objectStore(storeName).delete(key);
-                req.onsuccess = () => r(); req.onerror = () => r();
-            }),
-            _getAll: (storeName) => new Promise(r => {
-                if(!StorageAdapter.db) return r([]);
-                const req = StorageAdapter.db.transaction(storeName).objectStore(storeName).getAll();
-                req.onsuccess = () => r(req.result || []); req.onerror = () => r([]);
-            }),
+            _put: (storeName, val, key) => StorageAdapter._run(storeName, 'readwrite', null, store => (key ? store.put(val, key) : store.put(val))),
+            _get: (storeName, key) => StorageAdapter._run(storeName, 'readonly', null, store => store.get(key)),
+            _delete: (storeName, key) => StorageAdapter._run(storeName, 'readwrite', undefined, store => store.delete(key)),
+            _getAll: (storeName) => StorageAdapter._run(storeName, 'readonly', [], store => store.getAll()),
             
             saveTrackMeta: (t) => t?.source === 'machhar-online' ? Promise.resolve(null) : StorageAdapter._put('tracks', t),
             deleteTrack: async (id) => { await StorageAdapter._delete('tracks', id); await StorageAdapter._delete('audioBlobs', id); await StorageAdapter._delete('lyricsCache', id); },

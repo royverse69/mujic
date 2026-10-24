@@ -1,5 +1,22 @@
 /* Copyright mujic@royverse69 */
         Object.assign(UI, {
+            updateMiniNextUp: () => {
+                const node=document.getElementById('mini-next-up');if(!node)return;
+                const nextId=State.playbackOrder?.[Number(State.queueIndex)+1];
+                const next=nextId!==undefined?Player.getTrackById(nextId):null;
+                node.hidden=!next;
+                node.textContent=next?`Up next · ${next.title}`:'';
+                node.title=next?`Next track: ${next.title} — ${next.artist||'Unknown artist'}`:'';
+            },
+            setMiniPlayerBuffering: (buffering, track = null) => {
+                const mini=document.getElementById('mini-player');if(!mini)return;
+                const active=Boolean(buffering&&track&&track.source==='machhar-online');
+                mini.classList.toggle('is-buffering',active);
+                const status=document.getElementById('mini-buffering-status');
+                if(status)status.textContent=active?`Loading ${track.title||'track'}…`:'';
+                if(active)mini.setAttribute('aria-label',`Loading ${track.title||'track'} by ${track.artist||'unknown artist'}`);
+                else mini.setAttribute('aria-label','Now playing');
+            },
             renderQueue: () => {
                 Player.syncNowPlaying?.();
                 document.getElementById('queue-list').innerHTML = State.playbackOrder.map((id, i) => {
@@ -9,7 +26,7 @@
                     const isCurrentOnline = t.source === 'machhar-online' && isCurrent;
                     const def = Utils.generateDefaultArt(t.title);
                     const artHtml = t.source === 'machhar-online' && t.artworkUrl
-                        ? `<img src="${Utils.escapeHTML(t.artworkUrl)}" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
+                        ? `<img width="48" height="48" src="${Utils.escapeHTML(t.artworkUrl)}" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
                         : (State.showArtworkLists ? `<img src="${def}" data-art-id="${t.artworkId||''}" data-seed="${Utils.escapeHTML(t.title)}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';">` : `<div class="track-art-small art-placeholder" style="background-image:url('${def}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">music_note</span></div>`);
                     return `<div class="track-row${isCurrent?' is-now-playing':''}${isCurrentOnline?' online-playing-row':''}" data-action="play-queue-index" data-index="${i}" data-queue-index="${i}" ${isCurrent?'aria-current="true"':''}>
                         <div style="cursor: grab; margin-right: 8px; color: var(--text-tertiary); touch-action:none; user-select:none;" class="drag-handle" role="button" aria-label="Reorder queue item" tabindex="0"><span class="material-symbols-rounded" style="pointer-events:none;">drag_indicator</span></div>
@@ -23,7 +40,7 @@
                         </div>
                     </div>`;
                 }).join('');
-                UI.lazyLoadArtwork(); UI.setupQueueDragAndDrop();
+                UI.lazyLoadArtwork(); UI.setupQueueDragAndDrop(); UI.updateMiniNextUp?.();
             },
             setupQueueDragAndDrop: () => {
                 const list = document.getElementById('queue-list');
@@ -85,6 +102,20 @@
                     handle.addEventListener('pointercancel', endPointerDrag);
                 });
             },
+            loadPlayerArtworkLarge: (track = Player.getCurrentTrack()) => {
+                if (!track || track.source !== 'machhar-online' || !track.artworkLargeUrl) return false;
+                const trackId = String(track.id || '');
+                for (const id of ['full-art', 'desktop-lyrics-art']) {
+                    const img = document.getElementById(id);
+                    if (!img || img.dataset.mujicLargeTrack === trackId) continue;
+                    img.dataset.mujicLargeTrack = trackId;
+                    img.onerror = () => { img.onerror = null; img.src = track.artworkUrl || './icons/icon-192.png'; };
+                    img.src = track.artworkLargeUrl;
+                }
+                const fullBg = document.getElementById('full-bg');
+                if (fullBg && State.playerBackground === 'artwork') fullBg.style.backgroundImage = `url("${track.artworkLargeUrl.replace(/["\\]/g, '')}")`;
+                return true;
+            },
             updatePlayerMeta: async (t) => {
                 if(!t) return;
                 const reqId = ++State.artworkRequestId;
@@ -120,8 +151,11 @@
                 let artUrl = await ArtworkCache.getUrl(t);
                 if (reqId !== State.artworkRequestId) return;
                 
-                document.getElementById('mini-art').src = artUrl; document.getElementById('full-art').src = artUrl;
-                document.getElementById('desktop-lyrics-art').src = artUrl;
+                const miniArt=document.getElementById('mini-art');const fullArt=document.getElementById('full-art');const lyricsArt=document.getElementById('desktop-lyrics-art');
+                if(miniArt){miniArt.onerror=null;miniArt.src=artUrl;}
+                if(fullArt){fullArt.onerror=null;delete fullArt.dataset.mujicLargeTrack;fullArt.src=artUrl;}
+                if(lyricsArt){lyricsArt.onerror=null;delete lyricsArt.dataset.mujicLargeTrack;lyricsArt.src=artUrl;}
+                if(State.isFullPlayerOpen) UI.loadPlayerArtworkLarge?.(t);
                 
                 const fullBg = document.getElementById('full-bg');
                 if (State.playerBackground === 'artwork') {

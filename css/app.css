@@ -826,16 +826,6 @@ body.layout-spacious .editorial-section { margin-bottom:56px; }
 .lyrics-position-lower { --lyrics-position-base:4vh; }
 .lyrics-offset-control { display:flex; align-items:center; gap:8px; min-width:min(220px,100%); }
 .lyrics-offset-range { width:clamp(110px,25vw,180px); max-width:100%; accent-color:var(--accent-color); }
-.changelog-content { display:flex; flex-direction:column; gap:0; }
-.changelog-entry { padding:16px 20px; border-bottom:1px solid var(--border-subtle); }
-.changelog-entry:last-child { border-bottom:0; }
-.changelog-entry-head { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; }
-.changelog-entry-head strong { font-size:14px; }
-.changelog-entry-head span,.changelog-version,.changelog-empty{ color:var(--text-secondary); font-size:12px; }
-.changelog-version { margin-top:4px; font-weight:700; letter-spacing:.04em; }
-.changelog-entry ul { padding-left:18px; margin-top:10px; display:grid; gap:6px; }
-.changelog-entry li { color:var(--text-secondary); font-size:13px; line-height:1.45; }
-.changelog-empty { padding:16px 20px; line-height:1.5; }
 
 @media (max-width:767px) {
   body.lyrics-mode #full-player { overflow:hidden; }
@@ -1771,3 +1761,42 @@ body.low-end-mode .lyrics-share-spinner { animation:none !important; }
 @media (min-width: 900px) { .install-banner { max-width:560px; } }
 @media (prefers-reduced-motion: reduce) { .install-banner, .ob-stage, .ob-switch span, .ob-card, .ob-overlay { animation:none !important; transition:none !important; } }
 body.reduced-motion .install-banner, body.reduced-motion .ob-stage, body.reduced-motion .ob-switch span { animation:none !important; }
+
+
+/* Performance, focus and touch-target refinements (v13.1.1). */
+.track-list > .track-row, #library-list > .track-row, #home-tracks > .track-row,
+#detail-tracks > .track-row, #queue-list > .track-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 66px;
+}
+.material-symbols-rounded { font-feature-settings: 'liga'; font-variant-ligatures: common-ligatures; }
+button:focus-visible, [role="button"]:focus-visible, a:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent-color, #7aa2ff) !important;
+  outline-offset: 3px;
+}
+.btn-primary, .btn-play-pause, .eq-preset.active { color: var(--accent-ink, #000); }
+#mini-player.is-buffering #mini-title::after {
+  content: ''; display: inline-block; width: 9px; height: 9px; margin-left: 7px;
+  vertical-align: 1px; border: 1.5px solid currentColor; border-right-color: transparent;
+  border-radius: 50%; animation: mujic-buffer-spin .7s linear infinite;
+}
+.mini-buffering-status { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.mini-next-up { max-width:100%; margin-top:2px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--text-tertiary); font-size:10px; line-height:1.1; }
+.mini-next-up[hidden] { display:none !important; }
+@keyframes mujic-buffer-spin { to { transform: rotate(360deg); } }
+.settings-search-bar { position:sticky; top:0; z-index:15; padding:8px 0 12px; background:var(--bg-base); }
+.settings-search-input { display:block; width:100%; min-height:44px; padding:10px 14px; border:1px solid var(--border-subtle); border-radius:var(--radius-full); color:var(--text-primary); background:var(--bg-elevated); font:inherit; }
+.settings-search-input::placeholder { color:var(--text-tertiary); }
+.online-search-loading-status { position:sticky; top:0; z-index:3; margin:0 0 10px; padding:9px 12px; border:1px solid var(--border-subtle); border-radius:10px; background:color-mix(in srgb,var(--bg-elevated) 90%,transparent); color:var(--text-secondary); font-size:12px; }
+#online-search-results.is-refreshing > :not(.online-search-loading-status) { opacity:.58; transition:opacity .12s ease; }
+.online-network-description { max-width:520px; margin:0; color:var(--text-secondary); font-size:13px; line-height:1.55; }
+@media (pointer: coarse) {
+  .icon-btn, #mini-player .mini-action, .nav-item, .tab-item, .online-search-tab,
+  .text-action, .settings-switch { min-height:44px; }
+  .icon-btn, #mini-player .mini-action { min-width:44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #mini-player.is-buffering #mini-title::after { animation:none; }
+  #online-search-results.is-refreshing > :not(.online-search-loading-status) { transition:none; }
+}

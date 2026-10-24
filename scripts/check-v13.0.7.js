@@ -8,7 +8,6 @@ const workspace = read('js/online-workspace.js');
 const uiPlayer = read('js/ui-player.js');
 const uiLibrary = read('js/ui-library.js');
 const pkg = JSON.parse(read('package.json'));
-const changelog = JSON.parse(read('changlog.json'));
 check(index.includes('id="online-home-radio"') && workspaceCss.includes('scroll-snap-type:x mandatory') && workspaceCss.includes('overflow-x:auto !important'), 'Home radio rail must support horizontal touch scrolling and snapping.');
 check(workspaceCss.includes('white-space:nowrap') && workspaceCss.includes('text-overflow:ellipsis'), 'Radio section description must stay on one line.');
 check(!index.includes('player-context-badge') && index.includes('>Now Playing</span>'), 'Full-screen player must use the previous, unbadged header.');
@@ -16,5 +15,4 @@ check(appCss.includes('.track-row.is-now-playing') && appCss.includes('.track-no
 check(uiPlayer.includes('const isCurrent = String(id) === String(State.currentTrackId)') && uiPlayer.includes('track-now-playing-status'), 'Queue indicator must work for local and online current tracks.');
 check(uiLibrary.includes('const isCurrentTrack=Boolean(boundAudioId') && uiLibrary.includes('${nowPlayingStatus}${playlistControls}') && uiLibrary.includes('syncNowPlayingIndicators: () =>'), 'Playlist and track rows must reflect the actual audio-bound track indicator.');
 check(workspace.includes("'new Hindi songs 2026'") && workspace.includes("'new Bollywood songs 2026'") && workspace.includes("'latest English pop songs 2026'") && workspace.includes('const HOME_CACHE_VERSION = 6') && workspace.includes('offset+=2') && workspace.includes('merged.length>=16'), 'Latest Finds must use multiple query batches and invalidate the old sparse cache.');
-check(changelog.previous.entries.some(entry => entry.version === '13.0.7') || pkg.version === '13.0.7', 'Historical v13.0.7 release record must remain available.');
 console.log('v13.0.7 functional regression checks passed: swipeable radio rail, one-line subtitle, restored player header, shared queue/playlist indicator and expanded latest shelf.');

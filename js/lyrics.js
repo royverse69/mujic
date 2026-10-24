@@ -22,7 +22,7 @@
                     const parsedUrl = new URL(url, location.href);
                     const isBackend = window.MujicBackend.isBackendOrigin(parsedUrl.origin);
                     const request = isBackend
-                        ? window.MujicBackend.fetchWithWorker(parsedUrl.pathname + parsedUrl.search, options, { timeoutMs: timeout })
+                        ? window.MujicBackend.fetchWithFallback(parsedUrl.pathname + parsedUrl.search, options, { timeoutMs: timeout })
                         : fetch(url, options);
                     const timeoutPromise = new Promise((_, reject) => {
                         const parsedUrl = new URL(url, location.href);

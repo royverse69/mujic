@@ -38,7 +38,7 @@
                             try {
                                 const backend = `${window.MujicBackend.PRIMARY}/`;
                                 const endpoint = `${backend}lyrics?track=${encodeURIComponent(title)}&artist=`;
-                                const res = await LyricsFetcher.fetchWithTimeout(endpoint, 5000, { headers: { Accept: 'application/json' }, cache: 'no-store', credentials: 'omit' });
+                                const res = await LyricsFetcher.fetchWithTimeout(endpoint, 5000, { headers: { Accept: 'application/json' }, credentials: 'omit' });
                                 if (res.ok) {
                                     const result = await res.json();
                                     const resultTitle = result?.trackName || result?.title || result?.name || '';

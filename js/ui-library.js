@@ -215,14 +215,14 @@
             buildTrackRow: (t, contextName, contextData = null) => {
                 const isF = t?.source === 'machhar-online' ? Boolean(window.OnlineWorkspace?.isFavorite?.(t.id)) : State.favorites.includes(t.id);
                 const def = Utils.generateDefaultArt(t.title);
-                const artHtml = State.showArtworkLists ? `<img src="${def}" data-art-id="${t.artworkId||''}" data-seed="${Utils.escapeHTML(t.title)}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';">` : `<div class="track-art-small art-placeholder" style="background-image:url('${def}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">music_note</span></div>`;
+                const artHtml = State.showArtworkLists ? `<img width="48" height="48" src="${def}" data-art-id="${t.artworkId||''}" data-seed="${Utils.escapeHTML(t.title)}" class="track-art-small lazy-art" onerror="this.onerror=null; this.src='${def}';">` : `<div class="track-art-small art-placeholder" style="background-image:url('${def}');display:flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded">music_note</span></div>`;
                 const safeId = Utils.escapeHTML(t.id);
                 const isOnline=t.source==='machhar-online';
                 const boundAudioId=String((typeof AudioAdapter !== 'undefined' ? AudioAdapter.audio?.dataset?.mujicTrackId : '')||'');
                 const isCurrentTrack=Boolean(boundAudioId && boundAudioId===String(State.currentTrackId||'') && boundAudioId===String(t.id));
                 const isCurrentOnline=isOnline&&isCurrentTrack;
                 const rowArt = (t.source === 'machhar-online' && t.artworkUrl)
-                    ? `<img src="${Utils.escapeHTML(t.artworkUrl)}" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
+                    ? `<img src="${Utils.escapeHTML(t.artworkUrl)}" width="48" height="48" class="track-art-small" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${def}';">`
                     : artHtml;
                 const playlistControls = isOnline
                     ? `${isF?'<span class="material-symbols-rounded online-row-heart">favorite</span>':''}<button class="icon-btn online-row-action" data-action="online-open-track-playlist" data-id="${safeId}" aria-label="Add ${Utils.escapeHTML(t.title)} to streaming playlist" title="Add to playlist"><span class="material-symbols-rounded" style="pointer-events:none;">playlist_add</span></button><button class="icon-btn online-row-action" data-action="online-download-track" data-id="${safeId}" aria-label="Download ${Utils.escapeHTML(t.title)}" title="Download highest-quality AAC"><span class="material-symbols-rounded" style="pointer-events:none;">download</span></button><button class="icon-btn online-row-action" data-action="track-options" data-id="${safeId}" aria-label="More options for ${Utils.escapeHTML(t.title)}" title="More actions"><span class="material-symbols-rounded" style="pointer-events:none;">more_horiz</span></button>`

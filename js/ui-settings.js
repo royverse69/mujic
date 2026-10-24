@@ -41,12 +41,13 @@
                 const overview = document.createElement('div');
                 overview.id = 'settings-overview'; overview.className = 'settings-overview';
                 overview.innerHTML = `<div class="settings-overview-intro"><div class="settings-overview-kicker">PREFERENCES</div><div class="settings-overview-copy">Personalize your listening experience, playback, lyrics and library.</div></div>`;
+                const searchBar=document.createElement('div');searchBar.className='settings-search-bar';searchBar.innerHTML='<input id="settings-search-input" class="settings-search-input" type="search" placeholder="Search settings…" aria-label="Search settings" autocomplete="off">';
                 const defs = [
                     {id:'appearance', title:'UI & Customization', description:'Themes, accent colours, surfaces, corners and motion', icon:'palette', headings:['Appearance']},
                     {id:'player', title:'Player & Audio', description:'Waveform, playback, equalizer, audio effects and keyboard shortcuts', icon:'graphic_eq', headings:['Player','Playback','Playback Effects','Keyboard Shortcuts']},
                     {id:'lyrics', title:'Lyrics', description:'Lyrics providers, position and typography', icon:'lyrics', headings:['Lyrics Providers','Lyrics Display']},
                     {id:'library', title:'Library & Listening', description:'Sort, listening stats, exports and stored files', online:'Streaming library, listening stats, backups and offline cache', icon:'library_music', headings:['Library','Streaming Library','Your Listening','Streaming Listening','Data Export','Storage','Streaming Cache']},
-                    {id:'app', title:'App & About', description:'Installation, project links, release notes and app information', icon:'apps', headings:['App','Extras','About Mujic','Change & Update Log']}
+                    {id:'app', title:'App & About', description:'Installation, project links, release notes, privacy and app information', icon:'apps', headings:['App','Extras','Privacy','About Mujic','Change & Update Log']}
                 ];
                 const pages = document.createElement('div'); pages.id = 'settings-pages';
                 for (const def of defs) {
@@ -65,10 +66,68 @@
                     pages.appendChild(page);
                 }
                 const insertionPoint = title && title.parentNode === root ? title.nextSibling : root.firstChild;
-                if (insertionPoint && insertionPoint.parentNode === root) root.insertBefore(overview, insertionPoint);
-                else root.appendChild(overview);
+                if (insertionPoint && insertionPoint.parentNode === root) {
+                    root.insertBefore(searchBar, insertionPoint);
+                    root.insertBefore(overview, searchBar.nextSibling);
+                } else { root.appendChild(searchBar); root.appendChild(overview); }
                 root.appendChild(pages);
                 if (footer) { const appPage=pages.querySelector('[data-settings-group="app"]'); if(appPage) appPage.appendChild(footer); }
+                const analyticsToggle=root.querySelector('#analytics-consent-toggle');
+                if(analyticsToggle) {
+                    analyticsToggle.checked=Boolean(window.MujicAnalytics?.isEnabled?.());
+                    if(analyticsToggle.dataset.bound!=='1'){
+                        analyticsToggle.dataset.bound='1';
+                        analyticsToggle.addEventListener('change',()=>{
+                            const enabled=Boolean(analyticsToggle.checked);
+                            window.MujicAnalytics?.setEnabled?.(enabled);
+                            UI.showToast(enabled?'Anonymous analytics enabled.':'Analytics disabled. No new analytics requests will be made.','info');
+                        });
+                    }
+                }
+                const searchInput=searchBar.querySelector('input');
+                const filterSettings=query=>{
+                    const term=String(query||'').trim().toLowerCase();
+                    const overviewShown=!term;
+                    overview.classList.toggle('hidden',!overviewShown);
+                    overview.querySelectorAll('.settings-category-card').forEach(card=>{
+                        const match=!term||card.textContent.toLowerCase().includes(term);
+                        card.hidden=!match;
+                    });
+                    let firstMatch=null;
+                    pages.querySelectorAll('.settings-subpage').forEach(page=>{
+                        let pageMatches=false;
+                        page.querySelectorAll('.settings-section').forEach(section=>{
+                            const heading=section.querySelector('.section-title')?.textContent.toLowerCase()||'';
+                            const headingMatch=Boolean(term&&heading.includes(term));
+                            let sectionMatches=!term||headingMatch;
+                            section.querySelectorAll('.settings-row').forEach(row=>{
+                                const text=row.textContent.toLowerCase();
+                                const match=!term||headingMatch||text.includes(term);
+                                row.hidden=!match;
+                                if(match)sectionMatches=true;
+                            });
+                            section.hidden=!sectionMatches;
+                            if(sectionMatches)pageMatches=true;
+                        });
+                        const pageVisible=Boolean(term&&pageMatches);
+                        page.classList.toggle('active',pageVisible);
+                        page.classList.toggle('hidden',term?!pageVisible:true);
+                        if(pageVisible&&!firstMatch)firstMatch=page;
+                    });
+                    if(term){
+                        const title=root.querySelector(':scope > h1');if(title)title.classList.add('hidden');
+                        State.settingsGroup=null;
+                        const main=document.getElementById('main-content');if(main)main.scrollTop=0;
+                        if(firstMatch){const firstSection=firstMatch.querySelector('.settings-section:not([hidden])');firstSection?.scrollIntoView({block:'start',behavior:'auto'});}
+                    } else {
+                        const selected=State.settingsGroup;
+                        const title=root.querySelector(':scope > h1');if(title)title.classList.toggle('hidden',Boolean(selected));
+                        overview.classList.toggle('hidden',Boolean(selected));
+                        sections.forEach(section=>{section.hidden=false;section.querySelectorAll('.settings-row').forEach(row=>row.hidden=false);});
+                        pages.querySelectorAll('.settings-subpage').forEach(page=>{const match=page.dataset.settingsGroup===selected;page.classList.toggle('active',Boolean(selected&&match));page.classList.toggle('hidden',!selected||!match);});
+                    }
+                };
+                searchInput?.addEventListener('input',()=>filterSettings(searchInput.value));
             },
             setSettingsGroup: (group, fromHistory = false) => {
                 const root=document.getElementById('view-settings'); if(!root) return;
@@ -82,40 +141,10 @@
                 if(!selected && !fromHistory && history.state?.mujic && history.state?.settingsGroup) UI.replaceHistoryState({mujic:true, view:'settings', player:false, sheet:null, settingsGroup:null}, '#settings');
                 const main=document.getElementById('main-content'); if(main) main.scrollTop=0;
             },
-            openSettingsGroup: (group) => { UI.setSettingsGroup(group, false); if (group === 'app') UI.loadChangeLog(); if (group === 'library') window.OnlineWorkspace?.renderSettings?.(); },
+            openSettingsGroup: (group) => { UI.setSettingsGroup(group, false); if (group === 'library') window.OnlineWorkspace?.renderSettings?.(); },
             backSettingsGroup: () => {
                 if (UI.supportsUrlHistory() && history.state?.mujic && history.state?.settingsGroup) { try { history.back(); } catch (error) { UI.setSettingsGroup(null, true); } }
                 else UI.setSettingsGroup(null, true);
-            },
-            loadChangeLog: async (force = false) => {
-                const root = document.getElementById('changelog-content');
-                if (!root || (root.dataset.loaded === '1' && !force)) return;
-                const fallbackEntries = [
-                    { version: '13.0.21', date: '2026-10-23', title: 'Cloudflare-only API routing and search performance', changes: [
-                        'Unified catalogue search, Home recommendations, lyrics, stream metadata and supported media requests behind the Cloudflare Worker origin.',
-                        'Removed the secondary backend dependency and the separate changelog asset; release notes are now bundled with the app.',
-                        'Expanded Worker response caching, stale-response recovery and search debouncing to reduce repeated API calls and avoid long waits.'
-                    ]},
-                    { version: '13.0.20', date: '2026-10-22', title: 'Onboarding, install banner and playback refinements', changes: [
-                        'Added a first-run guide and install banner for supported browsers.',
-                        'Improved playback source ordering and synchronized native Picture-in-Picture controls.',
-                        'Retained offline library, playlists, queue, lyrics sharing, and player settings.'
-                    ]},
-                    { version: '13.0.19', date: '2026-10-21', title: 'Picture-in-Picture and lyric-share polish', changes: [
-                        'Improved real-time Picture-in-Picture synchronization and lyric share-card layout.',
-                        'Kept lyric sharing opt-in and retained existing playback controls.'
-                    ]},
-                    { version: '13.0.18', date: '2026-10-21', title: 'Search and player reliability', changes: [
-                        'Improved search result handling, online workspace behavior and playback recovery.',
-                        'Refined service-worker caching and lazy artwork loading.'
-                    ]},
-                    { version: '13.0.17', date: '2026-10-20', title: 'Lyrics cards and playback refinements', changes: [
-                        'Improved lyric-card rendering and metadata checks.',
-                        'Kept saved settings, playback history, and offline library data intact.'
-                    ]}
-                ];
-                root.innerHTML = fallbackEntries.map(entry => `<article class="changelog-entry"><div class="changelog-entry-head"><strong>${Utils.escapeHTML(entry.title)}</strong><span>${Utils.escapeHTML(entry.date)}</span></div><div class="changelog-version">${Utils.escapeHTML(entry.version)}</div><ul>${entry.changes.map(item => `<li>${Utils.escapeHTML(item)}</li>`).join('')}</ul></article>`).join('');
-                root.dataset.loaded = '1';
             },
             setAccent: (c) => {
                 const root = document.documentElement, b = document.body;
