@@ -312,9 +312,29 @@
 
                 const art = document.getElementById('player-art-container');
                 let artSwipe=null;
-                art?.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch'||e.target.closest('button'))return;artSwipe={x:e.clientX,y:e.clientY,id:e.pointerId};},{passive:true});
-                art?.addEventListener('pointerup',e=>{if(!artSwipe||artSwipe.id!==e.pointerId)return;const dx=e.clientX-artSwipe.x,dy=e.clientY-artSwipe.y;artSwipe=null;if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.25)return;e.preventDefault();e.stopPropagation();if(dx<0)Player.next();else Player.previous();},{passive:false});
-                art?.addEventListener('pointercancel',()=>{artSwipe=null;},{passive:true});
+                let artSwipeLocked=false;
+                let artSwipeTimer=0;
+                art?.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch'||e.target.closest('button')||artSwipeLocked)return;artSwipe={x:e.clientX,y:e.clientY,id:e.pointerId};},{passive:true});
+                art?.addEventListener('pointerup',e=>{
+                    if(!artSwipe||artSwipeLocked||artSwipe.id!==e.pointerId)return;
+                    const dx=e.clientX-artSwipe.x,dy=e.clientY-artSwipe.y;artSwipe=null;
+                    if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.25)return;
+                    e.preventDefault();e.stopPropagation();artSwipeLocked=true;
+                    const direction=dx<0?'next':'previous';
+                    const outClass=direction==='next'?'mujic-swipe-out-next':'mujic-swipe-out-previous';
+                    const fullArt=document.getElementById('full-art');
+                    if(fullArt)fullArt.dataset.pendingSwipeDirection=direction;
+                    art.classList.remove('mujic-swipe-out-next','mujic-swipe-out-previous');
+                    art.classList.add(outClass);
+                    window.clearTimeout(artSwipeTimer);
+                    artSwipeTimer=window.setTimeout(()=>{
+                        art.classList.remove(outClass);
+                        if(direction==='next')Player.next();else Player.previous();
+                        window.setTimeout(()=>{artSwipeLocked=false;},520);
+                    },160);
+                    window.setTimeout(()=>{if(fullArt?.dataset.pendingSwipeDirection===direction)delete fullArt.dataset.pendingSwipeDirection;},1800);
+                },{passive:false});
+                art?.addEventListener('pointercancel',()=>{artSwipe=null;art?.classList.remove('mujic-swipe-out-next','mujic-swipe-out-previous');},{passive:true});
 
                 const mini = document.getElementById('mini-player');
                 mini?.querySelectorAll('.mini-action').forEach(btn => {

@@ -9,9 +9,9 @@ const events = read('js/ui-events.js');
 const modules = read('js/module-loader.js');
 const workspace = read('js/online-workspace.js');
 const sw = read('sw.js');
-assert.equal(pkg.version, '13.2.4');
-assert.ok(html.includes('content="13.2.4"'));
-assert.ok(sw.includes('mujic-pwa-v13.2.4-cloudflare-edge'));
+assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
+assert.ok(html.includes(`content="${pkg.version}"`));
+assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`));
 assert.ok(!html.includes('<script defer src="./js/lyrics-share.js"></script>'), 'Lyric share renderer should not be parsed at startup.');
 assert.ok(!html.includes('<script defer src="./js/vendor/qrcode-generator.js"></script>'), 'Unused QR generator should not be requested at startup.');
 assert.ok(modules.includes('ensureLyricsShare') && modules.includes("loadScript('./js/lyrics-share.js')"), 'Sharing tools should load on demand.');
@@ -27,7 +27,7 @@ assert.ok(!html.includes('id="mj-pip-art"'), 'PiP UI should remain generated on 
 assert.ok(onlineCss.includes('#online-shelf-artists-wrap') && onlineCss.includes('content-visibility:visible !important'), 'Artist and radio shelves must not use paint suppression when scrolling.');
 assert.ok(!onlineCss.includes('.online-card-rail > .online-media-card { content-visibility:auto'), 'Image-bearing cards should retain stable painting while scrolling.');
 assert.ok(read('js/ui-history.js').includes('width="48" height="48"'), 'History lazy art needs explicit dimensions.');
-assert.ok(workspace.includes('width="320" height="200"') && workspace.includes('width="280" height="280"') && workspace.includes('width="480" height="320"'), 'Lazy category, artist and radio art needs explicit dimensions.');
+assert.ok(workspace.includes('width="640" height="320"') && workspace.includes('width="280" height="280"') && workspace.includes('width="480" height="320"'), 'Lazy category, artist and radio art needs explicit dimensions.');
 for (const source of [html, read('js/ui-history.js'), workspace]) {
   for (const tag of source.match(/<img\b[^>]*loading="lazy"[^>]*>/gi) || []) {
     assert.match(tag, /\bwidth="\d+"/i, `Lazy image missing width: ${tag.slice(0, 160)}`);

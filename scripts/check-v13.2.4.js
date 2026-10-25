@@ -13,7 +13,7 @@ const lyrics = read('js/lyrics.js');
 const onlineLyrics = read('js/online-lyrics.js');
 const provider = read('js/online-provider.js');
 const sw = read('sw.js');
-assert.equal(pkg.version, '13.2.4');
+assert.equal(pkg.version, '13.2.5');
 assert.equal(read('VERSION').trim(), pkg.version);
 assert.ok(html.includes(`content="${pkg.version}"`));
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`));
@@ -39,7 +39,7 @@ assert.ok(onlineLyrics.includes('const timedResult = matches.find(item => isLRC(
 assert.ok(!html.includes('<script defer src="./js/vendor/qrcode-generator.js"></script>'));
 assert.ok(!fs.existsSync('js/vendor/qrcode-generator.js'));
 assert.ok(!fs.existsSync('test.html') && !fs.existsSync('music.mp3'));
-assert.ok(!fs.existsSync('RELEASE_NOTES-v13.2.3.md') && fs.existsSync('RELEASE_NOTES-v13.2.4.md'));
+assert.ok(!fs.existsSync('RELEASE_NOTES-v13.2.4.md') && fs.existsSync('RELEASE_NOTES-v13.2.5.md'));
 assert.ok(sw.includes("'./js/lyrics-share.js'"), 'The optional share script remains cached for offline use while its execution remains lazy.');
 assert.ok(!html.includes('<script defer src="./js/lyrics-share.js"></script>'));
 
@@ -62,5 +62,5 @@ vm.runInContext(read('js/online-lyrics.js') + '\nglobalThis.__onlineLyrics = win
   assert.equal(nested?.text, '[00:01.00]Timestamped line');
   assert.equal(nested?.isSynced, true);
   assert.equal(nested?.source, 'Music catalogue');
-  console.log('v13.2.4 checks passed: mini-player geometry and controls, desktop install-state detection, timed-lyrics priority, and removal of unused package artifacts.');
+  console.log('v13.2.4 regression checks passed: mini-player geometry, desktop install-state detection, timed-lyrics priority, and unused package artifacts.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

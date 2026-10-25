@@ -152,8 +152,20 @@
                 if (reqId !== State.artworkRequestId) return;
                 
                 const miniArt=document.getElementById('mini-art');const fullArt=document.getElementById('full-art');const lyricsArt=document.getElementById('desktop-lyrics-art');
-                if(miniArt){miniArt.onerror=null;miniArt.src=artUrl;}
-                if(fullArt){fullArt.onerror=null;delete fullArt.dataset.mujicLargeTrack;fullArt.src=artUrl;}
+                const miniArtworkUrl=(t.source==='machhar-online'&&t.artworkMediumUrl)?t.artworkMediumUrl:artUrl;
+                if(miniArt){miniArt.onerror=()=>{miniArt.onerror=null;if(miniArt.src!==artUrl)miniArt.src=artUrl;};miniArt.src=miniArtworkUrl;}
+                if(fullArt){
+                    fullArt.onerror=null;delete fullArt.dataset.mujicLargeTrack;fullArt.src=artUrl;
+                    const swipeDirection=fullArt.dataset.pendingSwipeDirection;
+                    if(swipeDirection){
+                        const enterClass=swipeDirection==='next'?'mujic-swipe-in-from-right':'mujic-swipe-in-from-left';
+                        fullArt.classList.remove('mujic-swipe-in-from-right','mujic-swipe-in-from-left');
+                        void fullArt.offsetWidth;
+                        fullArt.classList.add(enterClass);
+                        delete fullArt.dataset.pendingSwipeDirection;
+                        window.setTimeout(()=>fullArt.classList.remove(enterClass),460);
+                    }
+                }
                 if(lyricsArt){lyricsArt.onerror=null;delete lyricsArt.dataset.mujicLargeTrack;lyricsArt.src=artUrl;}
                 if(State.isFullPlayerOpen) UI.loadPlayerArtworkLarge?.(t);
                 

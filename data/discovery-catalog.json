@@ -1,11 +1,271 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "categories": [
+    {
+      "id": "radio",
+      "label": "Radio",
+      "description": "Keep the music moving with themed radio mixes.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/50/10/10/50101038-ea8e-bed4-3712-812ffb6eb586/cb0e2d6c-0944-4e2b-bc00-3084452a8f8c.png/640x320sr.jpg",
+      "theme": "radio",
+      "songs": [
+        "radio hits",
+        "popular songs mix",
+        "non stop hits"
+      ],
+      "playlists": [
+        "radio hits playlists",
+        "non stop music playlist"
+      ],
+      "albums": [
+        "popular music albums"
+      ]
+    },
+    {
+      "id": "bollywood",
+      "label": "Bollywood",
+      "description": "Hindi film favourites, fresh soundtracks and Bollywood essentials.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/68/ce/44/68ce44e0-8216-f902-3e7c-d376145a1228/bcf5fd72-c360-4085-89c5-62159f940383.png/640x320sr.jpg",
+      "theme": "bollywood",
+      "songs": [
+        "Bollywood hits",
+        "Hindi film songs",
+        "new Bollywood songs",
+        "Hindi movie songs"
+      ],
+      "playlists": [
+        "Bollywood playlists",
+        "Hindi film songs playlist",
+        "Bollywood hits playlist"
+      ],
+      "albums": [
+        "Bollywood albums",
+        "Hindi movie soundtracks",
+        "new Hindi albums"
+      ]
+    },
+    {
+      "id": "punjabi",
+      "label": "Punjabi",
+      "description": "Punjabi pop, bhangra and the latest Punjabi hits.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/f5/55/93/f55593aa-7f77-88ed-9eda-b4da02d44837/8647cb25-17e2-406a-bf9c-b70d3de05a22.png/640x320sr.jpg",
+      "theme": "punjabi",
+      "songs": [
+        "Punjabi hits",
+        "new Punjabi songs",
+        "Punjabi pop songs"
+      ],
+      "playlists": [
+        "Punjabi hits playlists",
+        "Punjabi party playlist"
+      ],
+      "albums": [
+        "Punjabi albums",
+        "new Punjabi albums"
+      ]
+    },
+    {
+      "id": "tamil",
+      "label": "Tamil",
+      "description": "Tamil cinema songs, independent tracks and new releases.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features221/v4/c1/c8/a4/c1c8a426-620c-9bc0-b468-0166f78925ad/088d491c-29b2-49e5-a9a3-7c1013ed94dc.png/640x320sr.jpg",
+      "theme": "tamil",
+      "songs": [
+        "Tamil hits",
+        "new Tamil songs",
+        "Tamil movie songs"
+      ],
+      "playlists": [
+        "Tamil hits playlists",
+        "Tamil love songs playlist"
+      ],
+      "albums": [
+        "Tamil albums",
+        "Tamil movie soundtracks"
+      ]
+    },
+    {
+      "id": "pop",
+      "label": "Pop",
+      "description": "Big pop hooks, global hits and songs you will know by heart.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/c6/0c/06/c60c06d2-2e30-032d-4ddc-d86d664e9e71/1a5c846f-b40d-45ee-8508-542788d03142.png/640x320sr.jpg",
+      "theme": "pop",
+      "songs": [
+        "English pop hits",
+        "global pop hits",
+        "international pop songs"
+      ],
+      "playlists": [
+        "English pop playlists",
+        "global pop hits playlist"
+      ],
+      "albums": [
+        "English pop albums",
+        "global pop albums"
+      ]
+    },
+    {
+      "id": "telugu",
+      "label": "Telugu",
+      "description": "Telugu hits, film songs and standout soundtrack moments.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features211/v4/94/d3/45/94d345dd-4cba-413c-3ba0-169bb7e907b9/9f5076fb-b189-4fa2-964f-c8c57c018c7f.png/640x320sr.jpg",
+      "theme": "telugu",
+      "songs": [
+        "Telugu hits",
+        "new Telugu songs",
+        "Telugu movie songs"
+      ],
+      "playlists": [
+        "Telugu hits playlists",
+        "Telugu love songs playlist"
+      ],
+      "albums": [
+        "Telugu albums",
+        "Telugu movie soundtracks"
+      ]
+    },
+    {
+      "id": "charts",
+      "label": "Charts",
+      "description": "Popular tracks and frequently searched catalogue picks.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features211/v4/55/c5/4f/55c54f87-32ae-82f6-0cc8-80ae35ed5448/1f600eb6-9789-4a9c-927c-79d1425511fe.png/640x320sr.jpg",
+      "theme": "charts",
+      "songs": [
+        "trending songs 2026",
+        "top songs India",
+        "most popular songs"
+      ],
+      "playlists": [
+        "top hits playlists",
+        "top 50 songs playlist"
+      ],
+      "albums": [
+        "popular albums India",
+        "top albums"
+      ]
+    },
+    {
+      "id": "sing",
+      "label": "Sing",
+      "description": "Karaoke, sing-along favourites and vocal-led tracks.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features211/v4/44/3b/8e/443b8e5c-9d71-3113-70a6-cc226592da1d/5dea8aed-785c-4c1b-b849-867c0ad5e0ed.png/640x320sr.jpg",
+      "theme": "sing",
+      "songs": [
+        "karaoke songs",
+        "sing along hits",
+        "popular songs lyrics"
+      ],
+      "playlists": [
+        "karaoke playlists",
+        "sing along playlist"
+      ],
+      "albums": [
+        "acoustic sing along albums"
+      ]
+    },
+    {
+      "id": "indian-independent",
+      "label": "Indian Independent",
+      "description": "Independent Indian artists across languages and styles.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/7f/5c/33/7f5c3398-41de-6542-83ca-1d51c1f5eae8/fef5e5e3-1a14-4c3c-a8e3-23b17e187c2e.png/640x320sr.jpg",
+      "theme": "indie",
+      "songs": [
+        "Indian independent music",
+        "Indian indie songs",
+        "indie Hindi songs"
+      ],
+      "playlists": [
+        "Indian indie playlists",
+        "independent Indian artists playlist"
+      ],
+      "albums": [
+        "Indian indie albums"
+      ]
+    },
+    {
+      "id": "dj-mixes",
+      "label": "DJ Mixes",
+      "description": "Dancefloor mixes, remixes and high-energy transitions.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features211/v4/4c/83/b5/4c83b573-e8e2-00e4-e6c7-fb886adb2f82/e99e556c-bab2-427e-ae46-ae2105817936.png/640x320sr.jpg",
+      "theme": "dj",
+      "songs": [
+        "DJ mixes",
+        "dance remixes",
+        "EDM hits"
+      ],
+      "playlists": [
+        "DJ mix playlists",
+        "dance party mix playlist"
+      ],
+      "albums": [
+        "EDM albums",
+        "dance albums"
+      ]
+    },
+    {
+      "id": "malayalam",
+      "label": "Malayalam",
+      "description": "Malayalam film music, independent tracks and new releases.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features116/v4/e7/f6/2a/e7f62aff-9e8c-8b21-69d4-ea463eaa155b/dc5c2912-59ae-4889-bcf9-fce5ebd5d905.png/640x320sr.jpg",
+      "theme": "malayalam",
+      "songs": [
+        "Malayalam hits",
+        "new Malayalam songs",
+        "Malayalam movie songs"
+      ],
+      "playlists": [
+        "Malayalam hits playlists",
+        "Malayalam movie songs playlist"
+      ],
+      "albums": [
+        "Malayalam albums",
+        "Malayalam movie soundtracks"
+      ]
+    },
+    {
+      "id": "rock",
+      "label": "Rock",
+      "description": "Guitar-driven classics, alternative tracks and modern rock.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/01/ec/0e/01ec0e0b-be0a-fea4-cfec-9cbd3b1cc606/fd72e001-fc8e-4827-bd3c-1c32b4b2441c.png/640x320sr.jpg",
+      "theme": "rock",
+      "songs": [
+        "rock classics",
+        "alternative rock hits",
+        "classic rock songs"
+      ],
+      "playlists": [
+        "rock playlists",
+        "alternative rock playlist"
+      ],
+      "albums": [
+        "rock albums",
+        "classic rock albums"
+      ]
+    },
+    {
+      "id": "metal",
+      "label": "Metal",
+      "description": "Heavy riffs, metal classics and high-energy guitar music.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features221/v4/43/e7/79/43e779f1-6d1d-e84c-35ea-9f85f9557782/92abcb42-bc80-49da-9965-80da882a1db0.png/640x320sr.jpg",
+      "theme": "metal",
+      "songs": [
+        "heavy metal songs",
+        "metal classics",
+        "metal music hits"
+      ],
+      "playlists": [
+        "metal playlists",
+        "heavy metal classics playlist"
+      ],
+      "albums": [
+        "metal albums",
+        "heavy metal albums"
+      ]
+    },
     {
       "id": "live-music",
       "label": "Live Music",
       "description": "Live performances, intimate sessions and unforgettable stage moments.",
-      "art": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1000&q=82",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features221/v4/6f/e4/cd/6fe4cd89-af61-a2b4-3bd9-ef6b0b9ee9a5/941da3e8-d4f6-4dae-9e04-fdd2b4230276.png/640x320sr.jpg",
       "theme": "live",
       "songs": [
         "live music performances",
@@ -19,6 +279,253 @@
       "albums": [
         "live albums",
         "live concert albums"
+      ]
+    },
+    {
+      "id": "love-songs",
+      "label": "Love",
+      "description": "Romantic Hindi and English songs for every kind of feeling.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/3e/3c/bf/3e3cbfd0-ce7b-32a7-120a-57888a82928c/31b0f682-6b01-4398-99b2-ba2f0604a14e.png/640x320sr.jpg",
+      "theme": "romance",
+      "songs": [
+        "Hindi romantic songs",
+        "love songs Hindi",
+        "English romantic songs",
+        "romantic songs playlist"
+      ],
+      "playlists": [
+        "romantic Hindi playlists",
+        "love songs playlist"
+      ],
+      "albums": [
+        "romantic albums",
+        "Hindi love song albums"
+      ]
+    },
+    {
+      "id": "2000s-hits",
+      "label": "Hits",
+      "description": "Big sing-along favourites, chart hits and songs worth replaying.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/96/6e/96/966e9621-8018-4a3c-73df-40ec01b536db/43c06ec4-2b17-47aa-a90c-b4e18d2aa127.png/640x320sr.jpg",
+      "theme": "2000s",
+      "songs": [
+        "top hit songs",
+        "popular Hindi hits",
+        "English pop hits",
+        "top songs India"
+      ],
+      "playlists": [
+        "top hits playlists",
+        "top 50 songs playlist",
+        "latest hit songs playlist"
+      ],
+      "albums": [
+        "popular albums India",
+        "top hit albums"
+      ]
+    },
+    {
+      "id": "90s-hits",
+      "label": "Decades",
+      "description": "Classic favourites and defining songs from every decade.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features221/v4/6b/d6/f1/6bd6f18d-2bbc-5e50-a4bf-cedda8bf3c25/56e21bee-22ea-4206-b040-6d5574ee7fca.png/640x320sr.jpg",
+      "theme": "90s",
+      "songs": [
+        "80s music hits",
+        "90s Hindi songs",
+        "90s English hits",
+        "2000s Hindi hits"
+      ],
+      "playlists": [
+        "90s hits playlist",
+        "2000s hits playlist",
+        "decade music playlists"
+      ],
+      "albums": [
+        "classic 90s albums",
+        "2000s hit albums"
+      ]
+    },
+    {
+      "id": "workout",
+      "label": "Fitness",
+      "description": "High-energy songs for training, running and keeping pace.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features221/v4/cf/2c/0f/cf2c0fed-94a8-9d50-1f91-a359acbde1d9/301c121f-9f4a-4de4-8f2d-f3253ee7fb3a.png/640x320sr.jpg",
+      "theme": "workout",
+      "songs": [
+        "workout music",
+        "gym songs",
+        "high energy songs",
+        "fitness motivation music"
+      ],
+      "playlists": [
+        "workout playlists",
+        "gym motivation playlist",
+        "fitness music playlist"
+      ],
+      "albums": [
+        "workout albums",
+        "fitness music albums"
+      ]
+    },
+    {
+      "id": "kannada",
+      "label": "Kannada",
+      "description": "Kannada film songs, independent music and regional favourites.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features126/v4/9d/bb/cf/9dbbcf24-374d-268d-8c05-396803eabe7a/ccb0c0e1-2af0-4dac-ab75-05648366fdef.png/640x320sr.jpg",
+      "theme": "kannada",
+      "songs": [
+        "Kannada hits",
+        "new Kannada songs",
+        "Kannada movie songs"
+      ],
+      "playlists": [
+        "Kannada hits playlists",
+        "Kannada movie songs playlist"
+      ],
+      "albums": [
+        "Kannada albums",
+        "Kannada movie soundtracks"
+      ]
+    },
+    {
+      "id": "sleep",
+      "label": "Sleep",
+      "description": "Quiet ambient sounds and calm songs for winding down.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features221/v4/aa/20/ec/aa20ecbd-e113-cae8-bf3e-d5f9d68b652f/6863afbe-8cc3-468c-9893-3cda3a684baa.png/640x320sr.jpg",
+      "theme": "sleep",
+      "songs": [
+        "sleep music",
+        "calming ambient music",
+        "soft music for sleep"
+      ],
+      "playlists": [
+        "sleep music playlists",
+        "deep sleep music playlist"
+      ],
+      "albums": [
+        "ambient sleep albums",
+        "calm instrumental albums"
+      ]
+    },
+    {
+      "id": "focus",
+      "label": "Focus",
+      "description": "Steady music for study sessions, deep work and concentration.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features221/v4/40/05/69/40056927-a987-c7d4-da88-49a0d32f0a67/56752891-64b9-425d-b433-fa28f88e631a.png/640x320sr.jpg",
+      "theme": "focus",
+      "songs": [
+        "focus music",
+        "study music instrumental",
+        "deep work music"
+      ],
+      "playlists": [
+        "focus playlists",
+        "study music playlist",
+        "deep work music playlist"
+      ],
+      "albums": [
+        "focus instrumental albums",
+        "study music albums"
+      ]
+    },
+    {
+      "id": "dance",
+      "label": "Dance",
+      "description": "Dance-pop, club favourites and music that keeps you moving.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/fb/0c/20/fb0c2043-5c9b-65c7-6d86-81c0aba34e23/9b50d84d-1677-49a0-932b-99dca3a900e7.png/640x320sr.jpg",
+      "theme": "dance",
+      "songs": [
+        "dance hits",
+        "dance pop songs",
+        "club dance music"
+      ],
+      "playlists": [
+        "dance playlists",
+        "dance party mix playlist"
+      ],
+      "albums": [
+        "dance albums",
+        "dance pop albums"
+      ]
+    },
+    {
+      "id": "k-pop",
+      "label": "K-Pop",
+      "description": "K-pop favourites, groups and the latest Korean pop hits.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/95/87/8c/95878cce-74eb-6675-28f2-f38c6a5cd5aa/673c48b7-2896-49f2-bdc5-a1be3e517e0f.png/640x320sr.jpg",
+      "theme": "kpop",
+      "songs": [
+        "K-pop hits",
+        "new K-pop songs",
+        "Korean pop hits"
+      ],
+      "playlists": [
+        "K-pop playlists",
+        "K-pop hits playlist"
+      ],
+      "albums": [
+        "K-pop albums",
+        "new Korean pop albums"
+      ]
+    },
+    {
+      "id": "pride",
+      "label": "Pride",
+      "description": "Queer anthems, joyful pop and Pride playlist favourites.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/a6/08/9a/a6089a56-184e-90de-f1e3-9756e6bd447d/15223c24-4aff-4880-82e5-6fd88196e910.png/640x320sr.jpg",
+      "theme": "pride",
+      "songs": [
+        "Pride anthems",
+        "LGBTQ pop anthems",
+        "Pride songs playlist"
+      ],
+      "playlists": [
+        "Pride playlists",
+        "queer pop anthems playlist"
+      ],
+      "albums": [
+        "Pride pop albums",
+        "LGBTQ music albums"
+      ]
+    },
+    {
+      "id": "party",
+      "label": "Party",
+      "description": "Feel-good party starters, dance hits and crowd favourites.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features211/v4/77/06/cd/7706cd3f-028e-f199-5dd8-203883c0559a/c9fadb11-6353-4b5f-8fde-785856c46ee3.png/640x320sr.jpg",
+      "theme": "party",
+      "songs": [
+        "party songs",
+        "Bollywood party songs",
+        "dance hits"
+      ],
+      "playlists": [
+        "party songs playlists",
+        "Bollywood party playlist"
+      ],
+      "albums": [
+        "party albums",
+        "dance party albums"
+      ]
+    },
+    {
+      "id": "chill",
+      "label": "Chill",
+      "description": "Unhurried tunes for a quiet evening or a slower day.",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features211/v4/a9/5c/09/a95c0963-d134-1caa-1955-4b03c4916cfa/8daeeb28-dcef-45bd-9937-12ae6f68742d.png/640x320sr.jpg",
+      "theme": "chill",
+      "songs": [
+        "chill songs",
+        "relaxing music",
+        "easy listening songs"
+      ],
+      "playlists": [
+        "chill playlists",
+        "relaxing music playlist"
+      ],
+      "albums": [
+        "chill albums"
       ]
     },
     {
@@ -39,127 +546,6 @@
       "albums": [
         "live concert albums",
         "concert albums"
-      ]
-    },
-    {
-      "id": "bollywood",
-      "label": "Bollywood",
-      "description": "Hindi film favourites, fresh soundtracks and Bollywood essentials.",
-      "art": "https://upload.wikimedia.org/wikipedia/commons/1/12/Shahrukh.Khan.jpg",
-      "theme": "bollywood",
-      "songs": [
-        "Bollywood hits",
-        "Hindi film songs",
-        "new Bollywood songs",
-        "Hindi movie songs"
-      ],
-      "playlists": [
-        "Bollywood playlists",
-        "Hindi film songs playlist",
-        "Bollywood hits playlist"
-      ],
-      "albums": [
-        "Bollywood albums",
-        "Hindi movie soundtracks",
-        "new Hindi albums"
-      ]
-    },
-    {
-      "id": "pop",
-      "label": "Pop",
-      "description": "Big pop hooks, global hits and songs you will know by heart.",
-      "art": "https://commons.wikimedia.org/wiki/Special:FilePath/Taylor_Swift_by_David_Shankbone.jpg?width=1000",
-      "theme": "pop",
-      "songs": [
-        "English pop hits",
-        "global pop hits",
-        "international pop songs"
-      ],
-      "playlists": [
-        "English pop playlists",
-        "global pop hits playlist"
-      ],
-      "albums": [
-        "English pop albums",
-        "global pop albums"
-      ]
-    },
-    {
-      "id": "charts",
-      "label": "Charts",
-      "description": "Popular tracks and frequently searched catalogue picks.",
-      "art": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1000&q=82",
-      "theme": "charts",
-      "songs": [
-        "trending songs 2026",
-        "top songs India",
-        "most popular songs"
-      ],
-      "playlists": [
-        "top hits playlists",
-        "top 50 songs playlist"
-      ],
-      "albums": [
-        "popular albums India",
-        "top albums"
-      ]
-    },
-    {
-      "id": "sing",
-      "label": "Sing",
-      "description": "Karaoke, sing-along favourites and vocal-led tracks.",
-      "art": "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=1000&q=82",
-      "theme": "sing",
-      "songs": [
-        "karaoke songs",
-        "sing along hits",
-        "popular songs lyrics"
-      ],
-      "playlists": [
-        "karaoke playlists",
-        "sing along playlist"
-      ],
-      "albums": [
-        "acoustic sing along albums"
-      ]
-    },
-    {
-      "id": "punjabi",
-      "label": "Punjabi",
-      "description": "Punjabi pop, bhangra and the latest Punjabi hits.",
-      "art": "https://upload.wikimedia.org/wikipedia/commons/e/e2/Diljit_Dosanjh.jpg",
-      "theme": "punjabi",
-      "songs": [
-        "Punjabi hits",
-        "new Punjabi songs",
-        "Punjabi pop songs"
-      ],
-      "playlists": [
-        "Punjabi hits playlists",
-        "Punjabi party playlist"
-      ],
-      "albums": [
-        "Punjabi albums",
-        "new Punjabi albums"
-      ]
-    },
-    {
-      "id": "radio",
-      "label": "Radio",
-      "description": "Keep the music moving with themed radio mixes.",
-      "art": "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?auto=format&fit=crop&w=1000&q=82",
-      "theme": "radio",
-      "songs": [
-        "radio hits",
-        "popular songs mix",
-        "non stop hits"
-      ],
-      "playlists": [
-        "radio hits playlists",
-        "non stop music playlist"
-      ],
-      "albums": [
-        "popular music albums"
       ]
     },
     {
@@ -185,7 +571,7 @@
       "id": "hip-hop",
       "label": "Hip-Hop / Rap",
       "description": "Indian hip-hop, global rap and bass-heavy favourites.",
-      "art": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1000&q=82",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features211/v4/de/a3/d4/dea3d4c6-248c-0aab-a1ee-9b3c8d2115fd/6847ec8d-0288-4dc7-b6a4-0ca2df05c434.png/640x320sr.jpg",
       "theme": "hiphop",
       "songs": [
         "hip hop rap hits",
@@ -199,26 +585,6 @@
       "albums": [
         "hip hop albums",
         "rap albums"
-      ]
-    },
-    {
-      "id": "tamil",
-      "label": "Tamil",
-      "description": "Tamil cinema songs, independent tracks and new releases.",
-      "art": "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?auto=format&fit=crop&w=1000&q=82",
-      "theme": "tamil",
-      "songs": [
-        "Tamil hits",
-        "new Tamil songs",
-        "Tamil movie songs"
-      ],
-      "playlists": [
-        "Tamil hits playlists",
-        "Tamil love songs playlist"
-      ],
-      "albums": [
-        "Tamil albums",
-        "Tamil movie soundtracks"
       ]
     },
     {
@@ -280,26 +646,6 @@
       ]
     },
     {
-      "id": "telugu",
-      "label": "Telugu",
-      "description": "Telugu hits, film songs and standout soundtrack moments.",
-      "art": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1000&q=82",
-      "theme": "telugu",
-      "songs": [
-        "Telugu hits",
-        "new Telugu songs",
-        "Telugu movie songs"
-      ],
-      "playlists": [
-        "Telugu hits playlists",
-        "Telugu love songs playlist"
-      ],
-      "albums": [
-        "Telugu albums",
-        "Telugu movie soundtracks"
-      ]
-    },
-    {
       "id": "voice",
       "label": "Hey Siri, Play…",
       "description": "Start with a mood or moment and let the songs follow.",
@@ -316,65 +662,6 @@
       ],
       "albums": [
         "chill albums"
-      ]
-    },
-    {
-      "id": "rock",
-      "label": "Rock",
-      "description": "Guitar-driven classics, alternative tracks and modern rock.",
-      "art": "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=1000&q=82",
-      "theme": "rock",
-      "songs": [
-        "rock classics",
-        "alternative rock hits",
-        "classic rock songs"
-      ],
-      "playlists": [
-        "rock playlists",
-        "alternative rock playlist"
-      ],
-      "albums": [
-        "rock albums",
-        "classic rock albums"
-      ]
-    },
-    {
-      "id": "indian-independent",
-      "label": "Indian Independent",
-      "description": "Independent Indian artists across languages and styles.",
-      "art": "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=82",
-      "theme": "indie",
-      "songs": [
-        "Indian independent music",
-        "Indian indie songs",
-        "indie Hindi songs"
-      ],
-      "playlists": [
-        "Indian indie playlists",
-        "independent Indian artists playlist"
-      ],
-      "albums": [
-        "Indian indie albums"
-      ]
-    },
-    {
-      "id": "dj-mixes",
-      "label": "DJ Mixes",
-      "description": "Dancefloor mixes, remixes and high-energy transitions.",
-      "art": "https://images.unsplash.com/photo-1571266028243-d220c9c3b7c8?auto=format&fit=crop&w=1000&q=82",
-      "theme": "dj",
-      "songs": [
-        "DJ mixes",
-        "dance remixes",
-        "EDM hits"
-      ],
-      "playlists": [
-        "DJ mix playlists",
-        "dance party mix playlist"
-      ],
-      "albums": [
-        "EDM albums",
-        "dance albums"
       ]
     },
     {
@@ -397,107 +684,10 @@
       ]
     },
     {
-      "id": "love-songs",
-      "label": "Love Songs",
-      "description": "Romantic Hindi and English songs for every kind of feeling.",
-      "art": "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=1000&q=82",
-      "theme": "romance",
-      "songs": [
-        "Hindi romantic songs",
-        "love songs Hindi",
-        "English romantic songs"
-      ],
-      "playlists": [
-        "romantic Hindi playlists",
-        "love songs playlist"
-      ],
-      "albums": [
-        "romantic albums",
-        "Hindi love song albums"
-      ]
-    },
-    {
-      "id": "workout",
-      "label": "Workout",
-      "description": "High-energy songs for training, running and keeping pace.",
-      "art": "https://images.unsplash.com/photo-1534438327276-14e530a2e8c5?auto=format&fit=crop&w=1000&q=82",
-      "theme": "workout",
-      "songs": [
-        "workout music",
-        "gym songs",
-        "high energy songs"
-      ],
-      "playlists": [
-        "workout playlists",
-        "gym motivation playlist"
-      ],
-      "albums": [
-        "workout albums"
-      ]
-    },
-    {
-      "id": "chill",
-      "label": "Chill",
-      "description": "Unhurried tunes for a quiet evening or a slower day.",
-      "art": "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1000&q=82",
-      "theme": "chill",
-      "songs": [
-        "chill songs",
-        "relaxing music",
-        "easy listening songs"
-      ],
-      "playlists": [
-        "chill playlists",
-        "relaxing music playlist"
-      ],
-      "albums": [
-        "chill albums"
-      ]
-    },
-    {
-      "id": "90s-hits",
-      "label": "90s Hits",
-      "description": "The memorable Hindi and international songs of the nineties.",
-      "art": "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=82",
-      "theme": "90s",
-      "songs": [
-        "90s Hindi songs",
-        "90s Bollywood hits",
-        "90s English hits"
-      ],
-      "playlists": [
-        "90s Bollywood playlists",
-        "90s hits playlist"
-      ],
-      "albums": [
-        "90s Hindi albums",
-        "90s Bollywood albums"
-      ]
-    },
-    {
-      "id": "2000s-hits",
-      "label": "2000s Hits",
-      "description": "Throwbacks from the 2000s across Bollywood and pop.",
-      "art": "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=1000&q=82",
-      "theme": "2000s",
-      "songs": [
-        "2000s Bollywood songs",
-        "2000s Hindi hits",
-        "2000s English pop hits"
-      ],
-      "playlists": [
-        "2000s Bollywood playlist",
-        "2000s pop hits playlist"
-      ],
-      "albums": [
-        "2000s Bollywood albums"
-      ]
-    },
-    {
       "id": "jazz",
       "label": "Jazz",
       "description": "Smooth jazz, standards and laid-back instrumental selections.",
-      "art": "https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=1000&q=82",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features211/v4/c9/bc/89/c9bc89da-2140-6c93-4fc2-58a26e7c9100/0ac6d287-ad62-4184-a449-1bbaa66fd66d.png/640x320sr.jpg",
       "theme": "jazz",
       "songs": [
         "jazz classics",
@@ -555,7 +745,7 @@
       "id": "ghazal",
       "label": "Ghazals",
       "description": "Poetic ghazals, timeless voices and intimate arrangements.",
-      "art": "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=82",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features221/v4/de/98/f7/de98f75b-42bd-2938-9b7f-3b78a096b7ce/0536595b-aaa5-43ee-83f3-099410f37f8e.png/640x320sr.jpg",
       "theme": "ghazal",
       "songs": [
         "ghazals Hindi",
@@ -574,7 +764,7 @@
       "id": "sufi",
       "label": "Sufi",
       "description": "Soulful Sufi, qawwali and devotional contemporary music.",
-      "art": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1000&q=82",
+      "art": "https://is1-ssl.mzstatic.com/image/thumb/Features211/v4/e3/05/f0/e305f061-ee7a-77ba-b286-c3e55aa764bf/6f52f3da-5a74-4bd7-a113-63c152fd522f.png/640x320sr.jpg",
       "theme": "sufi",
       "songs": [
         "Sufi songs",

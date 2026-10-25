@@ -10,7 +10,7 @@ const events = read('js/ui-events.js');
 const css = read('css/app.css');
 const onlineCss = read('css/online-workspace.css');
 const moduleLoader = read('js/module-loader.js');
-assert.equal(pkg.version, '13.2.4');
+assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
 assert.equal(read('VERSION').trim(), pkg.version);
 assert.ok(html.includes(`content="${pkg.version}"`));
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`));
