@@ -91,7 +91,30 @@
         window.addEventListener('DOMContentLoaded', async () => { await App.init(); setTimeout(() => UI.checkForUpdates(false), 1800); });
 
         if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
+            const appVersion = document.querySelector('meta[name="application-version"]')?.content || 'unknown';
+            const hadController = Boolean(navigator.serviceWorker.controller);
+            if (hadController) {
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    // If a new worker takes control, reload once per version so the page JS and SW cannot stay mismatched.
+                    const key = `mujic-sw-reloaded-${appVersion}`;
+                    try {
+                        if (sessionStorage.getItem(key) === '1') return;
+                        sessionStorage.setItem(key, '1');
+                    } catch (_) { return; }
+                    location.reload();
+                });
+            }
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.warn('PWA service worker registration failed', err));
+                navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(registration => {
+                    // Check for an updated Worker at most once every six hours. This catches stale installed PWAs
+                    // without adding a service-worker download to every ordinary page load.
+                    const key = 'mujic-sw-last-update-check';
+                    let last = 0;
+                    try { last = Number(localStorage.getItem(key)) || 0; } catch (_) {}
+                    if (Date.now() - last > 6 * 60 * 60 * 1000) {
+                        try { localStorage.setItem(key, String(Date.now())); } catch (_) {}
+                        registration.update().catch(() => {});
+                    }
+                }).catch(err => console.warn('PWA service worker registration failed', err));
             });
         }

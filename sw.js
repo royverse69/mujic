@@ -1,5 +1,5 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.2.8-secure-media';
+const CACHE_NAME = 'mujic-pwa-v13.2.9-secure-media';
 const API_CACHE = 'mujic-api-v4';
 const ART_CACHE = 'mujic-art-v4';
 const CONFIG_CACHE = 'mujic-config-v1';
@@ -253,6 +253,10 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   const same = url.origin === self.location.origin;
+  if (same && url.pathname.endsWith('/__mujic_media__')) {
+    event.respondWith(Promise.resolve(new Response('This legacy media route has been retired. Reload Mujic to install the latest secure update.', {status:410, headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}})));
+    return;
+  }
   if (same && url.pathname.endsWith('/__mujic_secure_media__')) {
     event.respondWith(handleSecureMediaRoute(req).catch(() => new Response('Secure media proxy unavailable', {status:502,headers:{'Content-Type':'text/plain; charset=utf-8'}})));
     return;
