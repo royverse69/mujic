@@ -155,8 +155,7 @@
                 if (now - lastProgressToast > 1800 && percent < 100) { lastProgressToast = now; UI.showToast(`Downloading AAC · ${Math.round(percent)}%`, 'download'); }
             });
             if (!isAACM4A(bytes)) throw new Error('The backend did not provide a valid AAC/M4A file at its highest available quality. For safety, Mujic will not convert an MP3 or silently choose a lower-quality stream.');
-            const rawCover = track.artworkUrl || track.raw?.image?.[0]?.url || track.raw?.image;
-            const coverSource = OnlineMusic.proxyMediaUrl(rawCover) || ''; 
+            const coverSource = track.artworkUrl || OnlineMusic.proxyMediaUrl(track.raw?.image?.[0]?.url || track.raw?.image) || track.raw?.image?.[0]?.url || track.raw?.image;
             const cover = await fetchCoverBytes(coverSource);
             const metadata = tagM4A(bytes, track, cover);
             const filename = `${cleanFilePart(track.title)} - ${cleanFilePart(track.artist?.split(',')[0])}.m4a`;

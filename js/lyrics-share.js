@@ -249,31 +249,57 @@
     }
 
     function normalizeArtworkCandidate(value) {
-        const src = artworkValueToUrl(value);
+        let src = artworkValueToUrl(value);
         if (!src) return '';
+        // The service worker uses a same-origin virtual route for catalogue artwork. For
+        // canvas export, unwrap it and use Render's CORS-enabled /media endpoint instead.
+        try {
+            const parsed = new URL(src, location.href);
+            if (parsed.pathname.endsWith('/__mujic_media__')) {
+                const raw = parsed.searchParams.get('src') || '';
+                if (raw) src = raw;
+            }
+        } catch (_) {}
         if (/^(?:blob:|data:)/i.test(src)) return src;
         try {
             const parsed = new URL(src, location.href);
             if (parsed.origin === location.origin) return parsed.href;
-            // The Worker URL is already encrypted. Reuse it unchanged; let the provider helper
-            // reject any legacy raw catalogue CDN address rather than unwrapping it for canvas.
-            const safe = window.OnlineMusic?.proxyMediaUrl?.(parsed.href);
-            return safe ? String(safe) : '';
+            const proxied = window.OnlineMusic?.getImage?.({ image: parsed.href });
+            if (proxied) return String(proxied);
+            return parsed.href;
         } catch (_) { return ''; }
     }
 
     function artworkCandidates(track) {
         const candidates = [];
         const addUnique = src => { if (src && !candidates.includes(src)) candidates.push(src); };
-        const add = value => addUnique(normalizeArtworkCandidate(value));
+        const add = value => {
+            const raw = artworkValueToUrl(value);
+            const src = normalizeArtworkCandidate(value);
+            addUnique(src);
+            // A Render proxy failure should not make us give up on the cover. Keep the
+            // original CDN URL as a second attempt; anonymous CORS mode below ensures a
+            // no-CORS response is rejected rather than tainting the exported canvas.
+            if (raw && src && raw !== src) {
+                let direct = raw;
+                try {
+                    const parsed = new URL(raw, location.href);
+                    if (parsed.pathname.endsWith('/__mujic_media__')) direct = parsed.searchParams.get('src') || direct;
+                    else if (window.MujicBackend?.origins?.().includes(parsed.origin) && parsed.pathname === '/media') direct = parsed.searchParams.get('url') || direct;
+                    const directUrl = new URL(direct, location.href);
+                    if (/\.saavncdn\.com$/i.test(directUrl.hostname) || /(^|\.)jiosaavn\.com$/i.test(directUrl.hostname)) addUnique(directUrl.href);
+                } catch (_) {}
+            }
+        };
         // Offline/local tracks may use a blob URL already loaded into the actual player.
         // Use those first only when the track itself has no remote cover URL.
         const trackSrc = artworkValueToUrl(track?.artworkUrl || track?.artwork || track?.imageUrl || track?.image_url || track?.image);
         const isLocalBlob = /^(?:blob:|data:)/i.test(trackSrc);
         if (isLocalBlob) add(trackSrc);
 
-        // Ask the provider to rebuild the high-resolution cover URL through the secure Worker.
-        // Raw legacy catalogue URLs are rejected by the provider helper.
+        // Ask the provider to rebuild the high-resolution cover URL through Render. The
+        // raw payload carries nested/quality-specific Saavn image variants omitted by some
+        // queue copies of the track object.
         try {
             const rawImage = window.OnlineMusic?.getImage?.(track?.raw || {});
             add(rawImage);
