@@ -24,6 +24,6 @@ check(trackActions.includes("url.searchParams.set('t'") && trackActions.includes
 check(player.includes('position: Math.min(currentTime') && !player.includes('setPositionState({ duration, playbackRate, currentTime:'), 'Media Session position state must use the standard position property.');
 check(player.includes('Lyrics-share cleanup failed; continuing playback.'), 'Optional lyrics UI cleanup must not abort track startup.');
 check(read('js/ui-events.js').includes('Lyrics-share setup failed; player controls remain enabled.'), 'Optional lyrics UI initialization must not block global player event wiring.');
-check(events.includes('MUJIC · NOW PLAYING') && events.includes("case 'lyrics-share-share'") && events.includes('openDocumentPlayerPiP'), 'PiP branding, Document PiP controls and share actions must be wired.');
+check(events.includes("pipDoc.title = 'Mujic · Now Playing'") && events.includes("case 'lyrics-share-share'") && events.includes('openDocumentPlayerPiP'), 'PiP title branding, Document PiP controls and share actions must be wired.');
 check(html.includes('data-setting="lyricsShareEnabled"') && !html.includes('Up to four synced lines') && !html.includes('Album-art colours, your selected lyrics'), 'Lyrics sharing setting must be visible and redundant explanatory lines removed.');
 console.log('Lyrics-share checks passed: configurable More Options entry, five-line square Spotify-style artwork card, matching logo variants, no QR, lazy execution and versioned PWA cache.');

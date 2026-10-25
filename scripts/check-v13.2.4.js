@@ -13,7 +13,7 @@ const lyrics = read('js/lyrics.js');
 const onlineLyrics = read('js/online-lyrics.js');
 const provider = read('js/online-provider.js');
 const sw = read('sw.js');
-assert.equal(pkg.version, '13.2.6');
+assert.equal(pkg.version, '13.2.7');
 assert.equal(read('VERSION').trim(), pkg.version);
 assert.ok(html.includes(`content="${pkg.version}"`));
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`));
@@ -39,7 +39,7 @@ assert.ok(onlineLyrics.includes('const timedResult = matches.find(item => isLRC(
 assert.ok(!html.includes('<script defer src="./js/vendor/qrcode-generator.js"></script>'));
 assert.ok(!fs.existsSync('js/vendor/qrcode-generator.js'));
 assert.ok(!fs.existsSync('test.html') && !fs.existsSync('music.mp3'));
-assert.ok(!fs.existsSync('RELEASE_NOTES-v13.2.4.md') && fs.existsSync('RELEASE_NOTES-v13.2.5.md'));
+assert.ok(!fs.existsSync('RELEASE_NOTES-v13.2.4.md') && !fs.existsSync('RELEASE_NOTES-v13.2.5.md') && !fs.existsSync('RELEASE_NOTES-v13.2.6.md') && fs.existsSync('RELEASE_NOTES-v13.2.7.md'));
 assert.ok(sw.includes("'./js/lyrics-share.js'"), 'The optional share script remains cached for offline use while its execution remains lazy.');
 assert.ok(!html.includes('<script defer src="./js/lyrics-share.js"></script>'));
 

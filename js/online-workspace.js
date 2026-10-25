@@ -1857,11 +1857,65 @@
         if(selectedIndex>0) tracks=[tracks[selectedIndex],...tracks.slice(selectedIndex+1),...tracks.slice(0,selectedIndex)];
         return tracks;
     };
-    const playSearchResult = id => {
-        const selected=trackById(id);if(!selected||!OnlineMusic.isOnlineTrack(selected)){UI.showToast('This search result is no longer available. Search again.','info');return false;}
-        OnlineMusic.preferPrimaryMedia?.(selected);
-        Player.playContext([selected],0);saveQueueSnapshot('online');return true;
+    const resolveContextTrack = (id, context='') => {
+        const key=String(id||'');if(!key)return null;
+        const registered=Player.getTrackById(key)||OnlineMusic.getTrack(key)||window.OnlineCache?.getTrack(key);
+        if(registered&&OnlineMusic.isOnlineTrack(registered))return OnlineMusic.registerTrack(registered)||registered;
+        const candidateLists=[];
+        const contextName=String(context||'');
+        try{candidateLists.push(...getPlaybackContext(contextName,key));}catch(_){}
+        if(contextName==='online-search')candidateLists.push(...searchResults);
+        if(contextName==='online-history')candidateLists.push(...onlineHistory);
+        if(contextName==='online-liked')candidateLists.push(...onlineFavorites);
+        if(contextName==='online-playlist'){
+            const active=playlists.find(item=>item.id===activePlaylistId);
+            if(active?.tracks)candidateLists.push(...active.tracks);
+        }else if(contextName.startsWith('online-playlist:')){
+            const playlistId=contextName.slice('online-playlist:'.length);
+            const playlist=playlists.find(item=>String(item.id)===playlistId);
+            if(playlist?.tracks)candidateLists.push(...playlist.tracks);
+        }
+        if(contextName.startsWith('online-artist-singles:')&&activeRemoteEntity?.data?.singles)candidateLists.push(...activeRemoteEntity.data.singles);
+        if(contextName.startsWith('online-remote:')){
+            const parts=contextName.split(':');
+            const detailKey=`detail:${parts[1]}:${parts.slice(2).join(':')}`;
+            const detailTracks=shelfContexts.get(detailKey);
+            if(Array.isArray(detailTracks))candidateLists.push(...detailTracks);
+        }
+        for(const list of shelfContexts.values())if(Array.isArray(list)&&list.some(track=>String(track?.id||'')===key||String(track?.onlineTrackId||'')===key))candidateLists.push(...list);
+        if(activeRemoteEntity?.data){for(const list of [activeRemoteEntity.data.tracks,activeRemoteEntity.data.singles,activeRemoteEntity.data.topTracks])if(Array.isArray(list))candidateLists.push(...list);}
+        const candidate=candidateLists.find(track=>track&&(String(track.id||'')===key||String(track.onlineTrackId||'')===key||String(track.songId||track.song_id||'')===key));
+        if(!candidate)return null;
+        const hydrated=OnlineMusic.normalizeTrack?.(candidate) || (candidate.raw?OnlineMusic.normalizeTrack?.({...candidate.raw,provider:candidate.provider||'saavn'}):null);
+        if(hydrated&&OnlineMusic.isOnlineTrack(hydrated))return OnlineMusic.registerTrack(hydrated)||hydrated;
+        if(candidate.onlineTrackId)return OnlineMusic.registerTrack(candidate)||candidate;
+        return null;
     };
+    const normalizePlaybackContext = (context,id,selected) => {
+        if(context==='online-search')return [selected];
+        const candidates=getPlaybackContext(context,id);
+        const ordered=candidates.length?candidates:[selected];
+        const normalized=[];const seen=new Set();
+        for(const item of ordered){
+            const track=String(item?.id||'')===String(id)?selected:resolveContextTrack(item?.id||item?.onlineTrackId,context)||item;
+            if(!track?.id||seen.has(track.id)||!OnlineMusic.isOnlineTrack(track))continue;
+            const registered=OnlineMusic.registerTrack(track)||track;
+            seen.add(registered.id);normalized.push(registered);
+        }
+        if(!normalized.some(track=>track.id===selected.id))normalized.unshift(selected);
+        const index=normalized.findIndex(track=>track.id===selected.id);
+        return index>0?[...normalized.slice(index),...normalized.slice(0,index)]:normalized;
+    };
+    const playTrackInContext = (id, context='') => {
+        if(State.playbackSourceMode!=='online'){UI.showToast('Switch to streaming playback to play catalogue tracks.','info');return false;}
+        const selected=resolveContextTrack(id,context);
+        if(!selected||!OnlineMusic.isOnlineTrack(selected)){UI.showToast('This playlist track is no longer available. Refresh the playlist and try again.','info');return false;}
+        OnlineMusic.preferPrimaryMedia?.(selected);
+        const list=normalizePlaybackContext(context,id,selected);
+        if(!list.length){UI.showToast('No playable tracks were found in this playlist.','info');return false;}
+        Player.playContext(list,Math.max(0,list.findIndex(track=>track.id===selected.id)));saveQueueSnapshot('online');return true;
+    };
+    const playSearchResult = id => playTrackInContext(id,'online-search');
     const playPlaylist = id => {
         const p=playlists.find(item=>item.id===id); if(!p)return;
         p.tracks=dedupePlaylistTracks(p.tracks||[]);persist();
@@ -2124,5 +2178,5 @@
     const backToPlaylists = () => { activePlaylistId=null; renderPlaylists(); };
     const getOnlineHistory = () => onlineHistory.map(trackById).filter(Boolean);
     const getSearchResults = () => searchResults.slice();
-    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,removeSearchHistory,saveQueueSnapshot,setSearchType,openRemoteEntity,openCurrentArtist,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,openCategory,openRadioDirectory,openRadioStation,startRadio,startArtistRadio,extendRadioQueue,playCategory,loadMoreCategory,isRadioActive:()=>Boolean(activeRadioSession&&State.playbackSourceMode==='online'),getPlaybackLabel,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},playTrackFromShelf:(id,context)=>{const list=shelfContexts.get(context)||[];const ix=list.findIndex(t=>t.id===id);if(ix>=0){const ordered=[...list.slice(ix),...list.slice(0,ix)];setSearchContext(list);Player.playContext(ordered,0);}else{const t=trackById(id);if(t)Player.playContext([t],0);}},clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,openLikedFromHome,renderSettings,renderSettingsStats,renderSettingsCache,setCaching,clearAllCaches,resetTaste,exportStreamingLibrary,importStreamingLibrary,getListeningStats,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal,getLanguagePreference};
+    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playTrackInContext,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,removeSearchHistory,saveQueueSnapshot,setSearchType,openRemoteEntity,openCurrentArtist,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,openCategory,openRadioDirectory,openRadioStation,startRadio,startArtistRadio,extendRadioQueue,playCategory,loadMoreCategory,isRadioActive:()=>Boolean(activeRadioSession&&State.playbackSourceMode==='online'),getPlaybackLabel,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},playTrackFromShelf:(id,context)=>playTrackInContext(id,context),clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,openLikedFromHome,renderSettings,renderSettingsStats,renderSettingsCache,setCaching,clearAllCaches,resetTaste,exportStreamingLibrary,importStreamingLibrary,getListeningStats,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal,getLanguagePreference};
 })();

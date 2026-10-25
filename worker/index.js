@@ -230,7 +230,7 @@ const lyricsResponse = (result, hitTtl = TTL.lyrics) => {
 async function proxyLyrics(ctx, upstreamUrl, cacheKey) {
   try {
     const result = await cachedJson(ctx, `https://cache.mujic.internal/${cacheKey}`, TTL.lyrics,
-      () => upstreamJson(upstreamUrl, { timeout: 7000, headers: { 'X-User-Agent': 'Mujic/13.2.4 (https://royverse69.github.io/mujic/)' } }, 1),
+      () => upstreamJson(upstreamUrl, { timeout: 7000, headers: { 'X-User-Agent': 'Mujic/13.2.6 (https://royverse69.github.io/mujic/)' } }, 1),
       { cacheable: p => p && !p.error });
     return lyricsResponse(result);
   } catch (_) { return fail(502, 'Lyrics provider temporarily unavailable'); }

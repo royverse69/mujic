@@ -22,9 +22,9 @@ assert.match(css, /#bottom-nav\.scroll-hidden\s*\{\s*transform:\s*translate3d\(0
 assert.match(css, /body\.nav-scroll-hidden #mini-player\.visible\s*\{\s*bottom:\s*calc\(8px \+ var\(--safe-bottom\)\)/);
 assert.match(events, /const setNavCollapsed = collapsed =>/);
 assert.match(events, /const backgroundArt = get\('mj-pip-bg'\)/);
-assert.match(events, /backgroundArt\.dataset\.source !== src\) \{ backgroundArt\.dataset\.source = src; backgroundArt\.src = src; \}/);
-assert.match(events, /ctx\.filter='blur\(18px\) saturate\(1\.2\)'/);
-assert.match(events, /ctx\.drawImage\(art,38,68,size,size\)/);
+assert.match(events, /backgroundArt\.dataset\.source !== src\) \{ backgroundArt\.dataset\.source = src; backgroundArt\.style\.opacity = '\.25'; backgroundArt\.src = src; \}/);
+assert.match(events, /canvas\.width=640; canvas\.height=640/);
+assert.match(events, /ctx\.drawImage\(art,\(640-bw\)\/2,\(640-bh\)\/2,bw,bh\)/);
 assert.match(events, /const isMobilePiPContext = \(\) =>[\s\S]*pointer: coarse/);
 assert.ok(!html.includes('<script defer src="./js/lyrics-share.js"></script>'));
 assert.ok(!html.includes('<script defer src="./js/vendor/qrcode-generator.js"></script>'));

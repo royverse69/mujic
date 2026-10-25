@@ -7,7 +7,7 @@ const events = read('js/ui-events.js');
 const player = read('js/ui-player.js');
 const html = read('index.html');
 const sw = read('sw.js');
-assert.equal(pkg.version, '13.2.6');
+assert.equal(pkg.version, '13.2.7');
 assert.equal(read('VERSION').trim(), pkg.version);
 assert.ok(html.includes(`application-version" content="${pkg.version}"`));
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`));

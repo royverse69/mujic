@@ -47,36 +47,54 @@
                     if (!api?.requestWindow) return false;
                     if (api.window && !api.window.closed) { api.window.focus(); return true; }
                     // requestWindow must be called synchronously in the initiating click gesture.
-                    const pipWindow = await api.requestWindow({width:380, height:232, preferInitialWindowPlacement:true});
+                    const pipWindow = await api.requestWindow({width:480, height:480, preferInitialWindowPlacement:true});
                     const pipDoc = pipWindow.document;
                     pipDoc.title = 'Mujic · Now Playing';
                     const style = pipDoc.createElement('style');
                     style.textContent = `
                         :root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#09090b;color:#f8fafc}
-                        *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;background:#09090b;overflow:hidden}
-                        body{padding:12px;position:relative;isolation:isolate}.pip{height:100%;display:flex;flex-direction:column;gap:10px;position:relative;z-index:1}
-                        .pip-bg{position:absolute;inset:-18px;width:calc(100% + 36px);height:calc(100% + 36px);object-fit:cover;filter:blur(22px) saturate(1.25);opacity:.42;transform:scale(1.05);pointer-events:none;z-index:0}
-                        body:after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(6,7,10,.38),rgba(6,7,10,.86));pointer-events:none;z-index:1}
-                        .pip{z-index:2}
-                        .track{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
-                        .art{width:72px;height:72px;border-radius:11px;object-fit:cover;background:#19191f;flex:none;box-shadow:0 8px 25px #0007}
-                        .meta{min-width:0;flex:1}.title{font-size:13px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
-                        .artist{font-size:11px;margin-top:4px;color:#a1a1aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-                        .status{font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:#a1a1aa;margin-top:5px}
-                        .timeline{display:flex;flex-direction:column;gap:3px}.seek{width:100%;height:16px;margin:0;accent-color:#f04452;cursor:pointer}
-                        .times{display:flex;justify-content:space-between;color:#a1a1aa;font-size:10px;font-variant-numeric:tabular-nums}
-                        .controls{display:flex;align-items:center;justify-content:space-between;gap:7px}
-                        button{border:0;color:#e4e4e7;background:transparent;min-width:34px;height:34px;border-radius:999px;font:inherit;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
-                        button:hover{background:#242428}button:focus-visible,input:focus-visible{outline:2px solid #f04452;outline-offset:2px}
-                        button.primary{width:43px;height:43px;background:#fafafa;color:#111113;font-size:19px}
-                        button.primary:hover{background:#dedee3}.skip{font-size:11px;font-weight:750;width:42px}
-                        @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+                        *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#09090b}
+                        body{position:relative;isolation:isolate;user-select:none;-webkit-user-select:none}
+                        .pip-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 40%;opacity:.96;transform:scale(1.015);pointer-events:none;z-index:0;background:#101014;transition:opacity 220ms ease}
+                        body:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,5,9,.05) 0%,rgba(5,5,9,.04) 34%,rgba(5,5,9,.22) 48%,rgba(5,5,9,.78) 69%,rgba(5,5,9,.94) 100%);pointer-events:none;z-index:1}
+                        .pip{position:relative;z-index:2;width:100%;height:100%;padding:18px 22px 16px;display:flex;flex-direction:column;min-width:0;}
+                        .spacer{flex:1 1 auto;min-height:22px}
+                        .track-copy{display:grid;grid-template-columns:88px minmax(0,1fr);align-items:end;gap:18px;margin-bottom:15px;min-width:0}
+                        .utility{border:0;color:#e4e4e7;background:transparent;width:38px;height:38px;min-width:38px;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;padding:0}
+                        .utility svg,.control svg{width:24px;height:24px;display:block;fill:currentColor;flex:none}
+                        .utility:hover,.control:hover{background:rgba(255,255,255,.12)}button:focus-visible,input:focus-visible{outline:2px solid #ff5362;outline-offset:3px}
+                        .open-app{align-self:center;opacity:.9}
+                        .meta{min-width:0;padding-bottom:1px}.title{font-size:clamp(17px,5.2vw,24px);font-weight:760;line-height:1.18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;text-shadow:0 1px 12px #0008}
+                        .artist{font-size:clamp(13px,3.8vw,19px);line-height:1.25;margin-top:5px;color:rgba(245,245,250,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 10px #0008}
+                        .status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+                        .timeline{display:grid;grid-template-columns:60px minmax(0,1fr) 60px;align-items:center;gap:13px;margin-bottom:16px;font-size:13px;font-variant-numeric:tabular-nums;color:#c3c3cc}
+                        .seek{display:block;width:100%;height:20px;margin:0;appearance:none;-webkit-appearance:none;background:transparent;cursor:pointer;min-width:0;touch-action:pan-y}
+                        .seek::-webkit-slider-runnable-track{height:4px;border-radius:99px;background:rgba(255,255,255,.22)}.seek::-moz-range-track{height:4px;border-radius:99px;background:rgba(255,255,255,.22)}
+                        .seek::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:#f4f4f5;margin-top:-3.5px;box-shadow:0 1px 5px #0008}.seek::-moz-range-thumb{width:11px;height:11px;border:0;border-radius:50%;background:#f4f4f5;box-shadow:0 1px 5px #0008}
+                        .time{white-space:nowrap}.time:last-child{text-align:right}
+                        .controls{display:grid;grid-template-columns:minmax(66px,1fr) auto minmax(66px,1fr);align-items:center;gap:8px;min-width:0}
+                        .control-side{display:flex;align-items:center;gap:5px;min-width:0}.control-side.right{justify-content:flex-end}
+                        button.control{position:relative;border:0;color:#f4f4f5;background:transparent;width:36px;height:38px;min-width:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;touch-action:manipulation}
+                        .control svg{width:23px;height:23px}.control.center-skip{width:42px;height:42px}.control.center-skip svg{width:22px;height:22px}
+                        button.primary{width:48px;height:52px;min-width:48px;border-radius:0;background:transparent;color:#fff;box-shadow:none}
+                        button.primary svg{width:34px;height:34px}button.primary:hover{background:rgba(255,255,255,.08)}
+                        .center-controls{display:flex;align-items:center;justify-content:center;gap:13px}
+                        .volume-wrap{position:relative}.volume-dock{position:absolute;left:0;bottom:47px;width:142px;padding:10px 12px;border-radius:14px;background:rgba(18,18,22,.92);border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(16px);box-shadow:0 8px 30px #0007}
+                        .volume-dock[hidden],.pip-menu[hidden]{display:none}.volume-dock input{width:100%;accent-color:#f04452}
+                        .pip-menu{position:absolute;right:18px;bottom:68px;z-index:5;min-width:158px;padding:6px;border-radius:14px;background:rgba(20,20,24,.94);border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(16px);box-shadow:0 8px 30px #0008}
+                        .pip-menu button{display:block;width:100%;height:auto;min-height:36px;text-align:left;padding:8px 10px;border-radius:9px;color:#f4f4f5;background:transparent;font:inherit;font-size:12px;border:0;cursor:pointer}
+                        .pip-menu button:hover{background:rgba(255,255,255,.1)}
+                        @media(max-height:390px){.pip{padding:10px 15px 8px}.track-copy{margin-bottom:10px;grid-template-columns:54px minmax(0,1fr);gap:10px}.open-app{width:32px;min-width:32px;height:32px}.timeline{margin-bottom:8px;grid-template-columns:46px minmax(0,1fr) 46px;gap:8px}.controls{grid-template-columns:1fr auto 1fr}.center-controls{gap:7px}button.primary{width:42px;height:44px;min-width:42px}button.primary svg{width:29px;height:29px}.control-side{gap:1px}button.control{width:31px;min-width:30px;height:34px}}
+                        @media(max-width:390px){.pip{padding-left:15px;padding-right:15px}.track-copy{grid-template-columns:48px minmax(0,1fr);gap:9px}.timeline{grid-template-columns:42px minmax(0,1fr) 42px;gap:7px;font-size:11px}.center-controls{gap:4px}.control-side{gap:0}button.control{width:29px;min-width:27px}.control svg{width:20px;height:20px}}
+                        @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
                     `;
                     pipDoc.head.appendChild(style);
-                    pipDoc.body.innerHTML = `<img class="pip-bg" id="mj-pip-bg" alt="" aria-hidden="true"><main class="pip" aria-label="Mujic mini player">
-                        <section class="track"><img class="art" id="mj-pip-art" width="72" height="72" alt="Album cover"><div class="meta"><div class="title" id="mj-pip-title">Mujic</div><div class="artist" id="mj-pip-artist">Ready to play</div><div class="status" id="mj-pip-status">NOW PLAYING</div></div></section>
-                        <section class="timeline"><input class="seek" id="mj-pip-seek" type="range" min="0" max="1" value="0" step="0.1" aria-label="Seek through song"><div class="times"><span id="mj-pip-current">0:00</span><span id="mj-pip-duration">0:00</span></div></section>
-                        <nav class="controls" aria-label="Playback controls"><button id="mj-pip-prev" title="Previous track" aria-label="Previous track">|◀</button><button id="mj-pip-back" class="skip" title="Back 10 seconds" aria-label="Back 10 seconds">−10s</button><button id="mj-pip-toggle" class="primary" title="Play" aria-label="Play">▶</button><button id="mj-pip-forward" class="skip" title="Forward 10 seconds" aria-label="Forward 10 seconds">+10s</button><button id="mj-pip-next" title="Next track" aria-label="Next track">▶|</button></nav>
+                    pipDoc.body.innerHTML = `<img class="pip-bg" id="mj-pip-bg" width="640" height="640" alt="" aria-hidden="true"><main class="pip" aria-label="Mujic Picture-in-Picture player">
+                        <div class="spacer" aria-hidden="true"></div>
+                        <section class="track-copy"><button class="utility open-app" id="mj-pip-open" title="Open full player" aria-label="Open full player"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3H3v4h2V6.41l5.29 5.3 1.42-1.42L6.41 5H7V3zm10 0v2h1.59l-5.3 5.29 1.42 1.42L20 6.41V8h2V3h-5zM3 17v4h4v-2H5.41l5.3-5.29-1.42-1.42L4 17.59V17H3zm18 0h-2v1.59l-5.29-5.3-1.42 1.42 5.3 5.29H16v2h5v-5z"/></svg></button><div class="meta"><div class="title" id="mj-pip-title">Mujic</div><div class="artist" id="mj-pip-artist">Ready to play</div><div class="status" id="mj-pip-status" aria-live="polite">NOW PLAYING</div></div></section>
+                        <section class="timeline" aria-label="Track progress"><span class="time" id="mj-pip-current">0:00</span><input class="seek" id="mj-pip-seek" type="range" min="0" max="1" value="0" step="0.1" aria-label="Seek through song"><span class="time" id="mj-pip-duration">—:—</span></section>
+                        <nav class="controls" aria-label="Playback controls"><div class="control-side left"><div class="volume-wrap"><button class="control" id="mj-pip-volume" title="Volume" aria-label="Volume"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg></button><div class="volume-dock" id="mj-pip-volume-dock" hidden><input id="mj-pip-volume-range" type="range" min="0" max="1" step="0.01" value="1" aria-label="Playback volume"></div></div><button class="control" id="mj-pip-more" title="More options" aria-label="More options"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div><div class="center-controls"><button class="control center-skip" id="mj-pip-prev" title="Previous track" aria-label="Previous track"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM20 6v12L9 12z"/></svg></button><button class="control primary" id="mj-pip-toggle" title="Play" aria-label="Play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button><button class="control center-skip" id="mj-pip-next" title="Next track" aria-label="Next track"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2zM4 6v12l11-6z"/></svg></button></div><div class="control-side right"><button class="control" id="mj-pip-lyrics" title="Lyrics" aria-label="Open lyrics"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h3l4 3 4-3h3a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3zm1 13a1 1 0 0 1-1 1h-3.67L12 19.5 8.67 17H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v10zM7 8h10v2H7zm0 4h7v2H7z"/></svg></button><button class="control" id="mj-pip-queue" title="Queue" aria-label="Open queue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h12v2H3z"/></svg></button></div></nav>
+                        <div class="pip-menu" id="mj-pip-menu" hidden><button type="button" id="mj-pip-menu-open">Open Mujic</button><button type="button" id="mj-pip-menu-close">Close Picture-in-Picture</button></div>
                     </main>`;
                     const get = id => pipDoc.getElementById(id);
                     const audio = AudioAdapter.audio;
@@ -87,11 +105,11 @@
                     const imageFor = track => {
                         try {
                             if (track?.source === 'machhar-online' || window.OnlineMusic?.isOnlineTrack?.(track)) {
-                                const proxied=window.OnlineMusic?.getImage?.(track?.raw||{});
+                                const proxied=window.OnlineMusic?.getImage?.(track?.raw||{},{targetSize:640});
                                 if (proxied) return String(proxied);
                             }
                         } catch (_) {}
-                        const value = track?.artworkUrl || track?.artwork || track?.imageUrl || track?.image_url || track?.image;
+                        const value = track?.artworkLargeUrl || track?.artworkMediumUrl || track?.artworkUrl || track?.artwork || track?.imageUrl || track?.image_url || track?.image;
                         if (typeof value === 'string' && value) return value;
                         const loaded = document.getElementById('full-art') || document.getElementById('mini-art');
                         return loaded?.currentSrc || loaded?.src || window.Utils?.defaultArt || '';
@@ -107,17 +125,16 @@
                             get('mj-pip-title').textContent = title;
                             get('mj-pip-artist').textContent = artist;
                             pipDoc.title = `${title} · Mujic`;
-                            const cover = get('mj-pip-art');
                             const backgroundArt = get('mj-pip-bg');
                             const src = imageFor(track);
-                            if (src && cover.dataset.source !== src) { cover.dataset.source = src; cover.src = src; }
-                            if (src && backgroundArt.dataset.source !== src) { backgroundArt.dataset.source = src; backgroundArt.src = src; }
-                            cover.onerror = () => {
+                            if (src && backgroundArt.dataset.source !== src) { backgroundArt.dataset.source = src; backgroundArt.style.opacity = '.25'; backgroundArt.src = src; }
+                            backgroundArt.onload = () => { backgroundArt.style.opacity = '.96'; };
+                            backgroundArt.onerror = () => {
                                 const fallback=window.Utils?.defaultArt||'';
-                                if (fallback && cover.dataset.source !== fallback) {
-                                    cover.dataset.source=fallback; cover.src=fallback;
+                                if (fallback && backgroundArt.dataset.source !== fallback) {
                                     backgroundArt.dataset.source=fallback; backgroundArt.src=fallback;
                                 }
+                                backgroundArt.style.opacity = '.72';
                             };
                         }
                         const duration = Number(audio.duration);
@@ -129,13 +146,18 @@
                         slider.disabled = !durationKnown;
                         if (!seekWasChanged && pipDoc.activeElement !== slider) slider.value = String(Math.min(current, max));
                         get('mj-pip-current').textContent = fmt(current);
-                        get('mj-pip-duration').textContent = durationKnown ? fmt(duration) : '—:—';
+                        get('mj-pip-duration').textContent = durationKnown ? `-${fmt(Math.max(0,duration-current))}` : '—:—';
                         const playing = !audio.paused && !audio.ended;
                         const toggle = get('mj-pip-toggle');
-                        toggle.textContent = playing ? 'Ⅱ' : '▶';
+                        toggle.innerHTML = playing ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>' : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
                         toggle.title = playing ? 'Pause' : 'Play';
                         toggle.setAttribute('aria-label', playing ? 'Pause' : 'Play');
                         get('mj-pip-status').textContent = playing ? 'NOW PLAYING' : (track ? 'PAUSED' : 'READY');
+                        const volumeRange=get('mj-pip-volume-range');
+                        if(pipDoc.activeElement!==volumeRange) volumeRange.value=String(State.muted?0:Math.max(0,Math.min(1,Number(State.volume)||0)));
+                        const volumeButton=get('mj-pip-volume');
+                        volumeButton.setAttribute('aria-label',State.muted?'Unmute':`Volume ${Math.round((Number(State.volume)||0)*100)} percent`);
+                        volumeButton.title=State.muted?'Unmute':'Volume';
                     };
                     const seekTo = value => {
                         AudioAdapter.seek(Number(value));
@@ -151,10 +173,24 @@
                     });
                     get('mj-pip-prev').addEventListener('click', () => { Promise.resolve(Player.previous()).finally(sync); });
                     get('mj-pip-next').addEventListener('click', () => { Promise.resolve(Player.next()).finally(sync); });
-                    get('mj-pip-back').addEventListener('click', () => seekTo((Number(audio.currentTime)||0)-10));
-                    get('mj-pip-forward').addEventListener('click', () => seekTo((Number(audio.currentTime)||0)+10));
                     get('mj-pip-seek').addEventListener('input', e => { seekWasChanged=true; get('mj-pip-current').textContent=fmt(e.target.value); });
                     get('mj-pip-seek').addEventListener('change', e => { seekTo(e.target.value); seekWasChanged=false; });
+                    const volumeDock=get('mj-pip-volume-dock');
+                    get('mj-pip-volume').addEventListener('click',()=>{volumeDock.hidden=!volumeDock.hidden;get('mj-pip-menu').hidden=true;sync();});
+                    get('mj-pip-volume-range').addEventListener('input',e=>{
+                        const value=Math.max(0,Math.min(1,Number(e.target.value)||0));
+                        State.volume=value;State.muted=value===0;if(value>0)State.previousVolume=value;
+                        audio.volume=value;audio.muted=false;UI.updateVolumeUI?.();
+                        get('mj-pip-volume').style.color=value===0?'#ff6875':'#f4f4f5';
+                    });
+                    get('mj-pip-volume-range').addEventListener('change',()=>{try{StorageAdapter.saveSettings?.().catch?.(()=>{});}catch(_){}sync();});
+                    const pipMenu=get('mj-pip-menu');
+                    get('mj-pip-more').addEventListener('click',()=>{pipMenu.hidden=!pipMenu.hidden;volumeDock.hidden=true;});
+                    get('mj-pip-menu-open').addEventListener('click',()=>{pipMenu.hidden=true;window.focus();UI.openFullPlayer();});
+                    get('mj-pip-menu-close').addEventListener('click',()=>pipWindow.close());
+                    get('mj-pip-open').addEventListener('click',()=>{window.focus();UI.openFullPlayer();});
+                    get('mj-pip-lyrics').addEventListener('click',()=>{window.focus();UI.openFullPlayer();if(!State.isLyricsMode)UI.toggleLyricsMode();});
+                    get('mj-pip-queue').addEventListener('click',()=>{window.focus();UI.showSheet('queue-sheet');});
                     const audioEvents = ['play','playing','pause','timeupdate','loadedmetadata','durationchange','seeking','seeked','ratechange','ended','emptied'];
                     const onAudioChange = () => sync();
                     audioEvents.forEach(type => audio.addEventListener(type, onAudioChange));
@@ -176,7 +212,7 @@
                     if (document.pictureInPictureElement?.id === 'mujic-pip-video') { await document.exitPictureInPicture(); return; }
                     let video = document.getElementById('mujic-pip-video');
                     if (!video) {
-                        const canvas=document.createElement('canvas'); canvas.width=640; canvas.height=360;
+                        const canvas=document.createElement('canvas'); canvas.width=640; canvas.height=640;
                         const ctx=canvas.getContext('2d');
                         video=document.createElement('video'); video.id='mujic-pip-video'; video.muted=true; video.playsInline=true; video.disablePictureInPicture=false; video.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px';
                         video.srcObject=canvas.captureStream(12); document.body.appendChild(video);
@@ -189,23 +225,37 @@
                             const artist=current?.artist||document.getElementById('full-artist')?.textContent||'Now Playing';
                             const art=document.getElementById('full-art')||document.getElementById('mini-art');
                             const artSrc=art?.currentSrc||art?.src||'';
-                            const paintKey=[current?.id||State.currentTrackId||'',title,artist,artSrc,art?.naturalWidth||0].join('|');
+                            const audio=AudioAdapter.audio;
+                            const currentSecond=Math.floor(Number(audio.currentTime)||0);
+                            const isPlaying=!audio.paused&&!audio.ended;
+                            const paintKey=[current?.id||State.currentTrackId||'',title,artist,artSrc,art?.naturalWidth||0,currentSecond,isPlaying].join('|');
                             if(!force&&paintKey===lastCanvasPaintKey)return;
                             lastCanvasPaintKey=paintKey;
-                            ctx.fillStyle='#09090b';ctx.fillRect(0,0,640,360);
+                            ctx.fillStyle='#09090b';ctx.fillRect(0,0,640,640);
                             try {
                                 if (art?.complete && art.naturalWidth) {
                                     const aw=art.naturalWidth, ah=art.naturalHeight;
-                                    const coverScale=Math.max(640/aw,360/ah), bw=aw*coverScale, bh=ah*coverScale;
-                                    ctx.save();ctx.filter='blur(18px) saturate(1.2)';ctx.globalAlpha=.92;
-                                    ctx.drawImage(art,(640-bw)/2,(360-bh)/2,bw,bh);ctx.restore();
-                                    ctx.fillStyle='rgba(5,6,10,.68)';ctx.fillRect(0,0,640,360);
-                                    const size=224;ctx.save();ctx.filter='none';ctx.beginPath();ctx.roundRect(38,68,size,size,22);ctx.clip();ctx.drawImage(art,38,68,size,size);ctx.restore();
-                                }
+                                    const coverScale=Math.max(640/aw,640/ah), bw=aw*coverScale, bh=ah*coverScale;
+                                    ctx.save();ctx.filter='none';ctx.globalAlpha=1;
+                                    ctx.drawImage(art,(640-bw)/2,(640-bh)/2,bw,bh);ctx.restore();
+                                    let shade=null;
+                                    if(typeof ctx.createLinearGradient==='function'){
+                                        shade=ctx.createLinearGradient(0,300,0,640);
+                                        shade.addColorStop(0,'rgba(5,6,10,0)');shade.addColorStop(.35,'rgba(5,6,10,.4)');shade.addColorStop(1,'rgba(5,6,10,.96)');
+                                    }
+                                    ctx.fillStyle=shade||'rgba(5,6,10,.62)';ctx.fillRect(0,285,640,355);
+                                }else{ctx.fillStyle='rgba(5,6,10,.6)';ctx.fillRect(0,0,640,640);}
                             } catch (_) {}
-                            ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='600 25px system-ui';ctx.fillText(fit(title,300),292,148);
-                            ctx.fillStyle='#dedee5';ctx.font='18px system-ui';ctx.fillText(fit(artist,300),292,184);
-                            ctx.fillStyle='#c0c0ca';ctx.font='14px system-ui';ctx.fillText('MUJIC · NOW PLAYING',292,226);
+                            ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='600 27px system-ui';ctx.fillText(fit(title,450),160,430);
+                            ctx.fillStyle='#dedee5';ctx.font='21px system-ui';ctx.fillText(fit(artist,450),160,464);
+                            ctx.font='22px system-ui';ctx.fillStyle='#f2f2f5';ctx.fillText('⤢',42,466);
+                            const duration=Number(audio.duration),position=Math.max(0,Number(audio.currentTime)||0),durationKnown=Number.isFinite(duration)&&duration>0;
+                            const fmt=value=>{const n=Math.max(0,Math.floor(Number(value)||0));return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;};
+                            const trackStart=124,trackEnd=590,trackY=520,trackWidth=trackEnd-trackStart;
+                            ctx.fillStyle='rgba(255,255,255,.24)';ctx.fillRect(trackStart,trackY,trackWidth,4);
+                            ctx.fillStyle='#f1f1f5';ctx.fillRect(trackStart,trackY,trackWidth*(durationKnown?Math.min(1,position/duration):0),4);
+                            ctx.textAlign='left';ctx.fillStyle='#c7c7cf';ctx.font='17px system-ui';ctx.fillText(fmt(position),40,526);
+                            ctx.textAlign='right';ctx.fillText(durationKnown?`-${fmt(Math.max(0,duration-position))}`:'—:—',600,526);
                         };
                         video._pipPaint(true);
                         const pipAudioEvents=['play','playing','pause','timeupdate','loadedmetadata','durationchange','seeking','seeked','ratechange','ended','emptied','loadstart','canplay'];
@@ -627,23 +677,17 @@
                                 const row = btn.closest('.home-track-longpress-target');
                                 if (row?.dataset.longPressTriggered === '1') { row.dataset.longPressTriggered = '0'; return; }
                                 const id = btn.dataset.id;
-                                const selectedTrack = Player.getTrackById(id);
-                                if (!id || !selectedTrack) { UI.showToast('This track is no longer available. Search again to refresh it.', 'error'); return; }
                                 const contextName = btn.dataset.context || 'library';
-                                if (selectedTrack.source === 'machhar-online') {
-                                    if (State.playbackSourceMode !== 'online') { UI.showToast('Switch to streaming playback to play catalogue tracks.', 'info'); return; }
-                                    if (contextName === 'online-search') { OnlineWorkspace.playSearchResult(id); return; }
-                                    const matches = OnlineWorkspace.getPlaybackContext(contextName, id);
-                                    const sourceList = matches.length > 0 ? matches : [selectedTrack];
-                                    const seenIds = new Set();
-                                    const list = sourceList.filter(track => {
-                                        if (!track?.id || seenIds.has(track.id)) return false;
-                                        seenIds.add(track.id); return true;
-                                    });
-                                    const startIndex = Math.max(0, list.findIndex(track => track.id === id));
-                                    Player.playContext(list, startIndex);
+                                const onlineRow = btn.dataset.trackSource === 'online' || String(contextName).startsWith('online-');
+                                if (onlineRow) {
+                                    // A catalogue row is authoritative: switch to streaming mode from the
+                                    // same tap, then resolve it from its source context before playback.
+                                    if (State.playbackSourceMode !== 'online' && !(await OnlineMusic.setMode('online'))) return;
+                                    OnlineWorkspace.playTrackInContext(id, contextName);
                                     return;
                                 }
+                                const selectedTrack = Player.getTrackById(id);
+                                if (!id || !selectedTrack) { UI.showToast('This track is no longer available. Search again to refresh it.', 'error'); return; }
                                 const contextList = State.library;
                                 let list = contextList;
                                 if (contextName === 'search') {

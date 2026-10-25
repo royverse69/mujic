@@ -22,7 +22,7 @@ assert.ok(events.includes('if (delta > 6') && events.includes('else if (delta < 
 assert.ok(!events.includes("miniPlayer.classList.add('scroll-hidden')"), 'The now-playing mini player must not be hidden by scrolling.');
 assert.ok(css.includes('body.nav-scroll-hidden #mini-player.visible { bottom: calc(8px + var(--safe-bottom)); }'));
 for (const mode of ['sharp', 'medium', 'rounded', 'extra']) assert.ok(css.includes(`body[data-corner-radius="${mode}"] #bottom-nav .nav-item.active`), `Active nav chip should follow ${mode} radius.`);
-assert.ok(events.includes('mj-pip-bg') && events.includes("ctx.filter='blur(18px) saturate(1.2)'"), 'Both custom and native PiP should use artwork as a soft background.');
+assert.ok(events.includes('mj-pip-bg') && events.includes('canvas.width=640; canvas.height=640') && events.includes('ctx.drawImage(art,(640-bw)/2,(640-bh)/2,bw,bh)'), 'Custom and native PiP should use a full-window poster composition.');
 assert.ok(!html.includes('id="mj-pip-art"'), 'PiP UI should remain generated on demand, not add page startup markup.');
 assert.ok(onlineCss.includes('#online-shelf-artists-wrap') && onlineCss.includes('content-visibility:visible !important'), 'Artist and radio shelves must not use paint suppression when scrolling.');
 assert.ok(!onlineCss.includes('.online-card-rail > .online-media-card { content-visibility:auto'), 'Image-bearing cards should retain stable painting while scrolling.');

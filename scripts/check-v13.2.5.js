@@ -10,7 +10,7 @@ const uiPlayer = read('js/ui-player.js');
 const catalog = JSON.parse(read('data/discovery-catalog.json'));
 const fallback = read('js/discovery-catalog-data.js');
 const sw = read('sw.js');
-assert.equal(pkg.version,'13.2.6');
+assert.equal(pkg.version,'13.2.7');
 assert.equal(read('VERSION').trim(),pkg.version);
 assert.ok(html.includes(`content="${pkg.version}"`));
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`));
@@ -49,4 +49,4 @@ for (const source of [html,workspace,read('js/ui-history.js')]) for (const match
   assert.match(match[0],/\bwidth=["']\d+["']/i,`lazy image missing width: ${match[0].slice(0,100)}`);
   assert.match(match[0],/\bheight=["']\d+["']/i,`lazy image missing height: ${match[0].slice(0,100)}`);
 }
-console.log('v13.2.5 regression checks passed against v13.2.6: responsive mini-player, artwork ambience, optimized swipe motion, and Search artwork catalogue.');
+console.log('v13.2.5 regression checks passed against v13.2.7: responsive mini-player, artwork ambience, optimized swipe motion, and Search artwork catalogue.');
