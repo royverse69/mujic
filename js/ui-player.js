@@ -113,6 +113,7 @@
                     img.src = track.artworkLargeUrl;
                 }
                 const fullBg = document.getElementById('full-bg');
+                if (fullBg) fullBg.dataset.backgroundMode = State.playerBackground || 'artwork';
                 if (fullBg && State.playerBackground === 'artwork') fullBg.style.backgroundImage = `url("${track.artworkLargeUrl.replace(/["\\]/g, '')}")`;
                 return true;
             },
@@ -155,21 +156,33 @@
                 const miniArtworkUrl=(t.source==='machhar-online'&&t.artworkMediumUrl)?t.artworkMediumUrl:artUrl;
                 if(miniArt){miniArt.onerror=()=>{miniArt.onerror=null;if(miniArt.src!==artUrl)miniArt.src=artUrl;};miniArt.src=miniArtworkUrl;}
                 if(fullArt){
-                    fullArt.onerror=null;delete fullArt.dataset.mujicLargeTrack;fullArt.src=artUrl;
+                    fullArt.onerror=null;delete fullArt.dataset.mujicLargeTrack;
                     const swipeDirection=fullArt.dataset.pendingSwipeDirection;
+                    fullArt.src=artUrl;
                     if(swipeDirection){
                         const enterClass=swipeDirection==='next'?'mujic-swipe-in-from-right':'mujic-swipe-in-from-left';
+                        const lowEndMotion=document.body.classList.contains('low-end-mode');
+                        const artContainer=fullArt.closest('#player-art-container');
                         fullArt.classList.remove('mujic-swipe-in-from-right','mujic-swipe-in-from-left');
-                        void fullArt.offsetWidth;
-                        fullArt.classList.add(enterClass);
                         delete fullArt.dataset.pendingSwipeDirection;
-                        window.setTimeout(()=>fullArt.classList.remove(enterClass),460);
+                        const startArtworkEntry=()=>window.requestAnimationFrame(()=>{
+                            if(reqId!==State.artworkRequestId||!fullArt.isConnected)return;
+                            artContainer?.classList.remove('mujic-swipe-out-next','mujic-swipe-out-previous');
+                            fullArt.classList.add(enterClass);
+                            window.setTimeout(()=>fullArt.classList.remove(enterClass),lowEndMotion?225:265);
+                        });
+                        /* decode() avoids animating an empty image slot while a cover is still being decoded. */
+                        try {
+                            if(typeof fullArt.decode==='function') fullArt.decode().catch(()=>{}).then(startArtworkEntry);
+                            else startArtworkEntry();
+                        } catch { startArtworkEntry(); }
                     }
                 }
                 if(lyricsArt){lyricsArt.onerror=null;delete lyricsArt.dataset.mujicLargeTrack;lyricsArt.src=artUrl;}
                 if(State.isFullPlayerOpen) UI.loadPlayerArtworkLarge?.(t);
                 
                 const fullBg = document.getElementById('full-bg');
+                if (fullBg) fullBg.dataset.backgroundMode = State.playerBackground || 'artwork';
                 if (State.playerBackground === 'artwork') {
                     fullBg.style.backgroundImage = `url("${artUrl}")`; fullBg.style.backgroundColor = 'transparent';
                     if (State.accentPreset === 'dynamic') {

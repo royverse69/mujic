@@ -448,6 +448,7 @@
                 }
                 
                 const fullBg = document.getElementById('full-bg');
+                if (fullBg) fullBg.dataset.backgroundMode = State.playerBackground || 'artwork';
                 const currentTrack = State.currentTrackId ? Player.getCurrentTrack() : null;
                 if (State.playerBackground === 'solid') { fullBg.style.backgroundImage = 'none'; fullBg.style.backgroundColor = 'var(--bg-elevated)'; }
                 else if (State.playerBackground === 'black' || !currentTrack) { fullBg.style.backgroundImage = 'none'; fullBg.style.backgroundColor = '#000000'; }

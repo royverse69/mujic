@@ -10,7 +10,7 @@ const uiPlayer = read('js/ui-player.js');
 const catalog = JSON.parse(read('data/discovery-catalog.json'));
 const fallback = read('js/discovery-catalog-data.js');
 const sw = read('sw.js');
-assert.equal(pkg.version,'13.2.5');
+assert.equal(pkg.version,'13.2.6');
 assert.equal(read('VERSION').trim(),pkg.version);
 assert.ok(html.includes(`content="${pkg.version}"`));
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`));
@@ -21,11 +21,18 @@ assert.match(css,/@media \(min-width:768px\)[\s\S]*?#mini-player \.mini-action\[
 assert.match(css,/@media \(min-width:768px\)[\s\S]*?#mini-player \.mini-action\[data-action="next-track"\] \{ left:31px; \}/);
 for (const mode of ['sharp','medium','rounded','extra']) assert.ok(css.includes(`body[data-corner-radius="${mode}"] #mini-player #mini-art`));
 assert.match(css,/@keyframes mujic-artwork-ambience-drift/);
-assert.match(css,/blur\(104px\) saturate\(1\.42\) brightness\(\.38\)/);
+assert.match(css,/blur\(76px\) saturate\(1\.5\) brightness\(\.52\)/);
+assert.match(css,/body\.low-end-mode #full-player \.player-bg \{[^}]*opacity:\.?22 !important/s);
 assert.match(css,/@keyframes mujic-swipe-art-out-left/);
 assert.match(css,/@keyframes mujic-swipe-art-in-from-right/);
+assert.match(css,/body\.low-end-mode #player-art-container\.mujic-swipe-out-next img \{ animation-duration:150ms/);
+assert.match(uiPlayer,/window\.requestAnimationFrame\(\(\)=>/);
+assert.doesNotMatch(uiPlayer,/void fullArt\.offsetWidth/);
 assert.match(eventCode,/artSwipeLocked=true/);
-assert.match(eventCode,/window\.setTimeout\(\(\)=>\{\s*art\.classList\.remove\(outClass\);\s*if\(direction==='next'\)Player\.next\(\);else Player\.previous\(\);/);
+assert.match(eventCode,/if\(direction==='next'\)Player\.next\(\);else Player\.previous\(\);/);
+assert.match(uiPlayer,/fullArt\.decode\(\)\.catch\(\(\)=>\{\}\)\.then\(startArtworkEntry\)/);
+assert.match(eventCode,/lowEndMotion\?150:145/);
+assert.match(eventCode,/lowEndMotion\?190:235/);
 assert.match(uiPlayer,/dataset\.pendingSwipeDirection/);
 assert.match(uiPlayer,/const miniArtworkUrl=\(t\.source==='machhar-online'&&t\.artworkMediumUrl\)\?t\.artworkMediumUrl:artUrl/);
 assert.match(uiPlayer,/if\(miniArt\)\{miniArt\.onerror=\(\)=>/);
@@ -42,4 +49,4 @@ for (const source of [html,workspace,read('js/ui-history.js')]) for (const match
   assert.match(match[0],/\bwidth=["']\d+["']/i,`lazy image missing width: ${match[0].slice(0,100)}`);
   assert.match(match[0],/\bheight=["']\d+["']/i,`lazy image missing height: ${match[0].slice(0,100)}`);
 }
-console.log('v13.2.5 checks passed: mobile-only control hiding, desktop tool alignment, mini art dimensions, immersive moving ambience, swipe transitions, and Search artwork catalogue.');
+console.log('v13.2.5 regression checks passed against v13.2.6: responsive mini-player, artwork ambience, optimized swipe motion, and Search artwork catalogue.');

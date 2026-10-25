@@ -13,7 +13,7 @@ const lyrics = read('js/lyrics.js');
 const onlineLyrics = read('js/online-lyrics.js');
 const provider = read('js/online-provider.js');
 const sw = read('sw.js');
-assert.equal(pkg.version, '13.2.5');
+assert.equal(pkg.version, '13.2.6');
 assert.equal(read('VERSION').trim(), pkg.version);
 assert.ok(html.includes(`content="${pkg.version}"`));
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`));

@@ -2,7 +2,7 @@
 
 Offline-first music player PWA with optional streaming, synced lyrics and artwork-led lyric cards.
 
-## Architecture (v13.2.5)
+## Architecture (v13.2.6)
 
 Every network request the app makes — catalogue search, artist/album/playlist details, recommendations,
 lyrics and audio/artwork media — goes to **one origin: the Cloudflare Worker at `https://mujic.calverse.online`**
