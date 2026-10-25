@@ -1,6 +1,6 @@
 /* Copyright mujic@royverse69 */
 (() => {
-    const KEY = 'mujic-online-metadata-v1';
+    const KEY = 'mujic-online-metadata-v2';
     const artworkWarmed = new Set();
     const sanitize = track => ({
         id: String(track.id || ''), onlineTrackId: String(track.onlineTrackId || ''), provider: track.provider || 'saavn',
@@ -8,7 +8,7 @@
         album: String(track.album || ''), duration: Number(track.duration) || 0, year: String(track.year || ''),
         language: String(track.language || ''), genre: String(track.genre || ''), composer: String(track.composer || ''),
         copyright: String(track.copyright || ''), albumArtist: String(track.albumArtist || ''),
-        trackNumber: track.trackNumber || '', isrc: String(track.isrc || ''), artworkUrl: String(track.artworkUrl || ''),
+        trackNumber: track.trackNumber || '', isrc: String(track.isrc || ''), artworkUrl: window.OnlineMusic?.proxyMediaUrl?.(String(track.artworkUrl || '')) || '',
         lyricsId: track.lyricsId || null, hasLyrics: Boolean(track.hasLyrics), fileName: String(track.fileName || `${track.title || 'Track'}.m4a`)
     });
     const read = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (_) { return {}; } };
@@ -22,9 +22,9 @@
         } catch (_) { }
     };
     const rememberTrack = track => { if(track?.id && track?.onlineTrackId) writeTracks([track]); };
-    const getTrack = id => { const v = read()[String(id)]; return v ? {...v, raw:{}} : null; };
+    const getTrack = id => { const v = read()[String(id)]; return v ? {...v, artworkUrl:window.OnlineMusic?.proxyMediaUrl?.(String(v.artworkUrl || '')) || '', raw:{}} : null; };
     const warmArtwork = track => {
-        const url = track?.artworkUrl;
+        const url = window.OnlineMusic?.proxyMediaUrl?.(track?.artworkUrl || '') || ''; 
         if (!url || artworkWarmed.has(url) || typeof Image === 'undefined') return;
         artworkWarmed.add(url);
         const img = new Image(); img.decoding = 'async'; img.loading = 'eager'; img.src = url;

@@ -37,30 +37,30 @@ const OnlineMusic = (() => {
             return ['https:', 'http:'].includes(u.protocol) ? u.href : '';
         } catch (_) { return ''; }
     };
-    // A song's `url` field is its jiosaavn.com web PAGE, not audio. Only accept URLs that look like media.
-    const looksLikeAudioUrl = value => typeof value === 'string'
-        && (/\.(?:mp4|m4a|aac|mp3)(?:[?#]|$)/i.test(value) || /(^|\.)saavncdn\.com\//i.test(value.replace(/^https?:\/\//i, '')))
-        && !/jiosaavn\.com\/(?:song|album|artist|featured|s\/playlist|playlist)\//i.test(value);
+    // Only extension-shaped media URLs are candidates; the secure Worker validates them server-side.
+    const looksLikeAudioUrl = value => typeof value === 'string' && /\.(?:mp4|m4a|aac|mp3)(?:[?#]|$)/i.test(value);
     const BACKEND_ORIGIN = window.MujicBackend.PRIMARY;
     const BACKEND_ORIGINS = window.MujicBackend.origins();
-    const isCatalogueMediaHost = hostname => {
-        const host = String(hostname || '').toLowerCase();
-        return host === 'saavncdn.com' || host.endsWith('.saavncdn.com') ||
-            host === 'jiosaavn.com' || host.endsWith('.jiosaavn.com');
+    const isSecureMediaUrl = value => {
+        try {
+            const url = new URL(String(value || ''));
+            return BACKEND_ORIGINS.includes(url.origin) && /^\/m\/v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?:\.(?:m4a|mp4|aac|mp3|jpg|jpeg|png|webp|avif))?$/i.test(url.pathname);
+        } catch (_) { return false; }
     };
+    // Every online track/art URL must already be an opaque, expiring Worker media token.
+    // Raw provider URLs and the retired public URL-parameter proxy are deliberately rejected.
     const proxyMediaUrl = value => {
         const normalized = safeHttpUrl(value);
-        if (!normalized) return '';
+        return normalized && isSecureMediaUrl(normalized) ? normalized : '';
+    };
+    const safePlaybackUrl = value => {
+        const secure = proxyMediaUrl(value);
+        if (secure) return secure;
         try {
-            const url = new URL(normalized);
-            if (BACKEND_ORIGINS.includes(url.origin) && url.pathname === '/media') return normalized;
-            if (!isCatalogueMediaHost(url.hostname)) return normalized;
-            if (typeof location !== 'undefined' && location.protocol !== 'file:' && !BACKEND_ORIGINS.includes(location.origin) && navigator.serviceWorker?.controller) {
-                const local = new URL('__mujic_media__', location.href);
-                local.searchParams.set('src', normalized);
-                return local.href;
-            }
-            return `${BACKEND_ORIGIN}/media?url=${encodeURIComponent(normalized)}`;
+            const url = new URL(String(value || ''), typeof location !== 'undefined' ? location.href : BACKEND_ORIGIN);
+            const token = url.searchParams.get('token') || '';
+            const validToken = /^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?:\.(?:m4a|mp4|aac|mp3|jpg|jpeg|png|webp|avif))?$/i.test(token);
+            return typeof location !== 'undefined' && url.origin === location.origin && url.pathname.endsWith('/__mujic_secure_media__') && validToken ? url.href : '';
         } catch (_) { return ''; }
     };
     const qualityNumber = value => {
@@ -184,7 +184,10 @@ const OnlineMusic = (() => {
     };
     const normalizeTrack = raw => {
         if (!raw || typeof raw !== 'object') return null;
-        if (raw.source === 'machhar-online' && raw.onlineTrackId && raw.id) { onlineTracks.set(String(raw.id), raw); return raw; }
+        if (raw.source === 'machhar-online' && raw.onlineTrackId && raw.id) {
+            for (const field of ['artworkUrl','artworkMediumUrl','artworkLargeUrl']) raw[field] = proxyMediaUrl(raw[field]) || '';
+            onlineTracks.set(String(raw.id), raw); return raw;
+        }
         const rawId = raw.onlineTrackId || raw.id || raw.songId || raw.song_id || raw.more_info?.song_id;
         if (rawId === undefined || rawId === null || String(rawId).trim() === '') return null;
         const provider = raw.provider || (String(raw.id || '').startsWith('machhar:machhar:') ? 'machhar' : 'saavn');
@@ -224,6 +227,7 @@ const OnlineMusic = (() => {
     const registerTrack = record => {
         if (!record || !record.onlineTrackId) return null;
         const track = { ...record, source: 'machhar-online', isOnline: true, raw: record.raw || {} };
+        for (const field of ['artworkUrl','artworkMediumUrl','artworkLargeUrl']) track[field] = proxyMediaUrl(track[field]) || '';
         onlineTracks.set(String(track.id), track); return track;
     };
     const request = async (url, signal, timeoutMs = 10000) => {
@@ -368,9 +372,9 @@ const OnlineMusic = (() => {
         }
         if (!candidate) throw new Error('Song details were not returned by the catalogue.');
         track.raw = { ...(track.raw || {}), ...candidate };
-        track.artworkUrl = track.artworkUrl || getImage(candidate, {targetSize: 112});
-        track.artworkMediumUrl = track.artworkMediumUrl || getImage(candidate, {targetSize: 280});
-        track.artworkLargeUrl = track.artworkLargeUrl || getImage(candidate, {targetSize: 640});
+        track.artworkUrl = proxyMediaUrl(track.artworkUrl) || getImage(candidate, {targetSize: 112});
+        track.artworkMediumUrl = proxyMediaUrl(track.artworkMediumUrl) || getImage(candidate, {targetSize: 280});
+        track.artworkLargeUrl = proxyMediaUrl(track.artworkLargeUrl) || getImage(candidate, {targetSize: 640});
         track.lyricsId = track.lyricsId || candidate.lyricsId || null;
         if (window.OnlineCache) OnlineCache.rememberTrack(track);
         return candidate;
@@ -772,38 +776,30 @@ const OnlineMusic = (() => {
     const invalidateStream = trackId => streamCache.delete(String(trackId || ''));
     const getStreamChoices = async (track, options = {}) => {
         let choices = parseStreamChoices(track?.raw || {});
-        if (!choices.length || options.refresh) choices = parseStreamChoices(await fetchSongDetails(track, options.signal));
-        const valid=choices.filter(item=>safeHttpUrl(item.url));
+        let valid = choices.map(item => ({...item, url:safePlaybackUrl(item.url)})).filter(item => item.url);
+        // Old saved tracks can contain pre-token raw links. Refresh their details through
+        // the secure Worker instead of trying a legacy URL-parameter proxy or direct source fallback.
+        if ((!valid.length || options.refresh) && track?.onlineTrackId) {
+            try {
+                const refreshed = await fetchSongDetails(track, options.signal);
+                choices = parseStreamChoices(refreshed || {});
+                valid = choices.map(item => ({...item, url:safePlaybackUrl(item.url)})).filter(item => item.url);
+            } catch (error) {
+                if (options.signal?.aborted) throw error;
+            }
+        }
         valid.sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
         return options.all ? valid : (valid.length?[valid[0]]:[]);
     };
-    // Playback routes: the service-worker media route (chunk-cached) and the Worker /media proxy; the raw
-    // CDN URL stays as the last resort because some catalogues geo-block direct CDN requests.
-    const playbackUrlsFor = (value, primaryFirst = false) => {
-        const normalized = safeHttpUrl(value);
-        if (!normalized) return [];
-        let source = normalized;
-        try {
-            const input = new URL(normalized);
-            if (BACKEND_ORIGINS.includes(input.origin) && input.pathname === '/media') {
-                source = safeHttpUrl(input.searchParams.get('url') || '');
-                if (!source) return [normalized];
-            }
-            const sourceURL = new URL(source);
-            if (!isCatalogueMediaHost(sourceURL.hostname)) return [normalized];
-        } catch (_) { return [normalized]; }
-        const result = [];
-        const add = candidate => { const safe = safeHttpUrl(candidate); if (safe && !result.includes(safe)) result.push(safe); };
-        const worker = `${BACKEND_ORIGIN}/media?url=${encodeURIComponent(source)}`;
-        if (primaryFirst) { add(worker); add(proxyMediaUrl(source)); }
-        else { add(proxyMediaUrl(source)); add(worker); }
-        add(source);
-        return result;
+    // Secure media URLs are used as-is. Raw external media URLs are never added as fallback candidates.
+    const playbackUrlsFor = value => {
+        const normalized = safePlaybackUrl(value);
+        return normalized ? [normalized] : [];
     };
     // Tracks that came from a search result the person can tap. Their media is requested from the
     // Worker (mujic.calverse.online) first so playback starts immediately.
     const primaryFirstIds = new Set();
-    const isPrimaryMediaUrl = url => String(url || '').startsWith(`${BACKEND_ORIGIN}/media?`);
+    const isPrimaryMediaUrl = url => { try { const u = new URL(String(url || ''), typeof location !== 'undefined' ? location.href : BACKEND_ORIGIN); return (BACKEND_ORIGINS.includes(u.origin) && u.pathname.startsWith('/m/')) || u.pathname.endsWith('/__mujic_secure_media__'); } catch (_) { return false; } };
     const prioritizePrimaryMedia = candidates => {
         const list = Array.isArray(candidates) ? candidates : [];
         return [...list.filter(isPrimaryMediaUrl), ...list.filter(url => !isPrimaryMediaUrl(url))];
@@ -863,13 +859,13 @@ const OnlineMusic = (() => {
                 // stream endpoint below. Only an intentional cancellation stops retry.
                 if (controller.signal.aborted) throw error;
             }
-            let usable = choices.filter(item => safeHttpUrl(item.url)).sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
+            let usable = choices.filter(item => safePlaybackUrl(item.url)).map(item => ({...item, url:safePlaybackUrl(item.url)})).sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
             // The stream endpoint is a final metadata source for every catalogue ID,
             // not just rows labelled with the legacy provider. Search providers can differ.
             if (!usable.length && !controller.signal.aborted) {
                 try {
                     const data = await requestLegacy(`stream/${encodeURIComponent(track.onlineTrackId)}`, controller.signal, 15000);
-                    usable = parseStreamChoices(data).filter(item=>safeHttpUrl(item.url)).sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
+                    usable = parseStreamChoices(data).map(item=>({...item,url:safePlaybackUrl(item.url)})).filter(item=>item.url).sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
                 } catch (error) { if (controller.signal.aborted) throw error; }
             }
             if (controller.signal.aborted) throw new Error('Playback source lookup timed out or was cancelled.');
@@ -927,13 +923,15 @@ const OnlineMusic = (() => {
         if (!track?.onlineTrackId) throw new Error('This result has no song ID. Search again to refresh it.');
         if (State.playbackSourceMode !== 'online') throw new Error('Switch to streaming playback before downloading.');
         if (!navigator.onLine) throw new Error('Reconnect to download AAC audio.');
-        const choices = (await getStreamChoices(track, {all:true})).filter(item => safeHttpUrl(item.url));
+        const choices = (await getStreamChoices(track, {all:true})).filter(item => safePlaybackUrl(item.url));
         if (!choices.length) throw new Error('The catalogue returned no download source.');
         const explicitAAC = choices.filter(item => /aac|mp4a/i.test(`${item.codec} ${item.format}`) || /\.(?:m4a|mp4)(?:$|[?#])/i.test(item.url));
         const eligible = explicitAAC.filter(item => !/mp3|mpeg/i.test(`${item.codec} ${item.format}`) && !/\.mp3(?:$|[?#])/i.test(item.url));
         if (!eligible.length) throw new Error('The catalogue did not identify an AAC/M4A source. Mujic will not relabel or transcode MP3.');
         eligible.sort((a,b)=>qualityNumber(b.quality)-qualityNumber(a.quality));
-        return {...eligible[0], url:proxyMediaUrl(eligible[0].url)};
+        const securedUrl = proxyMediaUrl(eligible[0].url);
+        if (!securedUrl) throw new Error('The secure media link expired or could not be refreshed. Try again.');
+        return {...eligible[0], url:securedUrl};
     };
     const renderBlank = () => {
         if (window.OnlineWorkspace && document.getElementById('view-online-search')?.classList.contains('active')) {
@@ -965,15 +963,15 @@ const OnlineMusic = (() => {
             if (controller.signal.aborted || State.playbackSourceMode !== 'online') return false;
             let url = new URL(mediaUrl, location.href), fetchCache='default', credentials='omit';
             if (swControlled) {
-                if (BACKEND_ORIGINS.includes(url.origin) && url.pathname === '/media') {
-                    const source = safeHttpUrl(url.searchParams.get('url') || '');
-                    if (!source || !isCatalogueMediaHost(new URL(source).hostname)) return false;
-                    const local = new URL('__mujic_media__', location.href); local.searchParams.set('src', source); url = local;
+                if (BACKEND_ORIGINS.includes(url.origin) && url.pathname.startsWith('/m/')) {
+                    const token = url.pathname.slice('/m/'.length);
+                    if (!/^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?:\.(?:m4a|mp4|aac|mp3|jpg|jpeg|png|webp|avif))?$/i.test(token)) return false;
+                    const local = new URL('__mujic_secure_media__', location.href); local.searchParams.set('token', token); url = local;
                 }
-                if (url.origin !== location.origin || !url.pathname.endsWith('/__mujic_media__')) return false;
+                if (url.origin !== location.origin || !url.pathname.endsWith('/__mujic_secure_media__')) return false;
                 streamCache.set(next.id, {url:url.href, expiresAt:Date.now()+4*60*1000});
                 url.searchParams.set('_mujic_prefetch', '1'); fetchCache='no-store'; credentials='same-origin';
-            } else if (!BACKEND_ORIGINS.includes(url.origin) || url.pathname !== '/media') {
+            } else if (!BACKEND_ORIGINS.includes(url.origin) || !url.pathname.startsWith('/m/')) {
                 return false;
             }
             const mediaInit = { method:'GET', headers:{Range:'bytes=0-262143',Accept:'audio/*'}, cache:fetchCache, credentials, signal:controller.signal };
@@ -1118,6 +1116,6 @@ const OnlineMusic = (() => {
     window.addEventListener('online', () => {
         updateModeUI(); if (State.playbackSourceMode === 'online' && window.OnlineWorkspace) OnlineWorkspace.refreshActiveView();
     });
-    return { API_BASE, BACKEND_BASE:LEGACY_BASE, LEGACY_BASE, requestRecommendation, fetchQuickPicks, fetchSuggestions, searchSongsFast, proxyMediaUrl, isOnlineId, isOnlineTrack, getTrack, registerTrack, normalizeTrack, extractSongs:extractRawSongs, search, searchEntities, globalSearch, getImage, getArtistImage:raw => getImage(raw), resolveArtistArtwork, isGenericArtistArtwork:imageLooksGeneric, fetchSongsByIdsOrLink, fetchPublicPlaylist, fetchAlbumDetails, fetchArtistDetails, fetchArtistSongs, fetchArtistAlbums, getSearchMeta, searchAndRender, resolveStream, resolvePlaybackCandidates, warmPlaybackCandidates, preferPrimaryMedia, markStreamWorking, resolveDownloadSource, fetchSongDetails, fetchRelated, fetchTrending, prefetchStreams, invalidateStream, clearCache, renderBlank, updateModeUI, setMode, stopRemotePlayback };
+    return { API_BASE, BACKEND_BASE:LEGACY_BASE, LEGACY_BASE, requestRecommendation, fetchQuickPicks, fetchSuggestions, searchSongsFast, proxyMediaUrl, isOnlineId, isOnlineTrack, getTrack, registerTrack, normalizeTrack, extractSongs:extractRawSongs, search, searchEntities, globalSearch, getImage, getArtistImage:raw => getImage(raw), resolveArtistArtwork, isGenericArtistArtwork:imageLooksGeneric, fetchSongsByIdsOrLink, fetchPublicPlaylist, fetchAlbumDetails, fetchArtistDetails, fetchArtistSongs, fetchArtistAlbums, getSearchMeta, searchAndRender, resolveStream, resolvePlaybackCandidates, warmPlaybackCandidates, preferPrimaryMedia, markStreamWorking, resolveDownloadSource, fetchSongDetails, fetchRelated, fetchTrending, prefetchStreams, isSecureMediaUrl, safePlaybackUrl, invalidateStream, clearCache, renderBlank, updateModeUI, setMode, stopRemotePlayback };
 })();
 window.OnlineMusic = OnlineMusic;

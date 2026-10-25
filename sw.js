@@ -1,7 +1,7 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.2.7-cloudflare-edge';
-const API_CACHE = 'mujic-api-v3';
-const ART_CACHE = 'mujic-art-v3';
+const CACHE_NAME = 'mujic-pwa-v13.2.8-secure-media';
+const API_CACHE = 'mujic-api-v4';
+const ART_CACHE = 'mujic-art-v4';
 const CONFIG_CACHE = 'mujic-config-v1';
 const API_ORIGIN = 'https://mujic.calverse.online';
 const API_FRESH_MS = 30 * 60 * 1000;
@@ -9,12 +9,12 @@ const API_SONG_FRESH_MS = 4 * 60 * 1000;
 const API_SEARCH_FRESH_MS = 5 * 60 * 1000;
 const API_SEARCH_STALE_MS = 60 * 60 * 1000;
 const NAVIGATION_TIMEOUT_MS = 3500;
-const API_STALE_MS = 7 * 24 * 60 * 60 * 1000;
+const API_STALE_MS = 20 * 60 * 60 * 1000; // Keep cached encrypted media tokens younger than their 24-hour TTL.
 const MAX_API_ENTRIES = 400;
 const MAX_ART_ENTRIES = 600;
 const MEDIA_CHUNK_CACHE = 'mujic-media-chunks-v4';
 const MEDIA_IMAGE_CACHE = 'mujic-media-images-v4';
-const BACKEND_MEDIA_BASE = 'https://mujic.calverse.online/media';
+const BACKEND_ORIGIN = 'https://mujic.calverse.online';
 const MAX_MEDIA_CHUNK_BYTES = 262144;
 const MAX_MEDIA_IMAGE_ENTRIES = 400;
 const MAX_MEDIA_IMAGE_BYTES = 80 * 1024 * 1024;
@@ -39,33 +39,24 @@ self.addEventListener('activate', event => {
     /^mujic-(api|art)-v\d+$/.test(k) && k !== API_CACHE && k !== ART_CACHE
   ).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-const allowedMediaUrl = value => {
-  try {
-    const u = new URL(value);
-    const host = u.hostname.toLowerCase().replace(/\.$/, '');
-    return u.protocol === 'https:' && !u.username && !u.password && (!u.port || u.port === '443') &&
-      (host === 'saavncdn.com' || host.endsWith('.saavncdn.com') || host === 'jiosaavn.com' || host.endsWith('.jiosaavn.com'));
-  } catch (_) { return false; }
+const MEDIA_TOKEN_RE = /^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?:\.(?:m4a|mp4|aac|mp3|jpg|jpeg|png|webp|avif))?$/i;
+const mediaTokenFromRoute = url => {
+  const token = url.searchParams.get('token') || '';
+  return MEDIA_TOKEN_RE.test(token) ? token : '';
 };
-const mediaSourceFromRoute = url => {
-  const src = url.searchParams.get('src') || '';
-  return allowedMediaUrl(src) ? new URL(src).href : '';
-};
-const mediaRouteKey = (pathname, source) => {
+const mediaRouteKey = (pathname, token) => {
   const key = new URL(pathname, self.location.origin);
-  key.searchParams.set('src', source);
+  key.searchParams.set('token', token);
   return new Request(key.href, { method:'GET' });
 };
-const fetchBackendMedia = (source, request, rangeOverride = '') => {
-  const target = new URL(BACKEND_MEDIA_BASE);
-  target.searchParams.set('url', source);
+const fetchBackendSecureMedia = (token, request, rangeOverride = '') => {
+  const target = new URL(`/m/${token}`, BACKEND_ORIGIN);
   const headers = new Headers();
-  for (const name of ['Range','If-Range','Accept']) {
+  for (const name of ['Range','If-Range','If-None-Match','If-Modified-Since','Accept']) {
     const value = name === 'Range' && rangeOverride ? rangeOverride : request.headers.get(name);
     if (value) headers.set(name, value);
   }
   if (rangeOverride) headers.set('Range', rangeOverride);
-  /* One retry on a network error; the Worker already caches media at the edge. */
   const go = () => fetch(target.href, { method:'GET', headers, credentials:'omit', redirect:'follow' });
   return go().catch(() => go());
 };
@@ -216,15 +207,15 @@ const handleArt = async request => {
     }
   }
 };
-const handleMediaRoute = async request => {
+const handleSecureMediaRoute = async request => {
   const url = new URL(request.url);
-  const source = mediaSourceFromRoute(url);
-  if (!source) return new Response('Unsupported media source', {status:403,headers:{'Content-Type':'text/plain; charset=utf-8'}});
+  const token = mediaTokenFromRoute(url);
+  if (!token) return new Response('Invalid secure media token', {status:404,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
   const prefetch = url.searchParams.get('_mujic_prefetch') === '1';
   const chunkCache = await caches.open(MEDIA_CHUNK_CACHE);
-  const key = mediaRouteKey(url.pathname, source);
+  const key = mediaRouteKey(url.pathname, token);
   if (prefetch) {
-    const response = await fetchBackendMedia(source, request, `bytes=0-${MAX_MEDIA_CHUNK_BYTES-1}`);
+    const response = await fetchBackendSecureMedia(token, request, `bytes=0-${MAX_MEDIA_CHUNK_BYTES-1}`);
     if (response.status === 206) {
       const clone = response.clone();
       try { await storeMediaChunk(chunkCache, key, clone); } catch (_) {}
@@ -240,7 +231,7 @@ const handleMediaRoute = async request => {
     const cached = await imageCache.match(key);
     if (cached && Date.now()-Number(cached.headers.get('X-Mujic-Cached-At')||0)<7*24*60*60*1000) return cached;
   }
-  const response = await fetchBackendMedia(source, request);
+  const response = await fetchBackendSecureMedia(token, request);
   if (imageRequest && !range && response.ok && response.status===200 && (response.headers.get('Content-Type')||'').toLowerCase().startsWith('image/')) {
     try {
       const headers = new Headers(response.headers);
@@ -262,8 +253,8 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   const same = url.origin === self.location.origin;
-  if (same && url.pathname.endsWith('/__mujic_media__')) {
-    event.respondWith(handleMediaRoute(req).catch(() => new Response('Media proxy unavailable', {status:502,headers:{'Content-Type':'text/plain; charset=utf-8'}})));
+  if (same && url.pathname.endsWith('/__mujic_secure_media__')) {
+    event.respondWith(handleSecureMediaRoute(req).catch(() => new Response('Secure media proxy unavailable', {status:502,headers:{'Content-Type':'text/plain; charset=utf-8'}})));
     return;
   }
   if (url.origin === API_ORIGIN && isCacheableApiPath(url.pathname) && !req.headers.has('Range')) {
