@@ -202,7 +202,10 @@ const OnlineMusic = (() => {
             copyright: raw.copyright || raw.more_info?.copyright_text || '',
             albumArtist: raw.albumArtist || raw.more_info?.album_artist || '',
             trackNumber: raw.trackNumber || raw.track_number || raw.more_info?.track_number || '',
-            isrc: raw.isrc || raw.more_info?.isrc || '', lyrics: raw.lyrics || raw.more_info?.lyrics || raw.more_info?.syncedLyrics || '',
+            isrc: raw.isrc || raw.more_info?.isrc || '',
+            syncedLyrics: raw.syncedLyrics || raw.more_info?.syncedLyrics || '',
+            plainLyrics: raw.plainLyrics || raw.more_info?.plainLyrics || raw.more_info?.lyrics || raw.lyrics || '',
+            lyrics: raw.syncedLyrics || raw.more_info?.syncedLyrics || raw.lyrics || raw.more_info?.lyrics || raw.more_info?.plainLyrics || '',
             lyricsId: raw.lyricsId || raw.lyrics_id || null, hasLyrics: Boolean(raw.hasLyrics || raw.has_lyrics),
             raw, fileName: `${title}.m4a`, artworkId: null, artworkUrl: getImage(raw, {targetSize: 112}), artworkMediumUrl: getImage(raw, {targetSize: 280}), artworkLargeUrl: getImage(raw, {targetSize: 640}),
             source: 'machhar-online', provider, onlineTrackId: providerId, isOnline: true

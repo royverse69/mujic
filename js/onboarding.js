@@ -49,7 +49,7 @@ const Onboarding = (() => {
 
     let guideEl = null, index = 0, lastFocus = null, touchX = null, started = false;
 
-    const isStandalone = () => !!(window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true);
+    const isStandalone = () => !!(window.Utils?.isInstalledApp?.() || window.matchMedia?.('(display-mode: standalone)').matches || window.matchMedia?.('(display-mode: window-controls-overlay)').matches || window.navigator.standalone === true);
     const isIOS = () => { try { return Boolean(Utils.isIOS()); } catch (_) { return false; } };
     const persist = () => { try { StorageAdapter.saveSettings(); } catch (_) {} };
     const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -196,7 +196,11 @@ const Onboarding = (() => {
         // app.js stores the deferred prompt in its own listener; refresh once that has run.
         window.addEventListener('beforeinstallprompt', () => setTimeout(refreshBanner, 60));
         window.addEventListener('appinstalled', () => { State.deferredInstallPrompt = null; refreshBanner(); });
-        window.matchMedia?.('(display-mode: standalone)').addEventListener?.('change', refreshBanner);
+        ['standalone','window-controls-overlay','minimal-ui','fullscreen'].forEach(mode => {
+            try { window.matchMedia?.(`(display-mode: ${mode})`).addEventListener?.('change', refreshBanner); } catch (_) {}
+        });
+        window.addEventListener('focus', refreshBanner, {passive:true});
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshBanner(); }, {passive:true});
         refreshBanner();
     };
 

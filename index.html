@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic — Music Player</title>
-    <meta name="application-version" content="13.2.2">
+    <meta name="application-version" content="13.2.4">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -842,9 +842,13 @@
             <div class="mini-next-up" id="mini-next-up" hidden></div>
             <span class="mini-buffering-status" id="mini-buffering-status" role="status" aria-live="polite"></span>
         </div>
-        <div class="mini-controls">
-            <button class="icon-btn mini-action" data-action="toggle-play" aria-label="Play/Pause"><span class="material-symbols-rounded" id="mini-play-btn" style="font-variation-settings: 'FILL' 1;">play_arrow</span></button>
-            <button class="icon-btn mini-action" data-action="next-track" aria-label="Next" title="Next track" type="button"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_next</span></button>
+        <div class="mini-controls" aria-label="Playback controls">
+            <button class="icon-btn mini-action" data-action="toggle-play" aria-label="Play" title="Play or pause"><span class="material-symbols-rounded" id="mini-play-btn" style="font-variation-settings: 'FILL' 1;">play_arrow</span></button>
+            <button class="icon-btn mini-action" data-action="next-track" aria-label="Next track" title="Next track" type="button"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_next</span></button>
+        </div>
+        <div class="mini-desktop-tools" aria-label="More playback controls">
+            <button class="icon-btn mini-desktop-tool" data-action="show-sheet" data-target="volume-sheet" aria-label="Volume" title="Volume"><span class="material-symbols-rounded" id="mini-volume-icon">volume_up</span></button>
+            <button class="icon-btn mini-desktop-tool" data-action="picture-in-picture" aria-label="Picture in picture" title="Picture in picture"><span class="material-symbols-rounded">picture_in_picture_alt</span></button>
         </div>
         <div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-progress"></div></div>
     </div>

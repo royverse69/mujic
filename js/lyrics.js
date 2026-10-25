@@ -3,13 +3,26 @@
 
         const LyricsFetcher = {
             cache: new Map(),
+            embeddedData: (track) => {
+                if (!track) return null;
+                const raw = track.raw || {};
+                const candidates = [
+                    track.syncedLyrics, raw.syncedLyrics, raw.more_info?.syncedLyrics,
+                    track.lyrics, track.plainLyrics, raw.plainLyrics, raw.lyrics,
+                    raw.more_info?.plainLyrics, raw.more_info?.lyrics
+                ].map(value => String(value || '').trim()).filter(Boolean);
+                if (!candidates.length) return null;
+                const timed = candidates.find(value => LyricsFetcher.isLRC(value));
+                const text = timed || candidates[0];
+                const data = LyricsFetcher.makeData(text, !!timed);
+                data.source = timed ? 'Embedded synced lyrics' : 'Embedded lyrics';
+                if (data.isSynced) data.parsed = LyricsFetcher.parseLRC(data.text);
+                return data;
+            },
             getCachedOnly: async (track) => {
                 if (!track) return null;
-                if (track.lyrics && String(track.lyrics).trim()) {
-                    const embedded = LyricsFetcher.makeData(track.lyrics, LyricsFetcher.isLRC(track.lyrics));
-                    if (embedded.isSynced) embedded.parsed = LyricsFetcher.parseLRC(embedded.text);
-                    return embedded;
-                }
+                const embedded = LyricsFetcher.embeddedData(track);
+                if (embedded) return embedded;
                 if (LyricsFetcher.cache.has(track.id)) return LyricsFetcher.cache.get(track.id);
                 try { return await StorageAdapter.getLyricsCache(track.id); } catch(e) { return null; }
             },
@@ -65,114 +78,120 @@
             },
             getLyrics: async (track) => {
                 if (!track) return { text: 'Lyrics unavailable', isSynced: false, unavailable: true };
+                const commit = (value, persist = true) => {
+                    const text = String(value?.text || '').trim();
+                    if (!text) return null;
+                    const data = { ...value, text, isSynced: LyricsFetcher.isLRC(text) };
+                    if (data.isSynced) data.parsed = LyricsFetcher.parseLRC(data.text);
+                    LyricsFetcher.cache.set(track.id, data);
+                    if (persist && !data.unavailable) StorageAdapter.saveLyricsCache(track.id, data).catch(() => {});
+                    return data;
+                };
+                let plainFallback = null;
+                const rememberPlain = (value, source) => {
+                    const text = String(value?.text || '').trim();
+                    if (!text) return;
+                    if (LyricsFetcher.isLRC(text)) return;
+                    if (!plainFallback) plainFallback = { text, isSynced: false, source: value?.source || source || 'Lyrics source' };
+                };
+                const embedded = LyricsFetcher.embeddedData(track);
+                if (embedded?.isSynced) return commit(embedded);
+                if (embedded?.text) rememberPlain(embedded, embedded.source);
 
-                if (track.lyrics && String(track.lyrics).trim()) {
-                    const embedded = LyricsFetcher.makeData(track.lyrics, LyricsFetcher.isLRC(track.lyrics));
-                    if (embedded.isSynced) embedded.parsed = LyricsFetcher.parseLRC(embedded.text);
-                    LyricsFetcher.cache.set(track.id, embedded);
-                    StorageAdapter.saveLyricsCache(track.id, embedded).catch(()=>{});
-                    return embedded;
-                }
+                const memory = LyricsFetcher.cache.get(track.id);
+                if (memory?.text && memory.isSynced && LyricsFetcher.isLRC(memory.text)) return commit(memory);
+                if (memory?.text && !memory.unavailable) rememberPlain(memory, memory.source || 'Cached lyrics');
+                if (memory?.unavailable && navigator.onLine) LyricsFetcher.cache.delete(track.id);
 
-                let musicSourceLyrics = null;
-                if (track.source === 'machhar-online' && navigator.onLine && window.OnlineLyrics?.fetchFromMusicSource) {
-                    try { musicSourceLyrics = await OnlineLyrics.fetchFromMusicSource(track); } catch (_) { musicSourceLyrics = null; }
-                    if (musicSourceLyrics?.text) {
-                        const authoritative = LyricsFetcher.makeData(musicSourceLyrics.text, musicSourceLyrics.isSynced);
-                        if (authoritative.isSynced) authoritative.parsed = LyricsFetcher.parseLRC(authoritative.text);
-                        authoritative.source = musicSourceLyrics.source || 'Music catalogue';
-                        LyricsFetcher.cache.set(track.id, authoritative);
-                        return authoritative;
-                    }
-                }
-
-                if (LyricsFetcher.cache.has(track.id)) {
-                    const cached = LyricsFetcher.cache.get(track.id);
-                    if (!(cached?.unavailable && navigator.onLine)) return cached;
-                    LyricsFetcher.cache.delete(track.id);
-                }
                 if (track.source !== 'machhar-online') {
                     try {
                         const stored = await StorageAdapter.getLyricsCache(track.id);
-                        if (stored?.text) { LyricsFetcher.cache.set(track.id, stored); return stored; }
+                        if (stored?.text && LyricsFetcher.isLRC(stored.text)) return commit({ ...stored, isSynced: true });
+                        if (stored?.text) rememberPlain(stored, stored.source || 'Saved lyrics');
                     } catch (e) { Utils.warn(e); }
                 }
 
-                let lyricsData = null;
                 const lookupTrack = track;
                 const cleanTitle = String(lookupTrack.title || '').split('(')[0].trim();
                 const cleanArtist = String(lookupTrack.artist || '').split(',')[0].trim();
 
-                if (navigator.onLine) {
-                    if (!lyricsData && track.source !== 'machhar-online') try {
-                        const durParams = lookupTrack.duration ? `&duration=${Math.round(lookupTrack.duration)}` : '';
-                        const query = `track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}&album_name=${encodeURIComponent(lookupTrack.album || '')}${durParams}`;
-                        const res = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics/get?${query}`, 4000);
-                        if (res.ok) {
-                            const data = await res.json();
-                            const exactResult = LyricsFetcher.matchesSearchResult(lookupTrack, data) ? data : null;
-                            const candidate = exactResult || (!data.trackName && !data.artistName ? data : null);
-                            if (candidate?.syncedLyrics) lyricsData = { text: candidate.syncedLyrics, isSynced: true };
-                            else if (candidate?.plainLyrics) lyricsData = { text: candidate.plainLyrics, isSynced: false };
+                if (navigator.onLine && track.source === 'machhar-online' && window.OnlineLyrics?.fetchFromMusicSource) {
+                    try {
+                        const result = await OnlineLyrics.fetchFromMusicSource(track);
+                        if (result?.text) {
+                            if (LyricsFetcher.isLRC(result.text)) return commit({ ...result, isSynced: true }, false);
+                            rememberPlain(result, result.source || 'Music catalogue');
                         }
-                    } catch (e) { Utils.warn(e); }
+                    } catch (_) { }
+                }
 
-                    if (!lyricsData && track.source !== 'machhar-online') {
+                if (navigator.onLine && cleanTitle && cleanArtist) {
+                    if (track.source !== 'machhar-online') {
                         try {
-                            const res = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`, 4000);
-                            if (res.ok) {
-                                const results = await res.json();
-                                const match = Array.isArray(results) ? results.find(r => LyricsFetcher.matchesSearchResult(lookupTrack, r)) : null;
-                                if (match?.syncedLyrics) lyricsData = { text: match.syncedLyrics, isSynced: true };
-                                else if (match?.plainLyrics) lyricsData = { text: match.plainLyrics, isSynced: false };
-                            }
-                        } catch (e) { Utils.warn(e); }
-                    }
-
-                    if (!lyricsData && track.source !== 'machhar-online' && cleanTitle && State.lyricsRenderEnabled !== false) {
-                        try {
-                            const res = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics?track=${encodeURIComponent(cleanTitle)}&artist=${encodeURIComponent(cleanArtist)}`, 5000);
-                            if (res.ok) {
-                                const payload = await res.json();
-                                const text = payload?.lyrics || payload?.syncedLyrics || payload?.plainLyrics || payload?.text || payload?.data?.lyrics || '';
-                                if (text && String(text).trim()) {
-                                    const synced = Boolean(payload?.synced || payload?.isSynced || payload?.syncedLyrics) || LyricsFetcher.isLRC(text);
-                                    lyricsData = { text: String(text), isSynced: synced };
+                            const duration = lookupTrack.duration ? `&duration=${Math.round(lookupTrack.duration)}` : '';
+                            const query = `track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}&album_name=${encodeURIComponent(lookupTrack.album || '')}${duration}`;
+                            const response = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics/get?${query}`, 4000);
+                            if (response.ok) {
+                                const item = await response.json();
+                                const matches = LyricsFetcher.matchesSearchResult(lookupTrack, item) || (!item.trackName && !item.artistName);
+                                if (matches) {
+                                    const timed = String(item.syncedLyrics || '').trim();
+                                    if (LyricsFetcher.isLRC(timed)) return commit({ text: timed, source: 'LRCLIB' });
+                                    rememberPlain({ text: item.plainLyrics || item.syncedLyrics || '', source: 'LRCLIB' });
                                 }
                             }
                         } catch (e) { Utils.warn(e); }
-                    }
-                }
 
-                if(!lyricsData&&navigator.onLine&&cleanTitle&&cleanArtist){
-                    const artists=[...new Set([cleanArtist,String(lookupTrack.artist||'').split(/,|&|\bfeat(?:uring)?\.?\b|\bft\.?\b/i)[0].trim()].filter(Boolean))];
-                    for(const artistName of artists.slice(0,2)){
-                        try{
-                            const params=new URLSearchParams({track_name:cleanTitle,artist_name:artistName});
-                            const res=await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics/ovh?${params.toString()}`,5000);
-                            if(!res.ok)continue;
-                            const payload=await res.json();
-                            const text=payload?.lyrics||payload?.text||payload?.data?.lyrics||'';
-                            if(typeof text==='string'&&text.trim()){
-                                lyricsData={text:text.trim(),isSynced:LyricsFetcher.isLRC(text),source:'Lyrics.ovh'};
-                                break;
+                        try {
+                            const response = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`, 4000);
+                            if (response.ok) {
+                                const payload = await response.json();
+                                const results = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+                                const matches = results.filter(item => LyricsFetcher.matchesSearchResult(lookupTrack, item));
+                                const timed = matches.find(item => LyricsFetcher.isLRC(item.syncedLyrics || item.lyrics || ''));
+                                if (timed) return commit({ text: timed.syncedLyrics || timed.lyrics, source: 'LRCLIB' });
+                                const plain = matches.find(item => item.plainLyrics || item.syncedLyrics || item.lyrics);
+                                if (plain) rememberPlain({ text: plain.plainLyrics || plain.syncedLyrics || plain.lyrics, source: 'LRCLIB' });
                             }
-                        }catch(e){Utils.warn(e);}
+                        } catch (e) { Utils.warn(e); }
+
+                        if (State.lyricsRenderEnabled !== false) {
+                            try {
+                                const response = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics?track=${encodeURIComponent(cleanTitle)}&artist=${encodeURIComponent(cleanArtist)}`, 5000);
+                                if (response.ok) {
+                                    const payload = await response.json();
+                                    const text = payload?.syncedLyrics || payload?.data?.syncedLyrics || payload?.lyrics || payload?.plainLyrics || payload?.text || payload?.data?.lyrics || '';
+                                    if (LyricsFetcher.isLRC(text)) return commit({ text, source: payload?.source || 'Lyrics service' });
+                                    rememberPlain({ text, source: payload?.source || 'Lyrics service' });
+                                }
+                            } catch (e) { Utils.warn(e); }
+                        }
+                    }
+
+                    const artists = [...new Set([cleanArtist, String(lookupTrack.artist || '').split(/,|&|\bfeat(?:uring)?\.?|\bft\.?/i)[0].trim()].filter(Boolean))];
+                    for (const artistName of artists.slice(0, 2)) {
+                        try {
+                            const params = new URLSearchParams({ track_name: cleanTitle, artist_name: artistName });
+                            const response = await LyricsFetcher.fetchWithTimeout(`${BACKEND_BASE}lyrics/ovh?${params.toString()}`, 5000);
+                            if (!response.ok) continue;
+                            const payload = await response.json();
+                            const text = payload?.lyrics || payload?.text || payload?.data?.lyrics || '';
+                            if (LyricsFetcher.isLRC(text)) return commit({ text, source: 'Lyrics.ovh' });
+                            rememberPlain({ text, source: 'Lyrics.ovh' });
+                        } catch (e) { Utils.warn(e); }
+                    }
+
+                    if (State.lyricsPlusEnabled !== false) {
+                        try {
+                            const result = await LyricsFetcher.fetchLyricsPlus(lookupTrack, cleanTitle, cleanArtist);
+                            if (result?.text && LyricsFetcher.isLRC(result.text)) return commit(result);
+                            rememberPlain(result, result?.source || 'LyricsPlus');
+                        } catch (_) { }
                     }
                 }
 
-                if (!lyricsData && navigator.onLine && State.lyricsPlusEnabled !== false && cleanTitle && cleanArtist) {
-                    try { lyricsData = await LyricsFetcher.fetchLyricsPlus(lookupTrack, cleanTitle, cleanArtist); } catch (e) { }
-                }
-
-                if (!lyricsData) {
-                    lyricsData = { text: navigator.onLine ? 'Lyrics unavailable\n\nNo verified lyrics source matched this track.' : 'Lyrics unavailable offline.', isSynced: false, unavailable: true };
-                }
-
-                if (lyricsData.isSynced) lyricsData.parsed = LyricsFetcher.parseLRC(lyricsData.text);
-                LyricsFetcher.cache.set(track.id, lyricsData);
-                if (!lyricsData.unavailable && lyricsData.text) StorageAdapter.saveLyricsCache(track.id, lyricsData).catch(()=>{});
-                return lyricsData;
+                if (plainFallback) return commit(plainFallback);
+                return commit({ text: navigator.onLine ? 'Lyrics unavailable\n\nNo verified lyrics source matched this track.' : 'Lyrics unavailable offline.', isSynced: false, unavailable: true }, false);
             },
             fetchLyricsPlus: async (track, cleanTitle, cleanArtist) => {
                 const hosts = [`${BACKEND_BASE.replace(/\/$/, '')}/lyricsplus`];
@@ -198,7 +217,10 @@
                         if (!text) return;
                         const startRaw = Number(entry.time ?? entry.start ?? entry.startTime ?? 0);
                         if (!Number.isFinite(startRaw)) return;
-                        const seconds = startRaw / 1000;
+                        const rawUnit = String(entry.unit || entry.timeUnit || payload.timeUnit || '').toLowerCase();
+                        const duration = Number(track.duration) || 0;
+                        const isMilliseconds = /ms|millisecond/.test(rawUnit) || (duration > 0 ? startRaw > duration * 1.5 : startRaw > 600);
+                        const seconds = isMilliseconds ? startRaw / 1000 : startRaw;
                         const key = entry.element?.key || entry.lineKey || entry.key || `line-${index}`;
                         const group = grouped.get(key) || { time: seconds, parts: [], text: '' };
                         group.time = Math.min(group.time, seconds);
@@ -226,7 +248,7 @@
                 if (track.source === 'machhar-online' && window.OnlineLyrics?.retryLrclib) {
                     const onlineResult = await window.OnlineLyrics.retryLrclib(track);
                     if (onlineResult?.text) {
-                        const data = LyricsFetcher.makeData(onlineResult.text, onlineResult.isSynced);
+                        const data = LyricsFetcher.makeData(onlineResult.text, LyricsFetcher.isLRC(onlineResult.text));
                         data.source = onlineResult.source || 'LRCLIB';
                         if (data.isSynced) data.parsed = LyricsFetcher.parseLRC(data.text);
                         LyricsFetcher.cache.set(track.id, data);
@@ -248,7 +270,7 @@
                     if (!LyricsFetcher.matchesSearchResult(track,item)) return null;
                     const text = String(item.syncedLyrics || item.plainLyrics || '').trim();
                     if (!text) return null;
-                    const data = LyricsFetcher.makeData(text,Boolean(item.syncedLyrics));
+                    const data = LyricsFetcher.makeData(text, LyricsFetcher.isLRC(text));
                     data.source = 'LRCLIB';
                     if (data.isSynced) data.parsed = LyricsFetcher.parseLRC(data.text);
                     LyricsFetcher.cache.set(track.id,data);

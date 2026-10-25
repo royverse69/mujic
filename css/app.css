@@ -1956,3 +1956,44 @@ body.reduced-motion #bottom-nav { transition: opacity 120ms ease; }
   #bottom-nav, #bottom-nav .nav-item, #mini-player { transition-duration: 120ms !important; animation:none !important; }
   body.nav-scroll-hidden #mini-player.visible { bottom: calc(8px + var(--safe-bottom)); }
 }
+
+
+/* v13.2.4: centered desktop play control and timestamp-first lyrics fix. */
+#mini-player { --mini-art-size:42px; align-items:center; }
+#mini-player #mini-art { flex:0 0 var(--mini-art-size); width:var(--mini-art-size); height:var(--mini-art-size); min-width:var(--mini-art-size); max-width:var(--mini-art-size); object-fit:cover; align-self:center; }
+#mini-player .mini-meta { align-self:stretch; justify-content:center; min-height:0; padding-top:0; padding-bottom:0; line-height:1.2; }
+#mini-player .mini-title, #mini-player .item-title { line-height:1.22; }
+#mini-player .mini-controls { height:100%; align-items:center; }
+#mini-player .mini-action { display:inline-flex; align-items:center; justify-content:center; line-height:1; }
+#mini-player .mini-action .material-symbols-rounded { display:block; font-size:23px; line-height:1; }
+#mini-player .mini-desktop-tools { display:none; }
+@media (max-width:767px) {
+  #mini-player { height:64px; padding:0 7px 0 10px; gap:0; }
+  #mini-player #mini-art { --mini-art-size:40px; margin:0 10px 0 0; }
+  #mini-player .mini-meta { padding:0 4px 0 0; }
+  #mini-player .mini-controls { margin-left:auto; gap:2px; }
+  #mini-player .mini-action { width:40px; height:40px; flex:0 0 40px; }
+  #mini-player .mini-action .material-symbols-rounded { font-size:24px; }
+  #mini-player .mini-desktop-tools { display:none !important; }
+  #mini-player #mini-title { font-size:12.5px; line-height:1.2; }
+  #mini-player #mini-artist { font-size:10.8px; line-height:1.2; margin-top:3px; }
+}
+@media (min-width:768px) {
+  #mini-player { display:flex; padding:0 24px; gap:0; }
+  #mini-player #mini-art { --mini-art-size:44px; margin:0 12px 0 0; }
+  #mini-player .mini-meta { flex:0 1 32%; max-width:360px; }
+  /* The play/pause control itself is centered on the player, not the whole control group. */
+  #mini-player .mini-controls { position:absolute; left:50%; top:50%; width:0; height:42px; transform:translateY(-50%); display:block; z-index:5; }
+  #mini-player .mini-action { position:absolute; top:0; width:42px; height:42px; flex:0 0 42px; }
+  #mini-player .mini-action[data-action="toggle-play"] { left:-21px; }
+  #mini-player .mini-action[data-action="next-track"] { left:29px; }
+  #mini-player .mini-action .material-symbols-rounded { font-size:23px; }
+  #mini-player .mini-desktop-tools { display:flex; align-items:center; gap:8px; margin-left:auto; z-index:6; }
+  #mini-player .mini-desktop-tool { width:42px; height:42px; min-width:42px; border:0; background:transparent; color:var(--text-secondary); }
+  #mini-player .mini-desktop-tool .material-symbols-rounded { font-size:22px; line-height:1; }
+  #mini-player .mini-desktop-tool:hover,#mini-player .mini-desktop-tool:focus-visible { background:var(--bg-hover); color:var(--text-primary); }
+}
+body[data-corner-radius="sharp"] #mini-player { border-radius:0 !important; }
+body[data-corner-radius="medium"] #mini-player { border-radius:var(--radius-md) !important; }
+body[data-corner-radius="rounded"] #mini-player { border-radius:var(--radius-md) !important; }
+body[data-corner-radius="extra"] #mini-player { border-radius:var(--radius-lg) !important; }

@@ -1,5 +1,5 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.2.2-cloudflare-edge';
+const CACHE_NAME = 'mujic-pwa-v13.2.4-cloudflare-edge';
 const API_CACHE = 'mujic-api-v3';
 const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';

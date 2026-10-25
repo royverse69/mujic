@@ -160,5 +160,13 @@
                 document.getElementById('volume-fill').style.width = `${p}%`; document.getElementById('volume-thumb').style.left = `${p}%`;
                 let icon = 'volume_up'; if(State.muted || State.volume === 0) icon = 'volume_off'; else if(State.volume < 0.5) icon = 'volume_down';
                 document.getElementById('mute-btn').innerHTML = `<span class="material-symbols-rounded">${icon}</span>`;
+                const miniVolumeIcon = document.getElementById('mini-volume-icon');
+                if (miniVolumeIcon) miniVolumeIcon.textContent = icon;
+                const miniVolumeButton = miniVolumeIcon?.closest('button');
+                if (miniVolumeButton) {
+                    const label = State.muted || State.volume === 0 ? 'Volume muted' : `Volume ${Math.round(State.volume * 100)} percent`;
+                    miniVolumeButton.setAttribute('aria-label', label);
+                    miniVolumeButton.title = label;
+                }
             },
         };

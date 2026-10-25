@@ -14,6 +14,15 @@
             id: () => (window.crypto?.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 16) : Math.random().toString(36).slice(2, 11) + Date.now().toString(36)),
             warn: (err) => console.debug('[mujic] ignored error:', err),
             isIOS: () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+            isInstalledApp: () => {
+                /* Chromium desktop PWAs may run in window-controls-overlay mode rather than
+                   plain standalone mode, so check every installed display-mode variant. */
+                const modes = ['standalone', 'window-controls-overlay', 'minimal-ui', 'fullscreen'];
+                return modes.some(mode => {
+                    try { return !!window.matchMedia?.(`(display-mode: ${mode})`).matches; }
+                    catch (_) { return false; }
+                }) || navigator.standalone === true;
+            },
             escapeHTML: (value) => {
                 if (value === null || value === undefined) return '';
                 return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');

@@ -463,19 +463,26 @@
                 StorageAdapter.saveSettings(); UI.applySettings(); UI.showToast("Appearance restored", "refresh");
             },
             setupInstallPrompt: () => {
+                if (State.installPromptListenersReady) { UI.updateInstallUI(); return; }
+                State.installPromptListenersReady = true;
                 window.addEventListener('appinstalled', () => { State.deferredInstallPrompt = null; UI.updateInstallUI(); UI.showToast('Mujic installed', 'check_circle'); });
+                ['standalone','window-controls-overlay','minimal-ui','fullscreen'].forEach(mode => {
+                    try { window.matchMedia(`(display-mode: ${mode})`).addEventListener?.('change', UI.updateInstallUI); } catch (_) {}
+                });
+                window.addEventListener('focus', UI.updateInstallUI, {passive:true});
+                document.addEventListener('visibilitychange', () => { if (!document.hidden) UI.updateInstallUI(); }, {passive:true});
                 UI.updateInstallUI();
             },
             updateInstallUI: () => {
                 const btn=document.getElementById('install-pwa-btn'); if(!btn) return;
-                const standalone=window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                const standalone=Utils.isInstalledApp();
                 btn.disabled=standalone;
                 btn.innerText=standalone?'Installed':'Install';
                 const desc=document.getElementById('install-pwa-desc');
                 if(desc) desc.innerText=standalone ? 'Mujic is installed on this device.' : (State.deferredInstallPrompt ? 'Install Mujic as a standalone app.' : (Utils.isIOS() ? 'Use Share → Add to Home Screen in Safari.' : 'Install Mujic from your browser when the install option is available.'));
             },
             installPWA: async () => {
-                const standalone=window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                const standalone=Utils.isInstalledApp();
                 if(standalone){ UI.showToast('Mujic is already installed', 'check_circle'); return; }
                 const prompt=State.deferredInstallPrompt;
                 if(prompt){
