@@ -23,11 +23,14 @@ const OnlineMusic = (() => {
     const isOnlineId = id => typeof id === 'string' && id.startsWith(ONLINE_PREFIX);
     const isOnlineTrack = track => track?.source === 'machhar-online' || isOnlineId(track?.id);
     const getTrack = id => onlineTracks.get(String(id)) || null;
+    /* Catalogue titles sometimes arrive as "Pritam' s Version" (stray space after the apostrophe).
+       Only an apostrophe + space + a lone contraction suffix is repaired, so "Guns N' Roses" is untouched. */
+    const fixApostropheSpacing = text => text.replace(/(\p{L})(['\u2019])\s+(s|t|d|m|re|ve|ll)(?![\p{L}\p{N}])/giu, '$1$2$3');
     const decodeText = value => {
         if (value === null || value === undefined) return '';
         const input = String(value);
-        if (!input.includes('&')) return input.trim();
-        const node = document.createElement('textarea'); node.innerHTML = input; return node.value.trim();
+        if (!input.includes('&')) return fixApostropheSpacing(input.trim());
+        const node = document.createElement('textarea'); node.innerHTML = input; return fixApostropheSpacing(node.value.trim());
     };
     const safeHttpUrl = value => {
         try {

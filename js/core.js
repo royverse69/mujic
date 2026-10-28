@@ -91,7 +91,7 @@
                     try {
                         const blob = await StorageAdapter.getArtwork(artId);
                         if (blob) {
-                            const url = URL.createObjectURL(blob); State.artworkUrls.set(artId, url); return url;
+                            const url = URL.createObjectURL(blob); State.artworkUrls.set(artId, url); ArtworkCache.trim(artId); return url;
                         }
                     } catch (e) { Utils.warn(e); }
                     return Utils.generateDefaultArt(seedStr);
@@ -100,13 +100,28 @@
                 try { return await loadPromise; }
                 finally { ArtworkCache.pending.delete(artId); }
             },
+            /* Keep the blob-URL map bounded. Oldest entries go first, never the one just created or the current track's,
+               and revocation is delayed so an <img> that is still mounting does not lose its source. */
+            maxEntries: 400,
+            trim: (keepId) => {
+                const map = State.artworkUrls;
+                if (map.size <= ArtworkCache.maxEntries) return;
+                const current = (() => { try { return Player.getCurrentTrack()?.artworkId; } catch (_) { return null; } })();
+                for (const [id, url] of map) {
+                    if (map.size <= ArtworkCache.maxEntries - 50) break;
+                    if (id === keepId || id === current) continue;
+                    map.delete(id); ArtworkCache.colorCache.delete(id);
+                    setTimeout(() => URL.revokeObjectURL(url), 10000);
+                }
+            },
             getAverageColor: async (track) => {
-                if (!track || !track.artworkId) return null;
-                const key = track.artworkId;
+                const online = !!(track && track.source === 'machhar-online' && (track.artworkMediumUrl || track.artworkUrl));
+                if (!track || (!track.artworkId && !online)) return null;
+                const key = track.artworkId || ('online:' + track.id);
                 if (ArtworkCache.colorCache.has(key)) return ArtworkCache.colorCache.get(key);
                 if (ArtworkCache.colorPending.has(key)) return ArtworkCache.colorPending.get(key);
                 const work = (async () => {
-                    const url = await ArtworkCache.getUrl(track);
+                    const url = online ? (track.artworkMediumUrl || track.artworkUrl) : await ArtworkCache.getUrl(track);
                     return await new Promise(resolve => {
                         const img = new Image(); img.decoding = 'async'; img.crossOrigin = 'Anonymous';
                         img.onload = () => {
@@ -122,7 +137,7 @@
                     });
                 })();
                 ArtworkCache.colorPending.set(key, work);
-                try { const color = await work; if (color) ArtworkCache.colorCache.set(key, color); return color; }
+                try { const color = await work; if (color) { ArtworkCache.colorCache.set(key, color); if (ArtworkCache.colorCache.size > 600) ArtworkCache.colorCache.delete(ArtworkCache.colorCache.keys().next().value); } return color; }
                 finally { ArtworkCache.colorPending.delete(key); }
             },
             clearAll: () => { State.artworkUrls.forEach(url => URL.revokeObjectURL(url)); State.artworkUrls.clear(); ArtworkCache.pending.clear(); ArtworkCache.colorCache.clear(); ArtworkCache.colorPending.clear(); },

@@ -118,7 +118,10 @@
                 window.addEventListener('pagehide', () => { if (State.stopOnPageHide) AudioAdapter.pause(); });
                 AudioAdapter.setWakeLock(State.keepScreenAwake);
             },
+            /* Once createMediaElementSource() has run the element is routed through Web Audio for good. From then on the
+               stream must keep its CORS attribute, otherwise a cross-origin source plays back as silence. */
             requiresWebAudio: () => !!(
+                AudioAdapter.source ||
                 State.visualizerMode !== 'off' || State.loudnessControl || State.crossfade ||
                 (Array.isArray(State.eqBands) && State.eqBands.some(value => Math.abs(Number(value) || 0) > 0))
             ),

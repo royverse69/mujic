@@ -1,4 +1,41 @@
 /* Copyright mujic@royverse69 */
+
+/* PiP artwork helper.
+   Cover art is fetched once in the main page (CORS + service-worker aware) and exposed as a same-origin blob.
+   - Document PiP gets a blob: URL, so it no longer depends on the SW-only __mujic_media__ route.
+   - Video PiP draws the decoded <img> onto its canvas; a blob image never taints the canvas, so
+     captureStream() keeps delivering frames. (Drawing a no-CORS cross-origin <img> blanked the video.) */
+window.MujicPiPArt = (() => {
+    let key = '', url = '', image = null, pending = null;
+    const resolve = async src => {
+        if (!src || typeof src !== 'string') return null;
+        if (src === key && image) return { url, image };
+        if (pending && pending.src === src) return pending.promise;
+        const promise = (async () => {
+            try {
+                const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 12000);
+                let blob;
+                try {
+                    const response = await fetch(src, { mode: 'cors', credentials: 'omit', signal: controller.signal });
+                    if (!response.ok) return null;
+                    blob = await response.blob();
+                } finally { clearTimeout(timer); }
+                if (!blob || !blob.size) return null;
+                const objectUrl = URL.createObjectURL(blob);
+                const img = new Image(); img.decoding = 'async'; img.src = objectUrl;
+                try { await img.decode(); } catch (_) { URL.revokeObjectURL(objectUrl); return null; }
+                const old = url; key = src; url = objectUrl; image = img;
+                if (old) setTimeout(() => URL.revokeObjectURL(old), 5000);
+                return { url, image };
+            } catch (_) { return null; }
+        })();
+        pending = { src, promise };
+        promise.finally(() => { if (pending && pending.promise === promise) pending = null; });
+        return promise;
+    };
+    const release = () => { if (url) URL.revokeObjectURL(url); key = url = ''; image = null; pending = null; };
+    return { resolve, release, get image() { return image; }, get key() { return key; } };
+})();
         Object.assign(UI, {
             setupGlobalDelegation: () => {
                 // Sharing is optional UI: never let its initialization prevent player/control handlers from being wired.
@@ -127,7 +164,7 @@
                             pipDoc.title = `${title} · Mujic`;
                             const backgroundArt = get('mj-pip-bg');
                             const src = imageFor(track);
-                            if (src && backgroundArt.dataset.source !== src) { backgroundArt.dataset.source = src; backgroundArt.style.opacity = '.25'; backgroundArt.src = src; }
+                            if (src && backgroundArt.dataset.source !== src) { backgroundArt.dataset.source = src; backgroundArt.style.opacity = '.25'; window.MujicPiPArt.resolve(src).then(res => { if (backgroundArt.dataset.source === src) backgroundArt.src = res ? res.url : src; }); }
                             backgroundArt.onload = () => { backgroundArt.style.opacity = '.96'; };
                             backgroundArt.onerror = () => {
                                 const fallback=window.Utils?.defaultArt||'';
@@ -225,19 +262,25 @@
                             const artist=current?.artist||document.getElementById('full-artist')?.textContent||'Now Playing';
                             const art=document.getElementById('full-art')||document.getElementById('mini-art');
                             const artSrc=art?.currentSrc||art?.src||'';
+                            /* Kick off a CORS-safe copy of the cover; repaint once it is ready. */
+                            if(artSrc&&!/^(data|blob):/.test(artSrc)&&window.MujicPiPArt.key!==artSrc&&video._pipArtPending!==artSrc){
+                                video._pipArtPending=artSrc;
+                                window.MujicPiPArt.resolve(artSrc).then(()=>{video._pipArtPending=null;lastCanvasPaintKey='';video._pipPaint(true);});
+                            }
+                            const safeArt=(window.MujicPiPArt.key===artSrc&&window.MujicPiPArt.image)||(/^(data|blob):/.test(artSrc)?art:null);
                             const audio=AudioAdapter.audio;
                             const currentSecond=Math.floor(Number(audio.currentTime)||0);
                             const isPlaying=!audio.paused&&!audio.ended;
-                            const paintKey=[current?.id||State.currentTrackId||'',title,artist,artSrc,art?.naturalWidth||0,currentSecond,isPlaying].join('|');
+                            const paintKey=[current?.id||State.currentTrackId||'',title,artist,artSrc,safeArt?1:0,currentSecond,isPlaying].join('|');
                             if(!force&&paintKey===lastCanvasPaintKey)return;
                             lastCanvasPaintKey=paintKey;
                             ctx.fillStyle='#09090b';ctx.fillRect(0,0,640,640);
                             try {
-                                if (art?.complete && art.naturalWidth) {
-                                    const aw=art.naturalWidth, ah=art.naturalHeight;
+                                if (safeArt&&safeArt.complete&&safeArt.naturalWidth) {
+                                    const aw=safeArt.naturalWidth, ah=safeArt.naturalHeight;
                                     const coverScale=Math.max(640/aw,640/ah), bw=aw*coverScale, bh=ah*coverScale;
                                     ctx.save();ctx.filter='none';ctx.globalAlpha=1;
-                                    ctx.drawImage(art,(640-bw)/2,(640-bh)/2,bw,bh);ctx.restore();
+                                    ctx.drawImage(safeArt,(640-bw)/2,(640-bh)/2,bw,bh);ctx.restore();
                                     let shade=null;
                                     if(typeof ctx.createLinearGradient==='function'){
                                         shade=ctx.createLinearGradient(0,300,0,640);

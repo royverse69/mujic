@@ -376,28 +376,22 @@
                 State.interfaceStyle = interfaceStyle;
                 document.body.dataset.interfaceStyle = interfaceStyle;
                 document.body.setAttribute('data-interface-style', interfaceStyle);
-                if (interfaceStyle === 'off') {
-                    document.body.style.setProperty('--glass-bg', 'var(--bg-elevated)');
-                    document.body.style.setProperty('--glass-panel-bg', 'var(--bg-elevated)');
-                    document.body.style.setProperty('--glass-blur', 'blur(0px)');
-                    document.body.style.setProperty('--glass-border', '1px solid var(--border-subtle)');
-                    document.body.style.setProperty('--glass-panel-border', '1px solid var(--border-subtle)');
-                    document.body.style.setProperty('--glass-panel-shadow', 'none');
-                } else if (interfaceStyle === 'strong') {
-                    document.body.style.setProperty('--glass-bg', 'rgba(10,10,10,.38)');
-                    document.body.style.setProperty('--glass-panel-bg', 'rgba(10,10,10,.42)');
-                    document.body.style.setProperty('--glass-blur', 'blur(38px) saturate(155%)');
-                    document.body.style.setProperty('--glass-border', '1px solid rgba(255,255,255,.14)');
-                    document.body.style.setProperty('--glass-panel-border', '1px solid rgba(255,255,255,.14)');
-                    document.body.style.setProperty('--glass-panel-shadow', '0 22px 60px rgba(0,0,0,.24)');
-                } else {
-                    document.body.style.setProperty('--glass-bg', 'rgba(10,10,10,.65)');
-                    document.body.style.setProperty('--glass-panel-bg', 'rgba(12,12,12,.62)');
-                    document.body.style.setProperty('--glass-blur', 'blur(24px) saturate(135%)');
-                    document.body.style.setProperty('--glass-border', '1px solid rgba(255,255,255,.08)');
-                    document.body.style.setProperty('--glass-panel-border', '1px solid rgba(255,255,255,.09)');
-                    document.body.style.setProperty('--glass-panel-shadow', '0 18px 54px rgba(0,0,0,.2)');
-                }
+                /* Glass colours must follow the active theme. They used to be hard-coded dark, which made the
+                   sidebar, mini player, sheets and cards unreadable (black text on dark glass) in light mode. */
+                const lightTheme = document.body.classList.contains('theme-light');
+                const glass = lightTheme ? {
+                    off:    { bg: 'var(--bg-elevated)', panel: 'var(--bg-elevated)', blur: 'blur(0px)', border: '1px solid var(--border-subtle)', panelBorder: '1px solid var(--border-subtle)', shadow: 'none' },
+                    strong: { bg: 'rgba(255,255,255,.56)', panel: 'rgba(255,255,255,.62)', blur: 'blur(38px) saturate(165%)', border: '1px solid rgba(0,0,0,.08)', panelBorder: '1px solid rgba(0,0,0,.09)', shadow: '0 22px 60px rgba(0,0,0,.12)' },
+                    subtle: { bg: 'rgba(255,255,255,.80)', panel: 'rgba(255,255,255,.78)', blur: 'blur(24px) saturate(140%)', border: '1px solid rgba(0,0,0,.07)', panelBorder: '1px solid rgba(0,0,0,.08)', shadow: '0 18px 54px rgba(0,0,0,.10)' }
+                } : {
+                    off:    { bg: 'var(--bg-elevated)', panel: 'var(--bg-elevated)', blur: 'blur(0px)', border: '1px solid var(--border-subtle)', panelBorder: '1px solid var(--border-subtle)', shadow: 'none' },
+                    strong: { bg: 'rgba(10,10,10,.38)', panel: 'rgba(10,10,10,.42)', blur: 'blur(38px) saturate(155%)', border: '1px solid rgba(255,255,255,.14)', panelBorder: '1px solid rgba(255,255,255,.14)', shadow: '0 22px 60px rgba(0,0,0,.24)' },
+                    subtle: { bg: 'rgba(10,10,10,.65)', panel: 'rgba(12,12,12,.62)', blur: 'blur(24px) saturate(135%)', border: '1px solid rgba(255,255,255,.08)', panelBorder: '1px solid rgba(255,255,255,.09)', shadow: '0 18px 54px rgba(0,0,0,.2)' }
+                };
+                const g = glass[interfaceStyle] || glass.subtle;
+                const bs = document.body.style;
+                bs.setProperty('--glass-bg', g.bg); bs.setProperty('--glass-panel-bg', g.panel); bs.setProperty('--glass-blur', g.blur);
+                bs.setProperty('--glass-border', g.border); bs.setProperty('--glass-panel-border', g.panelBorder); bs.setProperty('--glass-panel-shadow', g.shadow);
 
                 const cornerRadius = ['sharp','medium','rounded','extra'].includes(State.cornerRadius) ? State.cornerRadius : 'rounded';
                 State.cornerRadius = cornerRadius;

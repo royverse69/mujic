@@ -102,6 +102,54 @@
                     handle.addEventListener('pointercancel', endPointerDrag);
                 });
             },
+            /* The blurred full-player backdrop. Instead of GPU-blurring a full-screen photo (slow on phones, and the reason
+               low-end mode used to drop the cover colours entirely) the cover is shrunk to a 48px canvas and the browser
+               upscales it, which is a free, smooth blur. Saturation/brightness are baked into those pixels. If the
+               image cannot be read (no CORS) the original URL is used and CSS falls back to a filter blur. */
+            tinyBackdrop: (() => {
+                const cache = new Map();
+                return url => {
+                    if (cache.has(url)) return Promise.resolve(cache.get(url));
+                    return new Promise(resolve => {
+                        const img = new Image(); img.decoding = 'async';
+                        if (!/^(data|blob):/.test(url)) img.crossOrigin = 'anonymous';
+                        const done = value => { cache.set(url, value); if (cache.size > 40) cache.delete(cache.keys().next().value); resolve(value); };
+                        img.onload = () => {
+                            try {
+                                const canvas = document.createElement('canvas'); canvas.width = canvas.height = 48;
+                                const ctx = canvas.getContext('2d');
+                                try { ctx.filter = 'saturate(1.55) brightness(.78)'; } catch (_) {}
+                                ctx.imageSmoothingQuality = 'high';
+                                const side = Math.min(img.naturalWidth, img.naturalHeight) || 1;
+                                ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 48, 48);
+                                done(canvas.toDataURL('image/jpeg', 0.72));
+                            } catch (_) { done(null); }
+                        };
+                        img.onerror = () => done(null);
+                        img.src = url;
+                    });
+                };
+            })(),
+            setPlayerBackdrop: async (el, url) => {
+                if (!el) return;
+                const token = el._bdToken = (el._bdToken || 0) + 1;
+                const clean = value => String(value).replace(/["\\\n\r]/g, '');
+                const raw = !url || url === 'none' ? '' : String(url);
+                const tiny = raw ? await UI.tinyBackdrop(raw) : null;
+                if (token !== el._bdToken) return;            // a newer track already replaced this request
+                const src = tiny || raw;
+                const next = src ? `url("${clean(src)}")` : 'none';
+                el.dataset.backdrop = tiny ? 'tiny' : (raw ? 'full' : 'none');
+                /* Value goes through --bd-img because legacy low-end CSS sets background-image with !important. */
+                const apply = value => { el.style.setProperty('--bd-img', value); el.style.backgroundImage = value; };
+                const current = el.style.getPropertyValue('--bd-img');
+                if (current === next) return;
+                clearTimeout(el._swapTimer);
+                const instant = !current || current === 'none' || document.body.classList.contains('reduced-motion') || !State.isFullPlayerOpen;
+                if (instant) { apply(next); el.classList.remove('is-swapping'); return; }
+                el.classList.add('is-swapping');
+                el._swapTimer = setTimeout(() => { apply(next); requestAnimationFrame(() => el.classList.remove('is-swapping')); }, 160);
+            },
             loadPlayerArtworkLarge: (track = Player.getCurrentTrack()) => {
                 if (!track || track.source !== 'machhar-online' || !track.artworkLargeUrl) return false;
                 const trackId = String(track.id || '');
@@ -114,7 +162,6 @@
                 }
                 const fullBg = document.getElementById('full-bg');
                 if (fullBg) fullBg.dataset.backgroundMode = State.playerBackground || 'artwork';
-                if (fullBg && State.playerBackground === 'artwork') fullBg.style.backgroundImage = `url("${track.artworkLargeUrl.replace(/["\\]/g, '')}")`;
                 return true;
             },
             updatePlayerMeta: async (t) => {
@@ -183,15 +230,15 @@
                 
                 const fullBg = document.getElementById('full-bg');
                 if (fullBg) fullBg.dataset.backgroundMode = State.playerBackground || 'artwork';
-                if (State.playerBackground === 'artwork') {
-                    fullBg.style.backgroundImage = `url("${artUrl}")`; fullBg.style.backgroundColor = 'transparent';
+                if (fullBg && State.playerBackground === 'artwork') {
+                    UI.setPlayerBackdrop(fullBg, artUrl); fullBg.style.backgroundColor = 'transparent';
                     if (State.accentPreset === 'dynamic') {
                         const extractedColor = await ArtworkCache.getAverageColor(t);
                         if (reqId === State.artworkRequestId) UI.setAccent(extractedColor);
                     }
-                } else if (State.playerBackground === 'solid') {
+                } else if (fullBg && State.playerBackground === 'solid') {
                     fullBg.style.backgroundImage = 'none'; fullBg.style.backgroundColor = 'var(--bg-elevated)';
-                } else if (State.playerBackground === 'black') {
+                } else if (fullBg && State.playerBackground === 'black') {
                     fullBg.style.backgroundImage = 'none'; fullBg.style.backgroundColor = '#000000';
                 }
                 if (State.isLyricsMode) UI.loadCurrentLyrics();

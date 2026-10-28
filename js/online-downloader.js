@@ -128,18 +128,54 @@
         }
         throw lastError || new Error('Download could not be completed.');
     };
-    const fetchCoverBytes = async url => {
-        if (!url) return null;
-        const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 6000);
+    const isJpeg = b => b && b.length > 3 && b[0] === 0xff && b[1] === 0xd8;
+    const isPng = b => b && b.length > 4 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+    /* WebP/AVIF/GIF/BMP covers are re-encoded to JPEG: the M4A `covr` atom only supports JPEG and PNG. */
+    const reencodeToJpeg = async bytes => {
+        try {
+            const bitmap = await createImageBitmap(new Blob([bytes]));
+            const longest = Math.max(bitmap.width, bitmap.height) || 1;
+            const scale = Math.min(1, 1000 / longest);
+            const w = Math.max(1, Math.round(bitmap.width * scale)), h = Math.max(1, Math.round(bitmap.height * scale));
+            const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h); ctx.drawImage(bitmap, 0, 0, w, h);
+            bitmap.close?.();
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+            canvas.width = canvas.height = 0;
+            return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
+        } catch (_) { return null; }
+    };
+    const fetchOneCover = async url => {
+        const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 12000);
         try {
             const response = await fetch(url, { cache: 'force-cache', credentials: 'omit', signal: controller.signal });
             if (!response.ok) return null;
             const bytes = new Uint8Array(await response.arrayBuffer());
-            const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8;
-            const png = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
-            return jpeg || png ? bytes : null;
+            if (bytes.length < 512) return null;
+            if (isJpeg(bytes) || isPng(bytes)) return bytes;
+            return await reencodeToJpeg(bytes);
         } catch (_) { return null; }
         finally { clearTimeout(timeout); }
+    };
+    /* Best artwork first. The old code embedded `artworkUrl`, which is the 112px list thumbnail. */
+    const coverCandidates = track => {
+        const raw = track.raw || {};
+        const list = [track.artworkLargeUrl, track.artworkMediumUrl];
+        const rawImages = [].concat(raw.image || [], raw.images || [], raw.more_info?.image || [])
+            .map(item => typeof item === 'string' ? item : (item?.url || item?.link || item?.src)).filter(Boolean);
+        for (const source of rawImages) {
+            list.push(OnlineMusic.proxyMediaUrl(String(source).replace(/\d{2,4}x\d{2,4}/, '500x500')));
+        }
+        for (const source of rawImages) list.push(OnlineMusic.proxyMediaUrl(source));
+        list.push(track.artworkUrl);
+        return [...new Set(list.filter(item => typeof item === 'string' && item))];
+    };
+    const fetchTrackCover = async track => {
+        for (const url of coverCandidates(track)) {
+            const bytes = await fetchOneCover(url);
+            if (bytes) return bytes;
+        }
+        return null;
     };
     const download = async track => {
         if (!track || track.source !== 'machhar-online') { UI.showToast('Select a streaming track to download.', 'info'); return false; }
@@ -155,14 +191,13 @@
                 if (now - lastProgressToast > 1800 && percent < 100) { lastProgressToast = now; UI.showToast(`Downloading AAC · ${Math.round(percent)}%`, 'download'); }
             });
             if (!isAACM4A(bytes)) throw new Error('The backend did not provide a valid AAC/M4A file at its highest available quality. For safety, Mujic will not convert an MP3 or silently choose a lower-quality stream.');
-            const coverSource = track.artworkUrl || OnlineMusic.proxyMediaUrl(track.raw?.image?.[0]?.url || track.raw?.image) || track.raw?.image?.[0]?.url || track.raw?.image;
-            const cover = await fetchCoverBytes(coverSource);
+            const cover = await fetchTrackCover(track);
             const metadata = tagM4A(bytes, track, cover);
             const filename = `${cleanFilePart(track.title)} - ${cleanFilePart(track.artist?.split(',')[0])}.m4a`;
             const objectUrl = URL.createObjectURL(metadata); const anchor = document.createElement('a');
             anchor.href = objectUrl; anchor.download = filename; anchor.style.display = 'none'; document.body.appendChild(anchor); anchor.click(); anchor.remove();
             setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-            UI.showToast('AAC download ready · metadata and artwork tagged.', 'check_circle');
+            UI.showToast(cover ? 'AAC download ready · metadata and cover art tagged.' : 'AAC download ready · metadata tagged, but cover art could not be fetched.', cover ? 'check_circle' : 'info');
             if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
             return true;
         } catch (error) {
@@ -171,5 +206,5 @@
             return false;
         }
     };
-    window.OnlineDownloader = { download, isAACM4A, cleanFilePart };
+    window.OnlineDownloader = { download, isAACM4A, cleanFilePart, fetchTrackCover, coverCandidates };
 })();
