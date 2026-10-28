@@ -10,7 +10,7 @@ const uiPlayer = read('js/ui-player.js');
 const catalog = JSON.parse(read('data/discovery-catalog.json'));
 const fallback = read('js/discovery-catalog-data.js');
 const sw = read('sw.js');
-assert.equal(pkg.version,'13.2.7');
+assert.equal(pkg.version,'13.2.8');
 assert.equal(read('VERSION').trim(),pkg.version);
 assert.ok(html.includes(`content="${pkg.version}"`));
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`));

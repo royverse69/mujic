@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const read=f=>fs.readFileSync(f,'utf8');
 const pkg=JSON.parse(read('package.json'));
 const html=read('index.html'),sw=read('sw.js'),events=read('js/ui-events.js'),workspace=read('js/online-workspace.js');
-assert.equal(pkg.version,'13.2.7');
+assert.equal(pkg.version,'13.2.8');
 assert.equal(read('VERSION').trim(),pkg.version);
 assert.ok(html.includes(`application-version" content="${pkg.version}"`));
 assert.ok(sw.includes(`mujic-pwa-v${pkg.version}-cloudflare-edge`));

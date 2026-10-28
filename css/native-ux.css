@@ -1,0 +1,101 @@
+/* Copyright mujic@royverse69 */
+/* native-ux.css — final override layer (loaded after app.css).
+   Fixes: full-player backdrop, light-theme legibility, text clipping, touch ergonomics, native-app feel. */
+
+/* ───────────── 1. Full-screen player backdrop ─────────────
+   Legacy rules fought each other (blur kept, oversizing removed on phones → hard transparent edges;
+   low-end mode swapped the cover for a generic gradient). One consistent definition replaces them.
+   JS (UI.setPlayerBackdrop) supplies a tiny pre-blurred image via --bd-img, so no heavy GPU blur is needed. */
+#full-player #full-bg.player-bg {
+  position: absolute !important; inset: -6% !important; width: auto !important; height: auto !important;
+  z-index: 0 !important; pointer-events: none !important; overflow: hidden;
+  background-size: cover !important; background-position: center !important; background-repeat: no-repeat !important;
+  transform: none !important; -webkit-transform: none !important; animation: none !important; will-change: auto !important;
+  contain: paint; opacity: .95 !important;
+  filter: blur(16px) !important; -webkit-filter: blur(16px) !important;
+  transition: opacity .16s ease !important;
+}
+#full-player #full-bg.player-bg[data-background-mode="artwork"] { background-image: var(--bd-img, none) !important; }
+#full-player #full-bg.player-bg[data-background-mode="solid"],
+#full-player #full-bg.player-bg[data-background-mode="black"] { background-image: none !important; filter: none !important; -webkit-filter: none !important; opacity: 1 !important; inset: 0 !important; }
+/* Fallback when the cover could not be downsampled (no CORS): classic blur, kept modest on phones. */
+#full-player #full-bg.player-bg[data-backdrop="full"] { filter: blur(44px) saturate(1.45) brightness(.62) !important; -webkit-filter: blur(44px) saturate(1.45) brightness(.62) !important; opacity: .8 !important; inset: -14% !important; }
+@media (max-width: 767px) {
+  #full-player #full-bg.player-bg[data-backdrop="full"] { filter: blur(30px) saturate(1.4) brightness(.6) !important; -webkit-filter: blur(30px) saturate(1.4) brightness(.6) !important; }
+}
+/* Low-end / reduced-motion: skip every filter; the pre-shrunk image already looks soft. */
+body.low-end-mode #full-player #full-bg.player-bg[data-backdrop="tiny"],
+body.reduced-motion #full-player #full-bg.player-bg[data-backdrop="tiny"] { filter: none !important; -webkit-filter: none !important; inset: 0 !important; }
+body.low-end-mode #full-player #full-bg.player-bg[data-backdrop="full"] { filter: none !important; -webkit-filter: none !important; opacity: .28 !important; }
+#full-player #full-bg.player-bg.is-swapping { opacity: 0 !important; }
+/* readability scrim */
+#full-player #full-bg.player-bg::after { background: linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.22) 38%, rgba(0,0,0,.58)) !important; }
+/* The accent glow blended with the default (white) accent only produced a grey wash. */
+#full-player #full-bg.player-bg::before { animation: none !important; }
+body.accent-default #full-player #full-bg.player-bg::before { display: none !important; }
+#full-player .player-header, #full-player .player-body, #full-player .player-content { position: relative; z-index: 1; }
+
+/* ───────────── 2. Text that should truncate, truncates ───────────── */
+.mini-meta { min-width: 0; flex: 1 1 auto; }
+.mini-meta .item-title, .mini-meta .item-subtitle, .mini-next-up { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+#mini-art { flex: 0 0 auto; object-fit: cover; }
+#full-title { overflow-wrap: anywhere; }
+#full-player #full-artist { text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100%; }
+@media (min-width: 900px) {
+  /* big desktop title may wrap to two lines instead of cutting after a few words */
+  #full-player #full-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+}
+
+/* ───────────── 3. Native-app feel ───────────── */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavior: none; }
+body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+/* no pull-to-refresh / rubber-banding leaking out of inner scrollers */
+#main-content, #app-container, .bottom-sheet, .sheet-content, .dialog-box, #full-player, [class*="-sheet"] .scroll, .player-lyrics-container, .queue-list, #queue-list {
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+}
+/* chrome is not selectable text; titles in lists/lyrics/inputs still are */
+button, [role="button"], [data-action], .nav-item, .icon-btn, .btn-play-pause, #mini-player, #bottom-nav, .player-controls, .scrubber-wrap {
+  -webkit-user-select: none; user-select: none; touch-action: manipulation;
+}
+input, textarea, [contenteditable], .selectable, .lyrics-line { -webkit-user-select: text; user-select: text; }
+img { -webkit-user-drag: none; user-drag: none; }
+button { font: inherit; color: inherit; }
+button.btn-play-pause { border: 0; padding: 0; appearance: none; -webkit-appearance: none; cursor: pointer; }
+/* sliders must own their horizontal drag */
+.scrubber-wrap, #scrubber-bar, .volume-bar, input[type="range"] { touch-action: none; }
+/* pressed feedback instead of hover feedback on touch */
+@media (hover: none) { .nav-item:active, .icon-btn:active, .mini-action:active { transform: scale(.92); transition: transform 90ms ease; } }
+
+/* ───────────── 4. Touch targets (≥44px hit area, visuals unchanged) ───────────── */
+@media (pointer: coarse) {
+  :where(.icon-btn, .mini-action, .nav-item, .chip, .pill, .toggle, [role="button"]:not(#mini-player)) { position: relative; }
+  .workspace-toggle-mini { position: relative; }
+  .icon-btn::after, .mini-action::after, .chip::after, .workspace-toggle-mini::after {
+    content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%);
+  }
+  .nav-item { min-height: 48px; }
+  .btn, .ob-btn { min-height: 44px; }
+  .ob-skip { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  #full-player .scrubber-wrap { min-height: 44px; padding-block: 14px; box-sizing: content-box; }
+  .mini-progress-bar { pointer-events: none; }
+  /* artist links are 22px tall text; padding grows the tap area without moving anything (negative margin cancels it) */
+  #full-player #full-artist { padding-block: 11px; margin-block: -11px; }
+}
+
+/* ───────────── 5. Keyboard / screen-reader affordances ───────────── */
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--accent-color, #0a84ff); outline-offset: 2px; border-radius: 8px; }
+#full-player :focus-visible { outline-color: #fff; }
+.mini-meta:focus-visible { outline-offset: -2px; }
+
+/* ───────────── 6. Safe areas, dynamic viewport, standalone ───────────── */
+@supports (height: 100dvh) { #full-player { height: 100dvh; } }
+#full-player { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+@media (display-mode: standalone) { body { user-select: none; -webkit-user-select: none; } input, textarea, .selectable, .lyrics-line { user-select: text; -webkit-user-select: text; } }
+@media (prefers-reduced-motion: reduce) { #full-player #full-bg.player-bg { transition: none !important; } }
+
+/* ───────────── 7. Artist marquee: never hard-clip a letter ───────────── */
+#full-player #full-artist:has(.player-artist-marquee) {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+}
