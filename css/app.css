@@ -2195,8 +2195,7 @@ body[data-corner-radius="extra"] { --cr-main: var(--radius-lg); --cr-row: var(--
 
 body .track-row .track-art-small,
 body[data-corner-radius] .track-row .track-art-small { border-radius: max(0px, calc(var(--cr-row) - var(--row-inset))) !important; }
-body #mini-player #mini-art,
-body[data-corner-radius] #mini-player #mini-art { border-radius: max(0px, calc(var(--cr-main) - var(--mini-inset))) !important; }
+body:not([data-corner-radius="extra"]) #mini-player #mini-art { border-radius: max(0px, calc(var(--cr-main) - var(--mini-inset))) !important; }
 
 @media (max-width: 767px) {
   body { --mini-h: 64px; }

@@ -1,25 +1,25 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.3.0-cloudflare-edge';
+const CACHE_NAME = 'mujic-pwa-v13.4.0-cloudflare-edge';
 const API_CACHE = 'mujic-api-v3';
 const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';
 const API_ORIGIN = 'https://mujic.calverse.online';
 const API_FRESH_MS = 30 * 60 * 1000;
-const API_SONG_FRESH_MS = 4 * 60 * 1000;
-const API_SEARCH_FRESH_MS = 5 * 60 * 1000;
-const API_SEARCH_STALE_MS = 60 * 60 * 1000;
+const API_SONG_FRESH_MS = 4 * 60 * 1000; // stream URLs expire server-side; keep short
+const API_SEARCH_FRESH_MS = 20 * 60 * 1000;
+const API_SEARCH_STALE_MS = 24 * 60 * 60 * 1000;
 const NAVIGATION_TIMEOUT_MS = 3500;
 const API_STALE_MS = 7 * 24 * 60 * 60 * 1000;
-const MAX_API_ENTRIES = 400;
-const MAX_ART_ENTRIES = 600;
+const MAX_API_ENTRIES = 1500;
+const MAX_ART_ENTRIES = 2500;
 const MEDIA_CHUNK_CACHE = 'mujic-media-chunks-v4';
 const MEDIA_IMAGE_CACHE = 'mujic-media-images-v4';
 const BACKEND_MEDIA_BASE = 'https://mujic.calverse.online/media';
 const MAX_MEDIA_CHUNK_BYTES = 262144;
-const MAX_MEDIA_IMAGE_ENTRIES = 400;
-const MAX_MEDIA_IMAGE_BYTES = 80 * 1024 * 1024;
+const MAX_MEDIA_IMAGE_ENTRIES = 1200;
+const MAX_MEDIA_IMAGE_BYTES = 160 * 1024 * 1024;
 const APP_SHELL = [
-  './', './index.html', './VERSION', './manifest.webmanifest', './css/app.css', './css/native-ux.css', './js/native-ux.js',
+  './', './index.html', './VERSION', './manifest.webmanifest', './css/app.css', './css/native-ux.css', './css/settings.css', './js/native-ux.js',
   './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/backend-config.js', './js/module-loader.js', './js/online-provider.js', './js/lyrics.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/lyrics-share.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/onboarding.js', './js/app.js',
   './data/discovery-catalog.json', './icons/icon-192.png', './icons/icon-512.png', './icons/Spotify%20Logo%20-%20Black.png', './icons/Spotify%20Logo%20-%20White.png'
 ];
@@ -146,7 +146,12 @@ const cachingEnabled = async () => {
   } catch (_) { cachingFlag = true; }
   return cachingFlag;
 };
+const trimCounters = new Map();
+/* cache.keys() is O(n); with large caches trim once per 25 writes instead of on every put. */
 const trimEntries = async (cache, max) => {
+  const writes = (trimCounters.get(max) || 0) + 1;
+  trimCounters.set(max, writes);
+  if (writes % 25 !== 0) return;
   const keys = await cache.keys();
   if (keys.length > max) await Promise.all(keys.slice(0, keys.length - max).map(key => cache.delete(key)));
 };
