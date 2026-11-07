@@ -1,6 +1,6 @@
 /* Copyright mujic@royverse69 */
 (() => {
-    const KEYS = { history:'mujic-online-history-v1', searches:'mujic-online-searches-v1', playlists:'mujic-online-playlists-v1', favorites:'mujic-online-favorites-v1', linked:'mujic-workspaces-linked-v1', queues:'mujic-workspace-queues-v1', shelves:'mujic-online-shelves-v10', caching:'mujic-online-caching-v1', taste:'mujic-online-taste-v1', trackPlays:'mujic-online-track-plays-v1', suggest:'mujic-online-suggest-v1', publicPlaylists:'mujic-online-public-playlists-v1', artistCache:'mujic-online-artist-cache-v6', artistCatalogue:'mujic-online-artist-catalogue-v4', artistStats:'mujic-online-artist-stats-v1' };
+    const KEYS = { history:'mujic-online-history-v1', searches:'mujic-online-searches-v1', playlists:'mujic-online-playlists-v1', favorites:'mujic-online-favorites-v1', linked:'mujic-workspaces-linked-v1', queues:'mujic-workspace-queues-v1', shelves:'mujic-online-shelves-v10', quickFeed:'mujic-online-quick-feed-v1', caching:'mujic-online-caching-v1', taste:'mujic-online-taste-v1', trackPlays:'mujic-online-track-plays-v1', suggest:'mujic-online-suggest-v1', publicPlaylists:'mujic-online-public-playlists-v1', artistCache:'mujic-online-artist-cache-v6', artistCatalogue:'mujic-online-artist-catalogue-v4', artistStats:'mujic-online-artist-stats-v1' };
     let onlineHistory = [], searchHistory = [], playlists = [], onlineFavorites = [], searchQuery = '', searchPage = 0, searchType = 'all';
     let searchResults = [], entityResults = [], allSearchResults = null, activePlaylistId = null, pendingTrackId = null, requestSequence = 0, visibleSearchCount = 8, searchHasMore = false;
     let libraryTab = 'playlists', remoteRequestSequence = 0;
@@ -492,12 +492,34 @@
         shelfContexts.set(context,items);
         return items.slice(0,limit).map(t=>compactRow(t,context,menu)).join('');
     };
-    const renderQuickPicks = (tracks, context) => {
-        const items=(tracks||[]).filter(Boolean).slice(0,16);
-        shelfContexts.set(context,items);
+    const quickColumnsHtml = (items, from, to, context) => {
         const columns=[];
-        for(let i=0;i<items.length;i+=4)columns.push(items.slice(i,i+4));
+        for(let i=from;i<to;i+=4)columns.push(items.slice(i,Math.min(i+4,to)));
         return columns.map(col=>`<div class="online-quick-col">${col.map(t=>compactRow(t,context,false)).join('')}</div>`).join('');
+    };
+    const renderQuickPicks = (tracks, context, node) => {
+        const items=(tracks||[]).filter(Boolean);
+        shelfContexts.set(context,items);
+        /* Keep at least what was already on screen so the scroll position survives a prepend. */
+        const shown=Math.min(items.length,Math.max(QUICK_PAGE,Math.ceil((node?._quickShown||0)/4)*4));
+        if(node){
+            node._quickShown=shown;node._quickItems=items;node._quickContext=context;
+            if(!node._quickScrollBound){
+                node._quickScrollBound=true;
+                node.addEventListener('scroll',()=>{
+                    if(node._quickBusy||node._quickShown>=node._quickItems.length)return;
+                    if(node.scrollLeft+node.clientWidth<node.scrollWidth-node.clientWidth*1.5)return;
+                    node._quickBusy=true;
+                    requestAnimationFrame(()=>{
+                        const next=Math.min(node._quickItems.length,node._quickShown+QUICK_PAGE);
+                        node.insertAdjacentHTML('beforeend',quickColumnsHtml(node._quickItems,node._quickShown,next,node._quickContext));
+                        node._quickShown=next;node._quickBusy=false;UI.lazyLoadArtwork();
+                    });
+                },{passive:true});
+            }
+        }
+        if(window.OnlineCache)items.slice(0,24).forEach(track=>OnlineCache.warmArtwork(track));
+        return quickColumnsHtml(items,0,shown,context);
     };
     const renderTrackCards = (tracks, context, emptyText='') => {
         const items=(tracks||[]).filter(Boolean).slice(0,24);
@@ -548,7 +570,7 @@
             if(node.dataset.signature===signature&&node.childElementCount)return;
             node.dataset.signature=signature;
         }
-        if(definition.key==='quick')node.innerHTML=renderQuickPicks(list,'home:quick');
+        if(definition.key==='quick'){const keep=node.scrollLeft;node.innerHTML=renderQuickPicks(list,'home:quick',node);node.scrollLeft=keep;}
         else if(definition.kind==='wall')renderArtistMosaic(list,definition.node);
         else if(definition.layout==='list')node.innerHTML=renderCompactRows(list,`home:${definition.key}`,true,8);
         else if(definition.kind==='songs')node.innerHTML=renderTrackCards(list,`home:${definition.key}`);
@@ -839,6 +861,29 @@
         }).filter(row=>row.key&&row.key!=='unknown artist'&&row.score>0);
         return rows.sort((a,b)=>b.score-a.score).slice(0,limit);
     };
+    /* Quick Picks feed: an ever-growing, newest-first list. Each batch of fresh picks is added to the FRONT and
+       nothing already collected is discarded (bounded only by QUICK_FEED_MAX to protect localStorage). */
+    const QUICK_FEED_MAX = 600, QUICK_PAGE = 48;
+    let quickFeed = null, quickFeedTimer = 0;
+    const loadQuickFeed = () => {
+        if(quickFeed)return quickFeed;
+        quickFeed=dedupeCatalogueTracks((safeRead(KEYS.quickFeed,[])||[]).map(restoreTrack).filter(Boolean));
+        return quickFeed;
+    };
+    const saveQuickFeed = () => {
+        clearTimeout(quickFeedTimer);
+        quickFeedTimer=setTimeout(()=>{try{localStorage.setItem(KEYS.quickFeed,JSON.stringify((quickFeed||[]).map(serializeTrack)));}catch(_){}},800);
+    };
+    const absorbQuickPicks = fresh => {
+        const feed=loadQuickFeed(),known=new Set(feed.map(track=>track.id)),prints=new Set(feed.map(fingerprint));
+        const additions=[];
+        for(const track of fresh||[]){
+            if(!track?.id||known.has(track.id)||prints.has(fingerprint(track)))continue;
+            known.add(track.id);prints.add(fingerprint(track));additions.push(track);
+        }
+        if(additions.length){quickFeed=[...additions,...feed].slice(0,QUICK_FEED_MAX);saveQuickFeed();}
+        return quickFeed;
+    };
     const quickPickTracks = () => {
         const part=daypart(),bucket=taste.parts?.[part]||{langs:{},artists:{}};
         const history=onlineHistory.map(trackById).filter(Boolean);
@@ -870,9 +915,9 @@
             const artist=artistKey(row.track.artist),print=fingerprint(row.track);
             if(prints.has(print)||(perArtist.get(artist)||0)>=2)continue;
             prints.add(print);perArtist.set(artist,(perArtist.get(artist)||0)+1);out.push(row.track);
-            if(out.length>=12)break;
+            if(out.length>=20)break;
         }
-        return out;
+        return absorbQuickPicks(out);
     };
     const languageFamily = track => {
         const raw = [track?.language,track?.raw?.language,track?.raw?.more_info?.language,track?.raw?.songLanguage].filter(Boolean).join(' ').toLowerCase().trim();
@@ -2103,6 +2148,7 @@
         const confirmed=await Dialog.show({type:'confirm',title:'Reset listening profile',message:'Quick Picks and Suggested for You will start fresh. Liked songs, playlists and history are kept.',confirmText:'Reset'});
         if(!confirmed)return;
         taste={parts:{}};trackPlays={};suggestState={sig:'',items:[],savedAt:0,loading:''};
+        quickFeed=[];try{localStorage.removeItem(KEYS.quickFeed);}catch(_){}
         artistStats={};
         persistTaste();persist();
         try{localStorage.removeItem(KEYS.suggest);}catch(_){}

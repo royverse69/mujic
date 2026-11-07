@@ -2,6 +2,32 @@
         // Precomputed timing models avoid allocating arrays and recalculating syllable weights
         // on every audio timeupdate (normally 4+ times per second).
         const lyricWordTimingCache = new WeakMap();
+        // Eased, interruptible follow-scroll. Native `behavior:'smooth'` restarts on every line change and
+        // judders when lines come quickly; this retargets every frame and glides with exponential easing.
+        const lyricFollow = (() => {
+            let raf = 0, last = 0, target = 0, element = null;
+            const stop = () => { if (raf) cancelAnimationFrame(raf); raf = 0; };
+            const step = now => {
+                const dt = Math.min(64, now - last || 16); last = now;
+                const diff = target - element.scrollTop;
+                if (Math.abs(diff) < 0.5) { element.scrollTop = target; raf = 0; return; }
+                element.scrollTop += diff * (1 - Math.exp(-dt / 140));
+                raf = requestAnimationFrame(step);
+            };
+            const bind = node => {
+                if (node._lyricFollowBound) return;
+                node._lyricFollowBound = true;
+                ['wheel', 'touchstart', 'pointerdown'].forEach(type => node.addEventListener(type, stop, { passive: true }));   // the reader takes over
+            };
+            return {
+                stop,
+                to: (container, top, instant) => {
+                    element = container; target = top; bind(container);
+                    if (instant) { stop(); container.scrollTop = top; return; }
+                    if (!raf) { last = performance.now(); raf = requestAnimationFrame(step); }
+                }
+            };
+        })();
         const setLyricRevealCount = (model, requestedCount) => {
             if (!model) return;
             const count = Math.max(0, Math.min(model.words.length, Math.floor(Number(requestedCount) || 0)));
@@ -119,7 +145,7 @@
                             const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
                             const top = Math.max(0, Math.min(maxScroll, desired));
                             if (Math.abs(container.scrollTop - top) > 10) {
-                                container.scrollTo({top, behavior:document.body.classList.contains('reduced-motion') ? 'auto' : 'smooth'});
+                                lyricFollow.to(container, top, document.body.classList.contains('reduced-motion') || window.matchMedia('(prefers-reduced-motion: reduce)').matches);
                             }
                         }
                     }

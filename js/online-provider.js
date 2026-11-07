@@ -214,11 +214,11 @@ const OnlineMusic = (() => {
             source: 'machhar-online', provider, onlineTrackId: providerId, isOnline: true
         };
         onlineTracks.set(id, track);
-        if (onlineTracks.size > 400) {
+        if (onlineTracks.size > 1500) {
             // Evict the oldest entries that are not playing or queued (the old loop stopped at the first protected one and let the map grow forever).
             const protectedIds = new Set([State.currentTrackId, ...(State.playbackOrder || [])]);
             for (const key of onlineTracks.keys()) {
-                if (onlineTracks.size <= 400) break;
+                if (onlineTracks.size <= 1500) break;
                 if (!protectedIds.has(key)) onlineTracks.delete(key);
             }
         }
@@ -323,7 +323,7 @@ const OnlineMusic = (() => {
         const result = await raceAbort(fetchCatalogue(cleanPath, timeout), signal);
         if (result.usable) {
             catalogueMemory.set(cleanPath, { value:result.value, at:Date.now() });
-            while (catalogueMemory.size > 250) catalogueMemory.delete(catalogueMemory.keys().next().value);
+            while (catalogueMemory.size > 600) catalogueMemory.delete(catalogueMemory.keys().next().value);
         }
         return result.value;
     };
@@ -399,8 +399,8 @@ const OnlineMusic = (() => {
                 Array.isArray(payload) ? payload : null
             ].find(Array.isArray);
             const items = candidates || (() => { const one = Array.isArray(payload?.data) ? payload.data[0] : (payload?.data || payload?.song || payload); return one && typeof one === 'object' && (one.id || one.songId || one.name || one.title) ? [one] : []; })();
-            relatedCache.set(cacheKey, {items, expiresAt:Date.now() + (items.length ? 8*60*1000 : 45*1000)});
-            while (relatedCache.size > 80) relatedCache.delete(relatedCache.keys().next().value);
+            relatedCache.set(cacheKey, {items, expiresAt:Date.now() + (items.length ? 30*60*1000 : 45*1000)});
+            while (relatedCache.size > 200) relatedCache.delete(relatedCache.keys().next().value);
             return items;
         } catch (error) {
             if (/429|rate limit/i.test(String(error?.message || error))) relatedRateLimitedUntil = Date.now() + 90*1000;
@@ -414,12 +414,12 @@ const OnlineMusic = (() => {
         if (!navigator.onLine) throw new Error('No internet connection.');
         const key = String(path || '').replace(/^\//, '');
         const hit = recommendationMemory.get(key);
-        if (hit && Date.now() - hit.at < 5 * 60 * 1000) return hit.value;
+        if (hit && Date.now() - hit.at < 15 * 60 * 1000) return hit.value;
         const payload = await request(`${LEGACY_BASE}${key}`, null, timeoutMs);
         if (!payload || typeof payload !== 'object') throw new Error('The music service returned a non-JSON recommendation response.');
         if (payload.error && !Array.isArray(payload)) throw new Error(String(payload.error));
         recommendationMemory.set(key, { value:payload, at:Date.now() });
-        while (recommendationMemory.size > 60) recommendationMemory.delete(recommendationMemory.keys().next().value);
+        while (recommendationMemory.size > 120) recommendationMemory.delete(recommendationMemory.keys().next().value);
         return payload;
     };
     const extractRecommendationRows = payload => {
@@ -508,8 +508,8 @@ const OnlineMusic = (() => {
         if (cached && cached.expiresAt > Date.now()) return cached.value;
         const payload = await requestSaavn(`search/${kind}?query=${encodeURIComponent(q)}&page=${page}&limit=${limit}`, null, 8500);
         const value = entityResponse(payload, kind, q, page, limit);
-        entitySearchCache.set(key, {value,expiresAt:Date.now()+10*60*1000});
-        while (entitySearchCache.size > 100) entitySearchCache.delete(entitySearchCache.keys().next().value);
+        entitySearchCache.set(key, {value,expiresAt:Date.now()+30*60*1000});
+        while (entitySearchCache.size > 300) entitySearchCache.delete(entitySearchCache.keys().next().value);
         return value;
     };
     const globalSearch = async (query, signal = null) => {
@@ -566,7 +566,7 @@ const OnlineMusic = (() => {
             title:getEntityTitle(raw), image:getImage(raw, {targetSize: 280}), description:decodeText(raw.description || ''),
             total:Number(raw.songCount || songs.length || 0), page, limit,
             tracks:songs.map(song => normalizeTrack({...song,provider:'saavn'})).filter(Boolean), raw};
-        entityDetailsCache.set(key,{value,expiresAt:Date.now()+10*60*1000});
+        entityDetailsCache.set(key,{value,expiresAt:Date.now()+30*60*1000});
         return value;
     };
     const fetchAlbumDetails = async id => {
@@ -576,7 +576,7 @@ const OnlineMusic = (() => {
         if(!raw||typeof raw!=='object')throw new Error('Album details were not returned.');
         const songs=Array.isArray(raw.songs)?raw.songs:[];const sourceId=String(raw.id||raw.albumId||reference);
         const value={...normalizeEntity('albums',raw),id:`albums:${sourceId}`,sourceId,title:getEntityTitle(raw),image:getImage(raw,{targetSize:280}),description:decodeText(raw.description||''),total:Number(raw.songCount||songs.length||0),tracks:songs.map(song=>normalizeTrack({...song,provider:'saavn'})).filter(Boolean),raw};
-        entityDetailsCache.set(key,{value,expiresAt:10*60*1000+Date.now()});return value;
+        entityDetailsCache.set(key,{value,expiresAt:30*60*1000+Date.now()});return value;
     };
     const fetchArtistDetails = async id => {
         const reference=String(id||'').replace(/^artists:/,'').trim();if(!reference)throw new Error('Artist ID or link is missing.');
@@ -594,7 +594,7 @@ const OnlineMusic = (() => {
         const albums=(Array.isArray(raw.topAlbums)?raw.topAlbums:[]).map(row=>normalizeEntity('albums',row)).filter(Boolean);
         const similarArtists=(Array.isArray(raw.similarArtists)?raw.similarArtists:[]).map(row=>normalizeEntity('artists',row)).filter(Boolean);
         const value={...normalizeEntity('artists',raw),id:`artists:${sourceId}`,sourceId,title:getEntityTitle(raw),image:getEntityImage('artists',raw),description,tracks:topTracks,topTracks,singles,albums,artists:similarArtists,totalSongs:Number(raw.songCount||raw.totalSongs||0),totalAlbums:Number(raw.albumCount||raw.totalAlbums||albums.length||0),followerCount:raw.followerCount??null,fanCount:raw.fanCount??'',isVerified:Boolean(raw.isVerified),dominantLanguage:decodeText(raw.dominantLanguage||''),dominantType:decodeText(raw.dominantType||''),availableLanguages:Array.isArray(raw.availableLanguages)?raw.availableLanguages:[],dob:decodeText(raw.dob||''),isRadioPresent:Boolean(raw.isRadioPresent),social:{url:raw.url||'',fb:raw.fb||'',twitter:raw.twitter||'',wiki:raw.wiki||''},bioRows,raw};
-        entityDetailsCache.set(key,{value,expiresAt:10*60*1000+Date.now()});return value;
+        entityDetailsCache.set(key,{value,expiresAt:30*60*1000+Date.now()});return value;
     };
     const songBelongsToArtist = (track, artistId, artistName) => {
         const raw=track?.raw||track||{};
@@ -763,8 +763,8 @@ const OnlineMusic = (() => {
             const normalized = rankRelevantSearchTracks(rawSongs.map(raw => normalizeTrack({...raw, provider:raw.provider || chosenProvider})).filter(Boolean),q);
             const meta = resultMeta || {query:q,page,limit,total:normalized.length,hasMore:false,provider:chosenProvider};
             if (!background && requestId === latestSearchRequest) searchMeta = {...meta};
-            searchCache.set(cacheKey, {tracks:normalized.slice(), meta:{...meta}, expiresAt:Date.now()+600_000});
-            while (searchCache.size > 100) searchCache.delete(searchCache.keys().next().value);
+            searchCache.set(cacheKey, {tracks:normalized.slice(), meta:{...meta}, expiresAt:Date.now()+1_800_000});
+            while (searchCache.size > 300) searchCache.delete(searchCache.keys().next().value);
             if (window.OnlineCache) OnlineCache.warmTracks(normalized.slice(0,50));
             return decorateSearchResults(normalized, meta);
         } finally {

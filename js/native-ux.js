@@ -127,7 +127,7 @@
     /* 7. Desktop: scroll "Title — Artist" through the browser tab title, slowly, following the current track.
           (<marquee> cannot live inside <title>, which is plain text, so the text is rotated one character at a time.) */
     const initTabTitleScroller = () => {
-        const BASE_TITLE = document.title, STEP_MS = 450, GAP = '   •   ';
+        const BASE_TITLE = document.title, STEP_MS = 160, GAP = '   •   ';
         const desktop = window.matchMedia('(min-width: 768px) and (hover: hover)');
         let key = '', offset = 0, timer = 0;
         const render = () => {
@@ -146,6 +146,40 @@
         run();
     };
 
-    const start = () => { enhance(); initMiniSwipeDismiss(); initTabTitleScroller(); new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true }); };
+    /* 8. Desktop mini-player: click or drag the progress bar to seek. */
+    const initMiniScrub = () => {
+        const mini = document.getElementById('mini-player'), bar = mini?.querySelector('.mini-progress-bar');
+        if (!bar) return;
+        const desktop = window.matchMedia('(min-width: 768px)');
+        const label = document.getElementById('mini-time-current');
+        let active = false, ratio = 0;
+        const ratioFrom = event => { const rect = bar.getBoundingClientRect(); return Math.min(1, Math.max(0, (event.clientX - rect.left) / Math.max(1, rect.width))); };
+        const preview = value => {
+            ratio = value;
+            bar.style.setProperty('--scrub', `${value * 100}%`);
+            if (label) label.textContent = Utils.formatTime(value * State.duration);
+        };
+        bar.addEventListener('pointerdown', event => {
+            if (!desktop.matches || !(State.duration > 0) || event.button > 0) return;
+            active = true;
+            try { bar.setPointerCapture(event.pointerId); } catch (_) {}
+            bar.classList.add('scrubbing');
+            preview(ratioFrom(event));
+            event.stopPropagation();
+        });
+        bar.addEventListener('pointermove', event => { if (active) preview(ratioFrom(event)); });
+        const end = event => {
+            if (!active) return;
+            active = false;
+            bar.classList.remove('scrubbing');
+            bar.style.removeProperty('--scrub');
+            try { bar.releasePointerCapture(event.pointerId); } catch (_) {}
+            if (event.type === 'pointerup') AudioAdapter.seek(ratio * State.duration);
+        };
+        bar.addEventListener('pointerup', end);
+        bar.addEventListener('pointercancel', end);
+    };
+
+    const start = () => { enhance(); initMiniSwipeDismiss(); initTabTitleScroller(); initMiniScrub(); new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true }); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();

@@ -7,9 +7,9 @@ const events = read('js/ui-events.js'), player = read('js/ui-player.js'), settin
 const downloader = read('js/online-downloader.js'), dloader = read('dloader.html'), core = read('js/core.js'), audio = read('js/player.js');
 const provider = read('js/online-provider.js'), nativeJs = read('js/native-ux.js');
 
-assert.equal(pkg.version, '13.2.8');
-assert.equal(read('VERSION').trim(), '13.2.8');
-assert.ok(html.includes('content="13.2.8"') && sw.includes('mujic-pwa-v13.2.8-cloudflare-edge'));
+assert.equal(pkg.version, '13.4.0');
+assert.equal(read('VERSION').trim(), '13.4.0');
+assert.ok(html.includes('content="13.4.0"') && sw.includes('mujic-pwa-v13.4.0-cloudflare-edge'));
 
 // Delivery: new layer is linked after app.css, loaded, and precached for offline use.
 assert.ok(html.indexOf('./css/app.css') < html.indexOf('./css/native-ux.css'), 'native-ux.css must load after app.css');

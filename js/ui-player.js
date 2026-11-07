@@ -262,7 +262,9 @@
                 const p = State.duration > 0 ? Math.max(0, Math.min(100, (State.currentTime / State.duration) * 100)) : 0;
                 document.getElementById('mini-progress').style.width = `${p}%`; document.getElementById('full-progress').style.width = `${p}%`;
                 document.getElementById('scrubber-thumb').style.left = `${p}%`; document.getElementById('time-current').innerText = Utils.formatTime(State.currentTime);
+                const miniTime = document.getElementById('mini-time-current'), second = Math.floor(State.currentTime || 0);
+                if (miniTime && miniTime._second !== second) { miniTime._second = second; miniTime.textContent = Utils.formatTime(State.currentTime); }
                 if (!State.isPlaying && State.visualizerMode === 'wave') AudioAdapter.renderScrubberVisualizerFrame();
             },
-            updateDuration: () => { document.getElementById('time-total').innerText = Utils.formatTime(State.duration); },
+            updateDuration: () => { document.getElementById('time-total').innerText = Utils.formatTime(State.duration); const miniTotal = document.getElementById('mini-time-total'); if (miniTotal) miniTotal.textContent = Utils.formatTime(State.duration); },
         });
