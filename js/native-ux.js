@@ -70,6 +70,82 @@
     window.matchMedia?.('(pointer: coarse)').addEventListener?.('change', syncModes);
     syncModes();
 
-    const start = () => { enhance(); new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true }); };
+    /* 6. Opt-in: swipe the mini-player down (small screens, full player closed) to pause, stop and dismiss it.
+          Controlled by Settings → Playback → "Swipe mini-player down to stop". */
+    const initMiniSwipeDismiss = () => {
+        const mini = document.getElementById('mini-player');
+        if (!mini) return;
+        const small = window.matchMedia('(max-width: 767px)');
+        const DISMISS_DISTANCE = 64, DISMISS_VELOCITY = 0.55, AXIS_LOCK = 10;
+        let drag = null, blockClickUntil = 0;
+        const clearInline = () => { mini.style.transition = ''; mini.style.transform = ''; mini.style.opacity = ''; };
+        const settle = () => {
+            mini.style.transition = 'transform .28s cubic-bezier(.22,.61,.36,1), opacity .2s ease';
+            mini.style.transform = 'translateY(0)'; mini.style.opacity = '1';
+            window.setTimeout(clearInline, 300);
+        };
+        const dismiss = () => {
+            // Playing again (any control, media key or track pick) brings the mini-player back.
+            AudioAdapter.audio.addEventListener('play', () => { if (State.currentTrackId) UI.showMiniPlayer(); }, { once: true });
+            mini.style.transition = 'transform .24s ease-in, opacity .2s ease';
+            mini.style.transform = 'translateY(160%)'; mini.style.opacity = '0';
+            try { Player.pause(); AudioAdapter.seek(0); } catch (_) {}
+            window.setTimeout(() => { mini.classList.remove('visible'); clearInline(); }, 250);
+        };
+        mini.addEventListener('pointerdown', event => {
+            if (!State.swipeDismissMini || !small.matches || State.isFullPlayerOpen || event.button > 0 || !mini.classList.contains('visible')) return;
+            if (event.target.closest('.mini-action,.mini-progress-bar')) return;
+            drag = { id: event.pointerId, x: event.clientX, y: event.clientY, t: event.timeStamp, dy: 0, active: false };
+        });
+        mini.addEventListener('pointermove', event => {
+            if (!drag || event.pointerId !== drag.id) return;
+            const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+            if (!drag.active) {
+                if (Math.abs(dx) > AXIS_LOCK && Math.abs(dx) >= Math.abs(dy)) { drag = null; return; }
+                if (dy > AXIS_LOCK && dy > Math.abs(dx) * 1.2) { drag.active = true; try { mini.setPointerCapture(event.pointerId); } catch (_) {} mini.style.transition = 'none'; }
+                else return;
+            }
+            drag.dy = Math.max(0, dy);
+            mini.style.transform = `translateY(${drag.dy}px)`;
+            mini.style.opacity = String(Math.max(0.35, 1 - drag.dy / 180));
+        });
+        const finish = (event, cancelled) => {
+            if (!drag || event.pointerId !== drag.id) return;
+            const { active, dy, t } = drag; drag = null;
+            if (!active) return;
+            blockClickUntil = performance.now() + 350;
+            try { mini.releasePointerCapture(event.pointerId); } catch (_) {}
+            const velocity = dy / Math.max(1, event.timeStamp - t);
+            if (!cancelled && (dy > DISMISS_DISTANCE || (velocity > DISMISS_VELOCITY && dy > 24))) dismiss(); else settle();
+        };
+        mini.addEventListener('pointerup', event => finish(event, false));
+        mini.addEventListener('pointercancel', event => finish(event, true));
+        // A drag must never also count as a tap that opens the full player.
+        mini.addEventListener('click', event => { if (performance.now() < blockClickUntil) { event.stopPropagation(); event.preventDefault(); } }, true);
+    };
+
+    /* 7. Desktop: scroll "Title — Artist" through the browser tab title, slowly, following the current track.
+          (<marquee> cannot live inside <title>, which is plain text, so the text is rotated one character at a time.) */
+    const initTabTitleScroller = () => {
+        const BASE_TITLE = document.title, STEP_MS = 450, GAP = '   •   ';
+        const desktop = window.matchMedia('(min-width: 768px) and (hover: hover)');
+        let key = '', offset = 0, timer = 0;
+        const render = () => {
+            const track = typeof Player !== 'undefined' ? Player.getCurrentTrack?.() : null;
+            if (!track) { if (document.title !== BASE_TITLE) document.title = BASE_TITLE; key = ''; return; }
+            const label = `${track.title || 'Unknown'} — ${track.artist || 'Unknown artist'}`;
+            const playing = Boolean(State.isPlaying);
+            if (label !== key) { key = label; offset = 0; }
+            if (!desktop.matches || !playing || reducedMotion() || label.length < 3) { document.title = `${playing ? '▶ ' : ''}${label} · Mujic`; return; }
+            const loop = label + GAP;
+            offset = (offset + 1) % loop.length;
+            document.title = (loop + loop).slice(offset, offset + Math.max(loop.length, 24));
+        };
+        const run = () => { if (!timer) timer = window.setInterval(render, STEP_MS); render(); };
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').addEventListener?.('change', render);
+        run();
+    };
+
+    const start = () => { enhance(); initMiniSwipeDismiss(); initTabTitleScroller(); new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true }); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();

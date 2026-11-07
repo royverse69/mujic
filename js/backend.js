@@ -95,7 +95,7 @@
                     loudnessControl: State.loudnessControl, loudnessLevel: State.loudnessLevel,
                     autoSkipOnError: State.autoSkipOnError, preventDuplicateQueue: State.preventDuplicateQueue,
                     preservePitch: State.preservePitch, varispeed: State.varispeed, progressiveSeek: State.progressiveSeek,
-                    pauseWhenMuted: State.pauseWhenMuted, stopOnPageHide: State.stopOnPageHide, waveformStyle: State.waveformStyle,
+                    pauseWhenMuted: State.pauseWhenMuted, stopOnPageHide: State.stopOnPageHide, swipeDismissMini: State.swipeDismissMini, waveformStyle: State.waveformStyle,
                     seekStep: State.seekStep, keepScreenAwake: State.keepScreenAwake, lyricsPlusEnabled: State.lyricsPlusEnabled
                 };
                 return StorageAdapter._put('settings', s, 'app_state');
@@ -148,6 +148,7 @@
                     if(s.progressiveSeek !== undefined) State.progressiveSeek = !!s.progressiveSeek;
                     if(s.pauseWhenMuted !== undefined) State.pauseWhenMuted = !!s.pauseWhenMuted;
                     if(s.stopOnPageHide !== undefined) State.stopOnPageHide = !!s.stopOnPageHide;
+                    if(s.swipeDismissMini !== undefined) State.swipeDismissMini = !!s.swipeDismissMini;
                     if(s.waveformStyle !== undefined && ['default','wavy','slim','squiggly'].includes(s.waveformStyle)) State.waveformStyle = s.waveformStyle;
                     if(s.seekStep !== undefined) State.seekStep = [5,10,15,30].includes(Number(s.seekStep)) ? Number(s.seekStep) : 10;
                     if(s.keepScreenAwake !== undefined) State.keepScreenAwake = !!s.keepScreenAwake;

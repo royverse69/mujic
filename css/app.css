@@ -2179,3 +2179,33 @@ body.low-end-mode #full-art.mujic-swipe-in-from-left { animation-duration:190ms 
   #full-art.mujic-swipe-in-from-right,
   #full-art.mujic-swipe-in-from-left { animation:none !important; will-change:auto !important; }
 }
+
+/* ==========================================================================
+   Concentric corner system
+   Rule: inner radius = outer radius − the gap between the two edges.
+   Every nested surface (mini-player → artwork, list row → thumbnail) derives its
+   radius from the same token as its parent, so curves stay parallel at every
+   corner-radius setting and breakpoint.
+   ========================================================================== */
+body { --cr-main: var(--radius-md); --cr-row: var(--radius-sm); --mini-inset: 10px; --row-inset: 8px; }
+body[data-corner-radius="sharp"] { --cr-main: 0px; --cr-row: 0px; }
+body[data-corner-radius="medium"],
+body[data-corner-radius="rounded"] { --cr-main: var(--radius-md); --cr-row: var(--radius-md); }
+body[data-corner-radius="extra"] { --cr-main: var(--radius-lg); --cr-row: var(--radius-lg); }
+
+body .track-row .track-art-small,
+body[data-corner-radius] .track-row .track-art-small { border-radius: max(0px, calc(var(--cr-row) - var(--row-inset))) !important; }
+body #mini-player #mini-art,
+body[data-corner-radius] #mini-player #mini-art { border-radius: max(0px, calc(var(--cr-main) - var(--mini-inset))) !important; }
+
+@media (max-width: 767px) {
+  body { --mini-h: 64px; }
+  /* Equal inset on the left, right, top and bottom so the artwork and the round action buttons
+     sit the same distance from every curved edge. */
+  #mini-player { padding: 0 var(--mini-inset); }
+  #mini-player #mini-art { width: calc(var(--mini-h) - (var(--mini-inset) * 2)); height: calc(var(--mini-h) - (var(--mini-inset) * 2)); min-width: 0; max-width: none; margin-right: var(--mini-inset); }
+}
+@media (max-width: 560px) { body { --mini-h: 60px; --mini-inset: 9px; } }
+
+/* Opt-in swipe-to-dismiss: the bar owns vertical drags only while the setting is on. */
+body.swipe-dismiss-mini #mini-player { touch-action: none; }

@@ -60,7 +60,7 @@
             crossfade: false, skipSilence: false, instantSkipSilence: false, loudnessControl: false,
             loudnessLevel: 'balanced', autoSkipOnError: true, preventDuplicateQueue: false,
             preservePitch: true, varispeed: false, progressiveSeek: false, pauseWhenMuted: false,
-            stopOnPageHide: false, waveformStyle: 'wavy', seekStep: 10, keepScreenAwake: false, lyricsPlusEnabled: true, lyricsRenderEnabled: true,
+            stopOnPageHide: false, swipeDismissMini: false, waveformStyle: 'wavy', seekStep: 10, keepScreenAwake: false, lyricsPlusEnabled: true, lyricsRenderEnabled: true,
             keyboardShortcutsEnabled: true, keyBindings: {},
             transitionFadePending: false, autoSkipErrorTrackId: null,
             playHistory: [], playHistoryHasMore: false, playHistoryLoading: false, playHistoryOffset: 0,

@@ -101,29 +101,137 @@
         return [];
     };
     const currentQueueIds = () => new Set([...(State.playbackOrder||[]),...(State.queue||[])].map(String));
+    /* ---------------------------------------------------------------------------------------------
+       Suggestion engine
+       1. Taste profile  : weighted artists / languages / genres / era from favourites + recent history.
+       2. Candidate pool : provider "related" list, topped up with artist + taste + language searches
+                           only when related results are thin. The pool is cached per seed track.
+       3. Scoring        : related rank, shared artists, taste affinity, language/genre/era fit, session
+                           continuity, duration sanity, variant penalty and a tiny stable tie-break.
+       4. Diversity      : greedy MMR-style re-rank so one artist/album cannot flood the queue.
+       --------------------------------------------------------------------------------------------- */
+    const POOL_TTL = 180000, POOL_MAX = 24, TASTE_TTL = 60000;
+    const poolCache = new Map();
+    const tasteCache = { at:0, key:'', value:null };
+    const norm = value => text(value).replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+    const yearOf = value => { const y=parseInt(String(value||'').match(/\d{4}/)?.[0],10); return Number.isFinite(y)?y:0; };
+    const genresOf = value => String(value||'').split(/[,/|]/).map(norm).filter(Boolean);
+    const lookupTrack = id => { try{return Player.getTrackById?.(id)||OnlineMusic.getTrack?.(id)||null;}catch(_){return null;} };
+    const stableNoise = key => { let h=2166136261; for(let i=0;i<key.length;i++){h^=key.charCodeAt(i);h=Math.imul(h,16777619);} return ((h>>>0)%1000)/1000; };
+    const peak = map => { let max=0; map.forEach(v=>{if(v>max)max=v;}); return max||1; };
+    const affinity = (map,keys) => { if(!map.size)return 0; const max=peak(map); return keys.reduce((best,key)=>Math.max(best,(map.get(key)||0)/max),0); };
+
+    const buildTaste = () => {
+        const history=(State.history||[]).slice(0,60), favourites=(State.favorites||[]).slice(0,80);
+        const key=`${history.length}:${history[0]||''}:${favourites.length}:${(State.favoriteArtists||[]).length}`;
+        if(tasteCache.value&&tasteCache.key===key&&Date.now()-tasteCache.at<TASTE_TTL)return tasteCache.value;
+        const taste={artists:new Map(),languages:new Map(),genres:new Map(),years:[]};
+        const bump=(map,name,weight)=>{if(name)map.set(name,(map.get(name)||0)+weight);};
+        const feed=(track,weight)=>{
+            if(!track)return;
+            artistSet(track.artist||track.artists).forEach(name=>bump(taste.artists,name,weight));
+            bump(taste.languages,norm(track.language),weight);
+            genresOf(track.genre).forEach(name=>bump(taste.genres,name,weight));
+            const year=yearOf(track.year); if(year)taste.years.push(year);
+        };
+        history.forEach((id,index)=>feed(lookupTrack(id),1/(1+index*0.08)));   // recent plays count more
+        favourites.forEach(id=>feed(lookupTrack(id),2));
+        (State.favoriteArtists||[]).forEach(entry=>bump(taste.artists,norm(typeof entry==='string'?entry:entry?.name),3));
+        taste.medianYear=taste.years.length?[...taste.years].sort((a,b)=>a-b)[Math.floor(taste.years.length/2)]:0;
+        tasteCache.at=Date.now();tasteCache.key=key;tasteCache.value=taste;
+        return taste;
+    };
+    const topTasteArtist = (taste,exclude) => { let best='',score=0; taste.artists.forEach((value,name)=>{if(value>score&&!exclude.includes(name)){best=name;score=value;}}); return best; };
+
+    const fetchPool = async currentTrack => {
+        const key=`${currentTrack.provider||'saavn'}:${currentTrack.onlineTrackId||currentTrack.id}`;
+        const hit=poolCache.get(key);
+        if(hit&&hit.expires>Date.now())return hit.pool;
+        const pool=[];
+        const push=(items,source)=>items.forEach((track,rank)=>{if(track?.id)pool.push({track,source,rank,size:items.length});});
+        let related=[];
+        try{related=candidatesFrom(await OnlineMusic.fetchRelated(currentTrack)).map(item=>OnlineMusic.normalizeTrack({...item,provider:item.provider||currentTrack.provider})).filter(Boolean);}catch(_){}
+        push(related,'related');
+        if(related.length<8){
+            const primary=String(currentTrack.artist||'').split(/,|&/)[0].trim();
+            const primaryKey=cleanArtist(primary);
+            const lookups=[];
+            if(primary)lookups.push(['artist',primary]);
+            const favourite=topTasteArtist(buildTaste(),artistSet(currentTrack.artist));
+            if(favourite)lookups.push(['taste',favourite]);
+            const language=String(currentTrack.language||'').trim();
+            if(language&&related.length<4)lookups.push(['language',`${language} ${genresOf(currentTrack.genre)[0]||'top songs'}`]);
+            const results=await Promise.all(lookups.map(async([source,query])=>{
+                try{return [source,await OnlineMusic.search(query,{background:true,limit:30})];}catch(_){return [source,[]];}
+            }));
+            results.forEach(([source,items])=>{
+                const list=Array.isArray(items)?items:[];
+                push(source==='artist'?list.filter(track=>{const a=cleanArtist(track.artist);return a&&primaryKey&&(a.includes(primaryKey)||primaryKey.includes(a));}):list,source);
+            });
+        }
+        if(pool.length){
+            poolCache.set(key,{pool,expires:Date.now()+POOL_TTL});
+            while(poolCache.size>POOL_MAX)poolCache.delete(poolCache.keys().next().value);
+        }
+        return pool;
+    };
+
+    const SOURCE_WEIGHT = { related:0.34, artist:0.14, taste:0.12, language:0.05 };
+    const scoreCandidate = (track,entry,currentTrack,taste,context) => {
+        const artists=artistSet(track.artist||track.artists);
+        let score=(SOURCE_WEIGHT[entry.source]||0)*(1-(entry.rank/Math.max(entry.size,1))*0.8);
+        if(artists.some(name=>context.currentArtists.includes(name)))score+=0.16;
+        if(artists.some(name=>context.sessionArtists.has(name)))score+=0.05;
+        score+=affinity(taste.artists,artists)*0.2;
+        const language=norm(track.language);
+        if(language&&context.language){score+=language===context.language?0.12:-0.08;}
+        else if(language&&taste.languages.size)score+=affinity(taste.languages,[language])*0.06;
+        const genres=genresOf(track.genre);
+        if(genres.length&&context.genres.length&&genres.some(name=>context.genres.includes(name)))score+=0.08;
+        else if(genres.length)score+=affinity(taste.genres,genres)*0.04;
+        const year=yearOf(track.year), anchor=context.year||taste.medianYear;
+        if(year&&anchor)score+=Math.max(0,1-Math.abs(year-anchor)/12)*0.08;
+        const duration=Number(track.duration)||0;
+        if(duration&&(duration<60||duration>480))score-=0.1; else if(duration)score+=0.03;
+        if(fingerprint(track).variant&&!context.currentIsVariant)score-=0.25;
+        return score+stableNoise(`${track.id}|${currentTrack.id}`)*0.02;
+    };
+    const rankCandidates = (tracks,meta,currentTrack) => {
+        const taste=buildTaste(), current=fingerprint(currentTrack);
+        const context={
+            currentArtists:current.artists, language:norm(currentTrack.language), genres:genresOf(currentTrack.genre),
+            year:yearOf(currentTrack.year), currentIsVariant:current.variant,
+            sessionArtists:new Set(playedFingerprints.slice(0,3).flatMap(fp=>fp.artists||[]))
+        };
+        const scored=tracks.map(track=>({track,score:scoreCandidate(track,meta.get(track.id)||{source:'related',rank:0,size:1},currentTrack,taste,context)}));
+        const ordered=[],artistCount=new Map(),albumCount=new Map();
+        while(scored.length){
+            let bestIndex=0,bestValue=-Infinity;
+            scored.forEach((item,index)=>{
+                const artistPenalty=artistSet(item.track.artist||item.track.artists).reduce((sum,name)=>Math.max(sum,artistCount.get(name)||0),0)*0.14;
+                const albumKey=norm(item.track.album);
+                const albumPenalty=albumKey&&albumKey!=='unknown album'?(albumCount.get(albumKey)||0)*0.08:0;
+                const value=item.score-artistPenalty-albumPenalty;
+                if(value>bestValue){bestValue=value;bestIndex=index;}
+            });
+            const [picked]=scored.splice(bestIndex,1);
+            artistSet(picked.track.artist||picked.track.artists).forEach(name=>artistCount.set(name,(artistCount.get(name)||0)+1));
+            const albumKey=norm(picked.track.album); if(albumKey)albumCount.set(albumKey,(albumCount.get(albumKey)||0)+1);
+            ordered.push(picked.track);
+        }
+        return ordered;
+    };
     const getCandidates = async (currentTrack, minCount=6) => {
         const excludeIds=currentQueueIds();
-        const acceptUnique = input => {
-            const accepted=[],seen=new Set();
-            for(const track of input||[]){
-                if(!track?.id||seen.has(String(track.id))||isBlocked(track,currentTrack,excludeIds))continue;
-                if(accepted.some(previous=>isSameRecording(track,previous)))continue;
-                seen.add(String(track.id));accepted.push(track);
-            }
-            return accepted;
-        };
-        let raw=[];try{raw=candidatesFrom(await OnlineMusic.fetchRelated(currentTrack));}catch(_){}
-        let suggested=acceptUnique(raw.map(item=>OnlineMusic.normalizeTrack({...item,provider:item.provider||currentTrack.provider})).filter(Boolean));
-        if(suggested.length>=Math.min(3,minCount))return suggested;
-        const primary=String(currentTrack.artist||'').split(/,|&/)[0].trim();
-        if(primary){
-            try{
-                const artistTracks=await OnlineMusic.search(primary,{background:true,limit:40});
-                const sameArtist=artistTracks.filter(track=>cleanArtist(track.artist).includes(cleanArtist(primary))||cleanArtist(primary).includes(cleanArtist(track.artist)));
-                suggested=acceptUnique([...suggested,...sameArtist]);
-            }catch(_){}
+        const pool=await fetchPool(currentTrack);
+        const accepted=[],seen=new Set(),meta=new Map();
+        for(const entry of pool){
+            const track=entry.track;
+            if(!track?.id||seen.has(String(track.id))||isBlocked(track,currentTrack,excludeIds))continue;
+            if(accepted.some(previous=>isSameRecording(track,previous)))continue;
+            seen.add(String(track.id));accepted.push(track);meta.set(track.id,entry);
         }
-        return suggested.slice(0,Math.max(minCount,12));
+        return rankCandidates(accepted,meta,currentTrack).slice(0,Math.max(minCount,12));
     };
     const addToQueue = tracks => {
         const known=new Set([...(State.queue||[]),...(State.playbackOrder||[])].map(String));

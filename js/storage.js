@@ -115,7 +115,7 @@
                 'lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsWordByWord','lyricsShareEnabled','lyricsShareStyle','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis',
                 'playerBackground','playerArtworkMode','visualizerMode','waveDefaultApplied','onboardingSeen','installBannerDismissedAt','resumePlayback','resumePosition','librarySort','librarySortDir','showArtworkLists','playStats',
                 'crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed',
-                'progressiveSeek','pauseWhenMuted','stopOnPageHide','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','keyboardShortcutsEnabled','keyBindings'],
+                'progressiveSeek','pauseWhenMuted','stopOnPageHide','swipeDismissMini','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','keyboardShortcutsEnabled','keyBindings'],
             saveSettings: () => {
                 const s = {};
                 StorageAdapter.SAVED_KEYS.forEach(key => { s[key] = State[key]; });
@@ -189,6 +189,7 @@
                     if(s.progressiveSeek !== undefined) State.progressiveSeek = !!s.progressiveSeek;
                     if(s.pauseWhenMuted !== undefined) State.pauseWhenMuted = !!s.pauseWhenMuted;
                     if(s.stopOnPageHide !== undefined) State.stopOnPageHide = !!s.stopOnPageHide;
+                    if(s.swipeDismissMini !== undefined) State.swipeDismissMini = !!s.swipeDismissMini;
                     if(s.waveformStyle !== undefined && ['default','wavy','slim','squiggly'].includes(s.waveformStyle)) State.waveformStyle = s.waveformStyle;
                     if(s.seekStep !== undefined) State.seekStep = [5,10,15,30].includes(Number(s.seekStep)) ? Number(s.seekStep) : 10;
                     if(s.keepScreenAwake !== undefined) State.keepScreenAwake = !!s.keepScreenAwake;

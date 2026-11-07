@@ -84,7 +84,7 @@ window.MujicPiPArt = (() => {
                     if (!api?.requestWindow) return false;
                     if (api.window && !api.window.closed) { api.window.focus(); return true; }
                     // requestWindow must be called synchronously in the initiating click gesture.
-                    const pipWindow = await api.requestWindow({width:480, height:480, preferInitialWindowPlacement:true});
+                    const pipWindow = await api.requestWindow({width:320, height:320, preferInitialWindowPlacement:true});
                     const pipDoc = pipWindow.document;
                     pipDoc.title = 'Mujic · Now Playing';
                     const style = pipDoc.createElement('style');
