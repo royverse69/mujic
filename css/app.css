@@ -2210,43 +2210,14 @@ body:not([data-corner-radius="extra"]) #mini-player #mini-art { border-radius: m
 body.swipe-dismiss-mini #mini-player { touch-action: none; }
 
 
-/* Diwali wordmark: a single lightweight animated asset shared by the app logo and mobile watermark. */
-.brand-header {
-    display:none;
-    align-items:center;
-    min-height:44px;
-}
-@media (min-width:768px) {
-    .brand-header { display:flex; }
-}
-.brand-header-animation {
-    display:block;
-    width:clamp(104px, 9vw, 154px);
-    height:auto;
-    max-height:48px;
-    object-fit:contain;
-    object-position:left center;
-}
-.online-brand-animation {
-    display:none;
-    width:min(82vw, 460px);
-    height:auto;
-    max-height:130px;
-    object-fit:contain;
-    margin:0 auto;
-}
+/* Diwali WebP brand animation — responsive sizing; preserve the source aspect ratio. */
+.brand-header { align-items:center; }
+.brand-header-animation { display:block; width:clamp(148px, 15vw, 220px); height:auto; max-height:76px; object-fit:contain; object-position:left center; }
+.online-brand-animation { display:none; }
 @media (max-width:767px) {
-    .online-brand-footer {
-        margin:38px 0 0;
-        padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));
-    }
-    .online-brand-wordmark { display:none !important; }
-    .online-brand-animation {
-        display:block;
-        width:min(84vw, 380px);
-        max-height:112px;
-    }
+  .brand-header-animation { width:clamp(132px, 43vw, 190px); max-height:64px; }
+  .online-brand-wordmark { display:none !important; }
+  .online-brand-animation { display:block; width:min(88vw, 440px); height:auto; max-height:clamp(110px, 34vw, 180px); object-fit:contain; object-position:center; margin:0 auto; }
+  .online-brand-footer { margin:clamp(36px, 9vw, 72px) 0 6px; }
 }
-@media (prefers-reduced-motion:reduce) {
-    .brand-header-animation, .online-brand-animation { animation:none !important; }
-}
+@media (min-width:768px) { .online-brand-wordmark { display:inline-block; } .online-brand-animation { display:none !important; } }
