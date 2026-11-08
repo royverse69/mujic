@@ -2208,3 +2208,45 @@ body:not([data-corner-radius="extra"]) #mini-player #mini-art { border-radius: m
 
 /* Opt-in swipe-to-dismiss: the bar owns vertical drags only while the setting is on. */
 body.swipe-dismiss-mini #mini-player { touch-action: none; }
+
+
+/* Diwali wordmark: a single lightweight animated asset shared by the app logo and mobile watermark. */
+.brand-header {
+    display:none;
+    align-items:center;
+    min-height:44px;
+}
+@media (min-width:768px) {
+    .brand-header { display:flex; }
+}
+.brand-header-animation {
+    display:block;
+    width:clamp(104px, 9vw, 154px);
+    height:auto;
+    max-height:48px;
+    object-fit:contain;
+    object-position:left center;
+}
+.online-brand-animation {
+    display:none;
+    width:min(82vw, 460px);
+    height:auto;
+    max-height:130px;
+    object-fit:contain;
+    margin:0 auto;
+}
+@media (max-width:767px) {
+    .online-brand-footer {
+        margin:38px 0 0;
+        padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));
+    }
+    .online-brand-wordmark { display:none !important; }
+    .online-brand-animation {
+        display:block;
+        width:min(84vw, 380px);
+        max-height:112px;
+    }
+}
+@media (prefers-reduced-motion:reduce) {
+    .brand-header-animation, .online-brand-animation { animation:none !important; }
+}

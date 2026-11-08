@@ -178,7 +178,7 @@
         const categories = discoveryCatalog?.categories || DISCOVERY_FALLBACK.categories;
         const categoryCards = categories.map(category => `<button type="button" class="online-category-card category-${esc(category.theme||category.id)}" data-action="online-open-category" data-id="${esc(category.id)}" aria-label="Explore ${esc(category.label)}"><img width="640" height="320" class="online-category-art" src="${esc(category.art)}" alt="" loading="lazy" decoding="async"><span class="online-category-kicker">Explore</span><strong>${esc(category.label)}</strong></button>`).join('');
         if(!discoveryCatalog)loadDiscoveryCatalog();
-        c.innerHTML = `<div class="online-search-start">${chips ? `<section class="online-search-recent"><div class="online-section-topline"><div><div class="online-mini-label">Pick up where you left off</div><h2>Recent searches</h2></div><span class="online-section-note">${recent.length} saved</span></div><div class="online-chip-list">${chips}</div></section>` : ''}<section class="online-browse-section"><div class="online-section-topline"><div><div class="online-mini-label">Explore the catalogue</div><h2>Browse Categories</h2><p>Find something for your mood, moment or music taste.</p></div></div><div class="online-category-grid">${categoryCards}</div></section></div>`;
+        c.innerHTML = `<div class="online-search-start">${chips ? `<section class="online-search-recent"><div class="online-section-topline"><h2>Recent searches</h2></div><div class="online-chip-list">${chips}</div></section>` : ''}<section class="online-browse-section"><div class="online-section-topline"><h2>Browse Categories</h2></div><div class="online-category-grid">${categoryCards}</div></section></div>`;
         const tabs=document.querySelector('.online-search-tabs');if(tabs)tabs.hidden=true;
         const suggestions=document.getElementById('online-search-suggestions');if(suggestions)suggestions.hidden=false;
         const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=!(document.getElementById('online-search-input')?.value||'').trim();
@@ -513,6 +513,7 @@
         node._quickRailBound = true;
         syncQuickHint();
         let gesture = false, startLeft = 0, idle = 0, drag = null, dragged = false, blockClickUntil = 0;
+        let refreshBusy = false, nextBusy = false;
         const begin = () => { if (!idle) startLeft = node.scrollLeft; gesture = true; };
         ['touchstart', 'wheel'].forEach(type => node.addEventListener(type, begin, { passive: true }));
         node.addEventListener('scroll', () => {
@@ -538,7 +539,7 @@
             if (!dragged) return;
             node.classList.remove('is-dragging');
             try { node.releasePointerCapture(event.pointerId); } catch (_) {}
-            blockClickUntil = performance.now() + 300;   /* a drag is not a tap */
+            blockClickUntil = performance.now() + 300;
         };
         node.addEventListener('click', event => { if (performance.now() < blockClickUntil) { event.preventDefault(); event.stopPropagation(); } }, true);
         node.addEventListener('pointerup', endDrag);
@@ -548,15 +549,90 @@
         if (heading && !heading.querySelector('.online-quick-nav')) {
             const nav = document.createElement('div');
             nav.className = 'online-quick-nav';
-            nav.innerHTML = '<button type="button" class="icon-btn" data-dir="-1" aria-label="Scroll left"><span class="material-symbols-rounded">chevron_left</span></button><button type="button" class="icon-btn" data-dir="1" aria-label="Scroll right"><span class="material-symbols-rounded">chevron_right</span></button>';
-            const [prev, next] = nav.querySelectorAll('button');
-            const sync = () => { prev.disabled = node.scrollLeft < 4; next.disabled = node.scrollLeft + node.clientWidth >= node.scrollWidth - 4 && node._quickShown >= (node._quickItems?.length || 0); };
-            nav.addEventListener('click', event => {
-                const button = event.target.closest('button[data-dir]');
-                if (!button) return;
-                begin();
-                node.scrollBy({ left: Number(button.dataset.dir) * Math.max(240, node.clientWidth * 0.9), behavior: 'smooth' });
+            nav.setAttribute('aria-label', 'Quick Picks controls');
+            nav.innerHTML = '<button type="button" class="icon-btn online-quick-refresh" data-role="refresh" aria-label="Refresh Quick Picks" title="Refresh Quick Picks"><span class="material-symbols-rounded" aria-hidden="true">refresh</span></button><button type="button" class="icon-btn online-quick-next" data-role="next" aria-label="Next Quick Picks" title="Next Quick Picks"><span class="material-symbols-rounded" aria-hidden="true">chevron_right</span></button>';
+            const refreshButton = nav.querySelector('[data-role="refresh"]');
+            const nextButton = nav.querySelector('[data-role="next"]');
+
+            const sync = () => {
+                refreshButton.disabled = refreshBusy;
+                nextButton.disabled = nextBusy;
+                refreshButton.classList.toggle('is-loading', refreshBusy);
+                nextButton.classList.toggle('is-loading', nextBusy);
+            };
+            const appendNextQuickPage = () => {
+                if (node._quickBusy) return false;
+                const items = node._quickItems || [];
+                const from = node._quickShown || 0;
+                if (from >= items.length) return false;
+                node._quickBusy = true;
+                const to = Math.min(items.length, from + QUICK_PAGE);
+                node.insertAdjacentHTML('beforeend', quickColumnsHtml(items, from, to, node._quickContext));
+                node._quickShown = to;
+                UI.lazyLoadArtwork();
+                requestAnimationFrame(() => {
+                    node._quickBusy = false;
+                    sync();
+                });
+                return true;
+            };
+            refreshButton.addEventListener('click', async event => {
+                event.preventDefault(); event.stopPropagation();
+                if (refreshBusy) return;
+                if (!navigator.onLine) {
+                    UI.showToast('Connect to refresh Quick Picks.', 'wifi');
+                    return;
+                }
+                refreshBusy = true; sync();
+                try {
+                    await refreshQuickPicks(true);
+                    node.scrollTo({ left: 0, behavior: document.body.classList.contains('reduced-motion') ? 'auto' : 'smooth' });
+                } catch (error) {
+                    console.warn('[Mujic] Quick Picks refresh failed.', error);
+                    UI.showToast('Quick Picks could not be refreshed. Try again.', 'info');
+                } finally {
+                    refreshBusy = false; sync();
+                }
             });
+            nextButton.addEventListener('click', async event => {
+                event.preventDefault(); event.stopPropagation();
+                if (nextBusy) return;
+                const maxScroll = Math.max(0, node.scrollWidth - node.clientWidth);
+                const atEnd = node.scrollLeft >= maxScroll - 16;
+                if (!atEnd) {
+                    node.scrollBy({ left: Math.max(240, node.clientWidth * 0.9), behavior: document.body.classList.contains('reduced-motion') ? 'auto' : 'smooth' });
+                    return;
+                }
+                if (appendNextQuickPage()) {
+                    requestAnimationFrame(() => node.scrollTo({ left: node.scrollWidth, behavior: document.body.classList.contains('reduced-motion') ? 'auto' : 'smooth' }));
+                    return;
+                }
+                if (!navigator.onLine) {
+                    UI.showToast('You have reached the end of the loaded picks. Connect to load more.', 'wifi');
+                    return;
+                }
+                nextBusy = true; sync();
+                const before = (node._quickItems || []).length;
+                try {
+                    await refreshQuickPicks(true);
+                    const after = (node._quickItems || []).length;
+                    if (after > before) {
+                        node.scrollTo({ left: 0, behavior: document.body.classList.contains('reduced-motion') ? 'auto' : 'smooth' });
+                    } else {
+                        UI.showToast('No new Quick Picks are available right now.', 'info');
+                    }
+                } catch (error) {
+                    console.warn('[Mujic] Next Quick Picks failed.', error);
+                    UI.showToast('Could not load more Quick Picks. Try again.', 'info');
+                } finally {
+                    nextBusy = false; sync();
+                }
+            });
+            node.addEventListener('scroll', () => {
+                if (node._quickBusy || (node._quickShown || 0) >= (node._quickItems?.length || 0)) return;
+                if (node.scrollLeft + node.clientWidth < node.scrollWidth - node.clientWidth * 1.5) return;
+                appendNextQuickPage();
+            }, { passive: true });
             node.addEventListener('scroll', sync, { passive: true });
             heading.querySelector('.online-show-more, .online-swipe-hint')?.before(nav) || heading.append(nav);
             sync();
@@ -570,19 +646,6 @@
         if(node){
             node._quickShown=shown;node._quickItems=items;node._quickContext=context;
             bindQuickRail(node);
-            if(!node._quickScrollBound){
-                node._quickScrollBound=true;
-                node.addEventListener('scroll',()=>{
-                    if(node._quickBusy||node._quickShown>=node._quickItems.length)return;
-                    if(node.scrollLeft+node.clientWidth<node.scrollWidth-node.clientWidth*1.5)return;
-                    node._quickBusy=true;
-                    requestAnimationFrame(()=>{
-                        const next=Math.min(node._quickItems.length,node._quickShown+QUICK_PAGE);
-                        node.insertAdjacentHTML('beforeend',quickColumnsHtml(node._quickItems,node._quickShown,next,node._quickContext));
-                        node._quickShown=next;node._quickBusy=false;UI.lazyLoadArtwork();
-                    });
-                },{passive:true});
-            }
         }
         if(window.OnlineCache)items.slice(0,24).forEach(track=>OnlineCache.warmArtwork(track));
         return quickColumnsHtml(items,0,shown,context);

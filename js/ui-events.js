@@ -437,6 +437,13 @@ window.MujicPiPArt = (() => {
                 art?.addEventListener('pointercancel',()=>{artSwipe=null;window.clearTimeout(artSwipeFallbackTimer);art?.classList.remove('mujic-swipe-out-next','mujic-swipe-out-previous');},{passive:true});
 
                 const mini = document.getElementById('mini-player');
+                const miniTools = mini?.querySelector('.mini-desktop-tools');
+                /* Keep clicks in the desktop volume/PiP dock out of the mini-player's
+                   tap-to-open surface. Real action buttons still reach the document
+                   dispatcher; the slider and the dock's empty margin do not. */
+                miniTools?.addEventListener('click', event => {
+                    if (!event.target.closest('button[data-action]')) event.stopPropagation();
+                });
                 mini?.querySelectorAll('.mini-action').forEach(btn => {
                     ['pointerdown','pointerup','click'].forEach(type => btn.addEventListener(type, e => { e.preventDefault(); e.stopPropagation(); }, {passive:false}));
                 });

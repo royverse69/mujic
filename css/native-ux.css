@@ -271,3 +271,52 @@ body.low-end-mode .lyrics-style-apple .lyric-line { filter: none; }
 @media (prefers-reduced-motion: reduce) {
   .btn, .nav-item, .player-body, .player-art-container, .player-controls-section, .dialog-box { transition-duration: .01ms !important; }
 }
+
+
+/* Quick Picks: refresh has an explicit loading state; next remains available at the end
+   so it can request another recommendation batch instead of becoming a dead arrow. */
+.online-quick-nav { align-items:center; gap:5px; margin-right:8px; }
+.online-quick-nav .icon-btn { width:36px; height:36px; min-width:36px; }
+.online-quick-nav .icon-btn:disabled { opacity:.45; cursor:wait; }
+.online-quick-nav .online-quick-refresh.is-loading .material-symbols-rounded {
+    animation:mujic-quick-refresh-spin .8s linear infinite;
+}
+.online-quick-nav .online-quick-next.is-loading .material-symbols-rounded {
+    opacity:.5;
+}
+@keyframes mujic-quick-refresh-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) {
+    .online-quick-nav .online-quick-refresh.is-loading .material-symbols-rounded { animation:none !important; }
+}
+
+/* Dedicated desktop control dock. Its padded hit area is separate from the track-title
+   tap target, so volume adjustments do not accidentally open the full-screen player. */
+@media (min-width:768px) {
+    #mini-player .mini-desktop-tools {
+        position:relative;
+        z-index:7;
+        flex:0 0 auto;
+        gap:7px;
+        margin-left:auto;
+        padding:0 5px 0 17px;
+        border-left:1px solid var(--sep);
+        border-radius:12px;
+        background:color-mix(in srgb, var(--bg-surface) 34%, transparent);
+    }
+    #mini-player .mini-desktop-tool {
+        width:42px;
+        min-width:42px;
+        height:42px;
+        border-radius:11px;
+    }
+    #mini-player .mini-volume-range {
+        width:92px;
+        min-width:72px;
+        margin:0 5px;
+        cursor:pointer;
+    }
+}
+@media (min-width:768px) and (max-width:980px) {
+    #mini-player .mini-volume-range { width:68px; min-width:56px; }
+    #mini-player .mini-desktop-tools { padding-left:12px; gap:4px; }
+}
