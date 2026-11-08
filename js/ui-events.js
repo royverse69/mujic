@@ -623,6 +623,11 @@ window.MujicPiPArt = (() => {
                                 e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.loadMore(); return;
                             case 'online-refresh-search':
                                 e.preventDefault(); e.stopPropagation(); await OnlineWorkspace.performSearch(document.getElementById('online-search-input')?.value || ''); return;
+                            case 'online-toggle-suggested': {
+                                e.preventDefault(); e.stopPropagation();
+                                OnlineWorkspace.toggleSuggested();
+                                return;
+                            }
                             case 'online-search-query': {
                                 e.preventDefault(); e.stopPropagation();
                                 if(State.playbackSourceMode!=='online' && !(await OnlineMusic.setMode('online'))) return;

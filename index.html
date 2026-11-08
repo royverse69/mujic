@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mujic — Music Player</title>
-    <meta name="application-version" content="13.4.0">
+    <meta name="application-version" content="13.5.0">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -98,7 +98,7 @@
                 <div id="home-empty-state" class="empty-state" style="display: none;">
                     <svg class="empty-icon" viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="20" cy="46" r="8"/><circle cx="46" cy="40" r="8"/><path d="M28 46V16l26-6v30"/></svg>
                     <div class="empty-title">Your library is empty</div>
-                    <div class="empty-desc">Add songs from your device. They stay on your device and play offline.</div>
+                    <div class="empty-desc">Add songs from your device.</div>
                     <button class="btn btn-primary" data-action="click-file-input">Add Music</button>
                     <div class="empty-note">Private by design &middot; no account &middot; no ads</div>
                 </div>
@@ -216,11 +216,11 @@
                 <div class="online-connection-state" id="online-home-connection" hidden><span class="online-connection-dot"></span><span id="online-home-status">No connection</span><button class="text-action" data-action="retry-online-home">Retry</button></div>
                 <div id="online-home-fallback" hidden></div>
                 <section class="online-shelf" id="online-shelf-quick-wrap" hidden>
-                    <div class="online-shelf-heading"><h2>Quick Picks</h2><span class="online-swipe-hint">Swipe Right <span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span></span></div>
+                    <div class="online-shelf-heading"><h2>Quick Picks</h2><span class="online-swipe-hint" id="quick-swipe-hint">Swipe Right <span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span></span></div>
                     <div class="online-quick-rail" id="online-shelf-quick"></div>
                 </section>
                 <section class="online-shelf" id="online-shelf-suggested-wrap" hidden>
-                    <div class="online-shelf-heading"><h2>Suggested for You</h2><button class="text-action online-show-more" data-action="online-search-query" data-query="songs for you">Show more</button></div>
+                    <div class="online-shelf-heading"><h2>Suggested for You</h2><button class="text-action online-show-more" id="online-suggested-more" data-action="online-toggle-suggested" aria-expanded="false">Show more</button></div>
                     <p class="online-shelf-note" id="online-suggest-note"></p>
                     <div class="online-suggest-grid" id="online-shelf-suggested"></div>
                 </section>
@@ -241,7 +241,7 @@
                     <div class="online-card-rail" id="online-shelf-latest"></div>
                 </section>
                 <section class="online-shelf online-radio-home-section" id="online-shelf-radio-wrap" hidden>
-                    <div class="online-shelf-heading"><div><h2>Radio</h2><p class="online-shelf-note">Stations for the road, the routine and everything between.</p></div><button class="text-action online-show-more" data-action="online-show-radio-directory">All stations</button></div>
+                    <div class="online-shelf-heading"><div><h2>Radio</h2></div><button class="text-action online-show-more" data-action="online-show-radio-directory">All stations</button></div>
                     <div class="online-radio-grid online-radio-home-grid" id="online-home-radio"></div>
                 </section>
                 <section class="online-shelf online-artists-section" id="online-shelf-artists-wrap" hidden>
@@ -296,7 +296,7 @@
                 <header class="online-artists-page-header"><button class="icon-btn" data-action="online-artists-back" aria-label="Back to Home" title="Back"><span class="material-symbols-rounded">arrow_back</span></button><h1>ARTISTS</h1><span id="online-artists-total">Discover</span></header>
                 <div class="online-wall-bar"><span>Swipe or use the arrows</span><div class="online-rail-controls"><button class="icon-btn online-wall-btn" data-action="online-shift-artist-wall" data-target="online-artists-feature-mosaic" data-direction="left" aria-label="Previous artists" disabled><span class="material-symbols-rounded">arrow_back</span></button><button class="icon-btn online-wall-btn" data-action="online-shift-artist-wall" data-target="online-artists-feature-mosaic" data-direction="right" aria-label="Next artists"><span class="material-symbols-rounded">arrow_forward</span></button></div></div>
                 <div id="online-artists-feature-mosaic" class="online-wall" tabindex="0" role="region" aria-label="Artists, swipe or use the arrows"></div>
-                <div class="online-artist-directory-heading"><div><h2>All artists</h2><p>Discover performers, revisit favourites and explore new music.</p></div><div class="online-artist-sort" role="group" aria-label="Sort artists"><button class="active" data-action="online-sort-artists" data-sort="recommended">For you</button><button data-action="online-sort-artists" data-sort="recent">Recent</button><button data-action="online-sort-artists" data-sort="popular">Most played</button><button data-action="online-sort-artists" data-sort="alpha">A–Z</button></div></div>
+                <div class="online-artist-directory-heading"><div><h2>All artists</h2></div><div class="online-artist-sort" role="group" aria-label="Sort artists"><button class="active" data-action="online-sort-artists" data-sort="recommended">For you</button><button data-action="online-sort-artists" data-sort="recent">Recent</button><button data-action="online-sort-artists" data-sort="popular">Most played</button><button data-action="online-sort-artists" data-sort="alpha">A–Z</button></div></div>
                 <div id="online-artists-directory" class="online-artist-directory"></div>
             </section>
 
@@ -348,7 +348,7 @@
                 <div class="settings-section">
                     <h2 class="section-title">Appearance</h2>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Theme</div><div class="settings-desc">Application visual style</div></div>
+                        <div class="settings-text"><div class="settings-label">Theme</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="theme-select" class="settings-control" data-setting="theme">
@@ -360,7 +360,7 @@
                         </div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Accent Color</div><div class="settings-desc">Primary highlight color</div></div>
+                        <div class="settings-text"><div class="settings-label">Accent Color</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="accent-preset" class="settings-control" data-setting="accentPreset">
@@ -390,11 +390,11 @@
                         </div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Text Size</div><div class="settings-desc">Adjust reading size across the app</div></div>
+                        <div class="settings-text"><div class="settings-label">Text Size</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="textScale" aria-label="Text Size"><option value="compact">Compact</option><option value="normal">Standard</option><option value="large">Large</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Motion</div><div class="settings-desc">Smooth transitions; Automatic adapts to device performance and system preferences.</div></div>
+                        <div class="settings-text"><div class="settings-label">Motion</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="motion-select" class="settings-control" data-setting="motion">
@@ -408,7 +408,7 @@
                     <details class="settings-advanced">
                         <summary class="settings-advanced-summary"><span>More appearance options</span><i class="adv-chevron" aria-hidden="true"></i></summary>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Dark Surface Palette</div><div class="settings-desc">Customize the app's dark background and panels independently of the accent color.</div></div>
+                        <div class="settings-text"><div class="settings-label">Dark Surface Palette</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select class="settings-control" data-setting="surfaceTheme" aria-label="Dark Surface Palette">
@@ -423,15 +423,15 @@
                     </div>
 
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Layout Density</div><div class="settings-desc">Choose compact or spacious lists and cards</div></div>
+                        <div class="settings-text"><div class="settings-label">Layout Density</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="layoutDensity" aria-label="Layout Density"><option value="compact">Compact</option><option value="comfortable">Comfortable</option><option value="spacious">Spacious</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Performance Profile</div><div class="settings-desc">Auto-detect constrained devices, force low-end mode, or use full visuals.</div></div>
+                        <div class="settings-text"><div class="settings-label">Performance Profile</div><div class="settings-desc">Auto, low-end or full visuals</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="performanceProfile" aria-label="Performance profile"><option value="auto">Auto (recommended)</option><option value="low-end">Low-end device</option><option value="full">Full visuals</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Interface Style</div><div class="settings-desc">Overlay transparency</div></div>
+                        <div class="settings-text"><div class="settings-label">Interface Style</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="glass-intensity" class="settings-control" data-setting="interfaceStyle">
@@ -443,7 +443,7 @@
                         </div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Corner Radius</div><div class="settings-desc">Rounding on cards and buttons</div></div>
+                        <div class="settings-text"><div class="settings-label">Corner Radius</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="corner-radius" class="settings-control" data-setting="cornerRadius">
@@ -464,7 +464,7 @@
                 <div class="settings-section">
                     <h2 class="section-title">Player</h2>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Player Background</div><div class="settings-desc">Backdrop on now playing screen</div></div>
+                        <div class="settings-text"><div class="settings-label">Player Background</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="player-bg-mode" class="settings-control" data-setting="playerBackground">
@@ -476,7 +476,7 @@
                         </div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Player Artwork</div><div class="settings-desc">Poster image sizing</div></div>
+                        <div class="settings-text"><div class="settings-label">Player Artwork</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="player-art-mode" class="settings-control" data-setting="playerArtworkMode">
@@ -491,7 +491,7 @@
                         <div class="settings-control-group"><span class="setting-inline-value" id="visualizer-settings-summary">Off</span><span class="material-symbols-rounded settings-chevron">chevron_right</span></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Swipe mini-player down to stop</div><div class="settings-desc">On small screens, drag the mini-player downward to pause, stop and dismiss it. Off by default.</div></div>
+                        <div class="settings-text"><div class="settings-label">Swipe mini-player down to stop</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="swipeDismissMini" aria-label="Swipe mini-player down to stop"></div>
                     </div>
                 </div>
@@ -499,7 +499,7 @@
                 <div class="settings-section">
                     <h2 class="section-title">Playback</h2>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Resume Playback</div><div class="settings-desc">Remember last played song</div></div>
+                        <div class="settings-text"><div class="settings-label">Resume Playback</div></div>
                         <div class="settings-control-group">
                             <input type="checkbox" id="resume-playback" class="settings-control" data-setting="resumePlayback">
                         </div>
@@ -509,65 +509,65 @@
                 <div class="settings-section">
                     <h2 class="section-title">Playback Effects</h2>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Soft track transitions</div><div class="settings-desc">Brief fade between tracks instead of an abrupt switch; does not overlap audio.</div></div>
+                        <div class="settings-text"><div class="settings-label">Soft track transitions</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="crossfade" aria-label="Soft track transitions"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Loudness control</div><div class="settings-desc">Use a lightweight compressor to reduce large volume swings. Requires browser Web Audio support.</div></div>
+                        <div class="settings-text"><div class="settings-label">Loudness control</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="loudnessControl" aria-label="Loudness control"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Loudness profile</div><div class="settings-desc">Choose how gently or strongly volume peaks are controlled.</div></div>
+                        <div class="settings-text"><div class="settings-label">Loudness profile</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="loudnessLevel" aria-label="Loudness profile"><option value="soft">Soft</option><option value="balanced">Balanced</option><option value="strong">Strong</option></select></div></div>
                     </div>
                     <details class="settings-advanced">
                         <summary class="settings-advanced-summary"><span>Advanced playback</span><i class="adv-chevron" aria-hidden="true"></i></summary>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Skip long silence</div><div class="settings-desc">Move ahead after sustained near-silence during playback.</div></div>
+                        <div class="settings-text"><div class="settings-label">Skip long silence</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="skipSilence" aria-label="Skip long silence"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Instantly skip silence</div><div class="settings-desc">Use a shorter silence threshold and a slightly larger skip. Applies only when Skip long silence is enabled.</div></div>
+                        <div class="settings-text"><div class="settings-label">Instantly skip silence</div><div class="settings-desc">Needs Skip long silence</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="instantSkipSilence" aria-label="Instantly skip silence"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Auto-skip unsupported tracks</div><div class="settings-desc">Continue to the next queued track if this browser cannot decode a file.</div></div>
+                        <div class="settings-text"><div class="settings-label">Auto-skip unsupported tracks</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="autoSkipOnError" aria-label="Auto-skip unsupported tracks"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Prevent duplicate queue items</div><div class="settings-desc">Do not enqueue a track that is already in Up Next.</div></div>
+                        <div class="settings-text"><div class="settings-label">Prevent duplicate queue items</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="preventDuplicateQueue" aria-label="Prevent duplicate queue items"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Preserve pitch</div><div class="settings-desc">Keep voices closer to their original pitch when changing playback speed, where supported.</div></div>
+                        <div class="settings-text"><div class="settings-label">Preserve pitch</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="preservePitch" aria-label="Preserve pitch"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Varispeed</div><div class="settings-desc">When enabled, pitch follows playback speed (tape-style speed changes). Overrides pitch preservation.</div></div>
+                        <div class="settings-text"><div class="settings-label">Varispeed</div><div class="settings-desc">Pitch follows speed</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="varispeed" aria-label="Enable varispeed"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Progressive seek</div><div class="settings-desc">Repeated media-session seeks made quickly add 5 seconds per press, up to a bounded limit.</div></div>
+                        <div class="settings-text"><div class="settings-label">Progressive seek</div><div class="settings-desc">Repeated presses seek further</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="progressiveSeek" aria-label="Progressive seek"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Pause when muted</div><div class="settings-desc">Pause playback when you mute the player or set volume to zero.</div></div>
+                        <div class="settings-text"><div class="settings-label">Pause when muted</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="pauseWhenMuted" aria-label="Pause when muted"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Stop on page exit</div><div class="settings-desc">Pause playback when this page is unloaded. Browser/OS task-swipe events are not exposed reliably to PWAs.</div></div>
+                        <div class="settings-text"><div class="settings-label">Stop on page exit</div><div class="settings-desc">Pause when the page closes</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="stopOnPageHide" aria-label="Stop on page exit"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Keep screen awake in full-screen player</div><div class="settings-desc">When enabled, prevent the display from sleeping while the player is open, including in landscape. Requires browser screen-wake-lock support.</div></div>
+                        <div class="settings-text"><div class="settings-label">Keep screen awake in full-screen player</div><div class="settings-desc">Keep the display on in full screen</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="keepScreenAwake" aria-label="Keep screen awake"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Seek increment</div><div class="settings-desc">Default jump used by lock-screen / media-session seek controls.</div></div>
+                        <div class="settings-text"><div class="settings-label">Seek increment</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="seekStep" aria-label="Seek increment"><option value="5">5 seconds</option><option value="10">10 seconds</option><option value="15">15 seconds</option><option value="30">30 seconds</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Hardware audio offload</div><div class="settings-desc">Managed by the browser and operating system. A web/PWA app cannot safely force native hardware offload.</div></div>
+                        <div class="settings-text"><div class="settings-label">Hardware audio offload</div><div class="settings-desc">Handled by your browser</div></div>
                         <div class="settings-control-group"><span class="setting-inline-value">System</span></div>
                     </div>                    </details>
 
@@ -576,11 +576,11 @@
                 <div class="settings-section">
                     <h2 class="section-title">Lyrics Providers</h2>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Community lyrics server</div><div class="settings-desc">Sends the song title and artist to the Mujic API (a Cloudflare Worker) when LRCLIB has no match. Turn off to keep lookups to LRCLIB only.</div></div>
+                        <div class="settings-text"><div class="settings-label">Community lyrics server</div><div class="settings-desc">Fallback lyrics via the Mujic API</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsRenderEnabled" aria-label="Enable community lyrics server fallback"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">LyricsPlus fallback</div><div class="settings-desc">Try the LyricsPlus synchronized-lyrics API only after embedded lyrics, cache, LRCLIB and the community lyrics server. Requires an internet connection.</div></div>
+                        <div class="settings-text"><div class="settings-label">LyricsPlus fallback</div><div class="settings-desc">Extra synced-lyrics source</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsPlusEnabled" aria-label="Enable LyricsPlus fallback"></div>
                     </div>
                     <div class="settings-row" hidden>
@@ -592,15 +592,15 @@
                 <div class="settings-section">
                     <h2 class="section-title">Lyrics Display</h2>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Enable lyric sharing</div><div class="settings-desc">Opt in to lyric share cards. When enabled, select up to five synced lines from the full-screen lyrics and share a card from More Options.</div></div>
+                        <div class="settings-text"><div class="settings-label">Enable lyric sharing</div><div class="settings-desc">Share up to 5 synced lines</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsShareEnabled" aria-label="Enable lyric sharing"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Share-card style</div><div class="settings-desc">Choose the original Mujic card or Spotify-inspired card. Spotify cards use a complementary negative of the album-art colour.</div></div>
+                        <div class="settings-text"><div class="settings-label">Share-card style</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsShareStyle" aria-label="Lyrics share-card style"><option value="mujic">Mujic Style</option><option value="spotify">Spotify Style</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Lyrics Style</div><div class="settings-desc">Animation and visual style</div></div>
+                        <div class="settings-text"><div class="settings-label">Lyrics Style</div></div>
                         <div class="settings-control-group">
                             <div class="apple-select-wrapper">
                                 <select id="lyrics-style-select" class="settings-control" data-setting="lyricsStyle">
@@ -612,37 +612,37 @@
                         </div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Word-by-word lyrics</div><div class="settings-desc">Animate each word as the synced lyric line becomes active. Available when the source provides timed lines; this does not invent word-level timestamps.</div></div>
+                        <div class="settings-text"><div class="settings-label">Word-by-word lyrics</div><div class="settings-desc">Needs timed words</div></div>
                         <div class="settings-control-group"><input type="checkbox" class="settings-control" data-setting="lyricsWordByWord" aria-label="Enable word-by-word lyric highlighting"></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Lyrics text size</div><div class="settings-desc">Responsive sizing for narrow and large screens.</div></div>
+                        <div class="settings-text"><div class="settings-label">Lyrics text size</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsFontSize" aria-label="Lyrics text size"><option value="compact">Compact</option><option value="normal">Standard</option><option value="large">Large</option><option value="extra-large">Extra Large</option></select></div></div>
                     </div>
                     <details class="settings-advanced">
                         <summary class="settings-advanced-summary"><span>Advanced lyrics layout</span><i class="adv-chevron" aria-hidden="true"></i></summary>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Lyrics vertical position</div><div class="settings-desc">Choose where the lyrics list sits in the player.</div></div>
+                        <div class="settings-text"><div class="settings-label">Lyrics vertical position</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsPosition" aria-label="Lyrics vertical position"><option value="upper">Upper</option><option value="center">Center</option><option value="lower">Lower</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Fine position</div><div class="settings-desc">Fine-tune the lyric block without changing the player controls.</div></div>
+                        <div class="settings-text"><div class="settings-label">Fine position</div></div>
                         <div class="settings-control-group lyrics-offset-control"><input type="range" min="-8" max="8" step="1" class="settings-control lyrics-offset-range" data-setting="lyricsVerticalOffset" aria-label="Lyrics fine vertical position"><span class="setting-inline-value" id="lyrics-offset-value">0</span><span class="setting-inline-value">vh</span></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Lyrics timing</div><div class="settings-desc">Shift lyrics earlier or later if a file is out of sync. Negative shows lines sooner.</div></div>
+                        <div class="settings-text"><div class="settings-label">Lyrics timing</div><div class="settings-desc">Negative shows lines sooner</div></div>
                         <div class="settings-control-group lyrics-offset-control"><input type="range" min="-2" max="2" step="0.1" class="settings-control lyrics-offset-range" data-setting="lyricsTimingOffset" aria-label="Lyrics timing offset in seconds"><span class="setting-inline-value" id="lyrics-timing-value">0.0</span><span class="setting-inline-value">s</span></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Line spacing</div><div class="settings-desc">Control the gap between lyric lines.</div></div>
+                        <div class="settings-text"><div class="settings-label">Line spacing</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsLineSpacing" aria-label="Lyrics line spacing"><option value="compact">Compact</option><option value="normal">Balanced</option><option value="relaxed">Relaxed</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Lyrics text width</div><div class="settings-desc">Narrow lines are easier to follow on phones.</div></div>
+                        <div class="settings-text"><div class="settings-label">Lyrics text width</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsWidth" aria-label="Lyrics text width"><option value="narrow">Narrow</option><option value="standard">Standard</option><option value="wide">Wide</option></select></div></div>
                     </div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Active lyric emphasis</div><div class="settings-desc">Adjust how strongly the current line stands out.</div></div>
+                        <div class="settings-text"><div class="settings-label">Active lyric emphasis</div></div>
                         <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="lyricsEmphasis" aria-label="Active lyric emphasis"><option value="soft">Soft</option><option value="standard">Standard</option><option value="strong">Strong</option><option value="off">Off</option></select></div></div>
                     </div>                    </details>
 
@@ -681,7 +681,7 @@
                         </div>
                     </div>
                     <div class="settings-row workspace-sharing-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Share playlists between libraries</div><div class="settings-desc" id="link-workspaces-status">Liked songs, listening history and playlists stay separate. Enable only to copy playlists between libraries.</div></div>
+                        <div class="settings-text"><div class="settings-label">Share playlists between libraries</div><div class="settings-desc" id="link-workspaces-status">Copy playlists across libraries</div></div>
                         <label class="settings-switch"><input type="checkbox" id="link-workspaces-toggle" data-action="toggle-workspaces-link"><span></span></label>
                     </div>
                 </div>
@@ -693,11 +693,11 @@
                         <div class="settings-control-group"><button class="btn" data-action="online-open-library" type="button">Open</button></div>
                     </div>
                     <div class="settings-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Clear listening history</div><div class="settings-desc">Remove the recently played list. Liked songs and playlists stay.</div></div>
+                        <div class="settings-text"><div class="settings-label">Clear listening history</div><div class="settings-desc">Liked songs and playlists stay</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="online-clear-history" type="button">Clear</button></div>
                     </div>
                     <div class="settings-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Reset listening profile</div><div class="settings-desc">Start Quick Picks and Suggested for You from scratch.</div></div>
+                        <div class="settings-text"><div class="settings-label">Reset listening profile</div><div class="settings-desc">Restart Quick Picks and suggestions</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="online-reset-taste" type="button">Reset</button></div>
                     </div>
                 </div>
@@ -726,7 +726,7 @@
                 <div class="settings-section">
                     <h2 class="section-title">Data Export</h2>
                     <div class="settings-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Export Settings</div><div class="settings-desc">Save your Mujic preferences as a JSON file.</div></div>
+                        <div class="settings-text"><div class="settings-label">Export Settings</div><div class="settings-desc">Save preferences as JSON</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="export-settings" type="button">Export JSON</button></div>
                     </div>
                     <div class="settings-row keep-desc" data-mode="online">
@@ -738,7 +738,7 @@
                         <div class="settings-control-group"><button class="btn" data-action="export-stats" type="button">Export JSON</button></div>
                     </div>
                     <div class="settings-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Import Data</div><div class="settings-desc">Restore a Mujic settings, listening-stats or streaming-library JSON export.</div></div>
+                        <div class="settings-text"><div class="settings-label">Import Data</div><div class="settings-desc">Restore from a JSON export</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="import-data" type="button">Import JSON</button></div>
                     </div>
                     <input type="file" id="data-import-input" accept=".json,application/json" hidden>
@@ -747,15 +747,15 @@
                 <div class="settings-section">
                     <h2 class="section-title">App</h2>
                     <div class="settings-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">App guide</div><div class="settings-desc">Replay the quick tour: Offline vs Online, lyrics, customization and more.</div></div>
+                        <div class="settings-text"><div class="settings-label">App guide</div><div class="settings-desc">Replay the quick tour</div></div>
                         <div class="settings-control-group"><button class="btn" data-ob="open-guide" type="button">Open</button></div>
                     </div>
                     <div class="settings-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Install Mujic</div><div class="settings-desc" id="install-pwa-desc">Install Mujic as a standalone app.</div></div>
+                        <div class="settings-text"><div class="settings-label">Install Mujic</div><div class="settings-desc" id="install-pwa-desc">Install as a standalone app</div></div>
                         <div class="settings-control-group"><button class="btn btn-primary" id="install-pwa-btn" data-action="install-pwa" type="button">Install</button></div>
                     </div>
                     <div class="settings-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Check for updates</div><div class="settings-desc">Get notified when a newer Mujic release is available.</div></div>
+                        <div class="settings-text"><div class="settings-label">Check for updates</div></div>
                         <div class="settings-control-group"><button class="btn" data-action="check-updates" type="button">Check</button></div>
                     </div>
                 </div>
@@ -763,14 +763,14 @@
                 <div class="settings-section" data-mode="online">
                     <h2 class="section-title">Streaming Cache</h2>
                     <div class="settings-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Cache for offline use</div><div class="settings-desc">Keep artwork, catalogue pages and stream links on this device so Home, artists and playlists open instantly and still work with a weak connection.</div></div>
+                        <div class="settings-text"><div class="settings-label">Cache for offline use</div><div class="settings-desc">Keep artwork and pages on this device</div></div>
                         <label class="settings-switch"><input type="checkbox" id="online-cache-toggle" data-action="online-toggle-caching"><span></span></label>
                     </div>
                     <div class="settings-row keep-desc">
                         <div class="settings-text"><div class="settings-label">Cache usage</div><div class="settings-desc" id="online-cache-usage">Calculating...</div></div>
                     </div>
                     <div class="settings-row danger-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Clear streaming cache</div><div class="settings-desc">Remove cached catalogue details, artwork and stream links. Downloads and local audio stay untouched.</div></div>
+                        <div class="settings-text"><div class="settings-label">Clear streaming cache</div><div class="settings-desc">Downloads and local audio stay</div></div>
                         <div class="settings-control-group"><button class="btn btn-danger" data-action="clear-online-cache" type="button">Clear cache</button></div>
                     </div>
                 </div>
@@ -784,7 +784,7 @@
                         </div>
                     </div>
                     <div class="settings-row danger-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Clear Library</div><div class="settings-desc">Remove all audio, artwork, and metadata</div></div>
+                        <div class="settings-text"><div class="settings-label">Clear Library</div><div class="settings-desc">Removes all audio and metadata</div></div>
                         <div class="settings-control-group">
                             <button class="btn btn-danger" data-action="clear-library">Clear All</button>
                         </div>
@@ -804,12 +804,12 @@
                 <div class="settings-section" id="settings-keyboard-section">
                     <h2 class="section-title">Keyboard Shortcuts</h2>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Enable keyboard shortcuts</div><div class="settings-desc">Control playback from a physical keyboard. Shortcuts pause while you type in a field.</div></div>
+                        <div class="settings-text"><div class="settings-label">Enable keyboard shortcuts</div></div>
                         <div class="settings-control-group"><input type="checkbox" id="kb-enabled" class="settings-control" aria-label="Enable keyboard shortcuts" checked></div>
                     </div>
                     <div id="keyboard-shortcuts-list"></div>
                     <div class="settings-row">
-                        <div class="settings-text"><div class="settings-label">Customize</div><div class="settings-desc">Click a key, then press the new one. Backspace clears it. A key already in use is swapped with the other action.</div></div>
+                        <div class="settings-text"><div class="settings-label">Customize</div><div class="settings-desc">Click a key, then press a new one</div></div>
                         <div class="settings-control-group"><button type="button" class="btn" id="kb-help">Shortcut list</button><button type="button" class="btn" id="kb-reset">Reset</button></div>
                     </div>
                 </div>
@@ -817,14 +817,14 @@
                 <div class="settings-section" id="settings-privacy-section">
                     <h2 class="section-title">Privacy</h2>
                     <div class="settings-row keep-desc">
-                        <div class="settings-text"><div class="settings-label">Anonymous usage analytics</div><div class="settings-desc">Optional Google Analytics usage data. Off by default; enabling it sends standard usage events to Google. Your local music library is not uploaded.</div></div>
+                        <div class="settings-text"><div class="settings-label">Anonymous usage analytics</div><div class="settings-desc">Optional, off by default</div></div>
                         <div class="settings-control-group"><input type="checkbox" id="analytics-consent-toggle" class="settings-control" aria-label="Allow anonymous usage analytics"></div>
                     </div>
                 </div>
 
                 <div class="settings-section" id="settings-about-section">
                     <h2 class="section-title">About Mujic</h2>
-                    <div class="about-mujic-copy">Mujic was created by Ashutosh Roy (Machhar) out of curiosity and the need for a simple, lightweight player for music already on your device. There are many music apps, some with more features, but this one is special because it grew from a personal need. Thanks for being part of the journey. If you enjoy Mujic, please consider starring the open-source project on GitHub.</div>
+                    <div class="about-mujic-copy">Made by Ashutosh Roy (Machhar), a simple, private music player. Star it on GitHub if you like it.</div>
                     <div class="about-project-links">
                         <a class="btn about-github-link" href="https://github.com/royverse69/mujic" target="_blank" rel="noopener noreferrer">
                             <svg class="github-brand-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.54v-1.9c-3.1.67-3.76-1.31-3.76-1.31-.5-1.28-1.24-1.62-1.24-1.62-1.02-.7.08-.69.08-.69 1.13.08 1.72 1.16 1.72 1.16 1 1.72 2.62 1.22 3.26.93.1-.73.39-1.22.71-1.5-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.16-3-.12-.29-.5-1.42.11-2.96 0 0 .95-.3 3.05 1.15a10.62 10.62 0 0 1 5.55 0c2.1-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.67.11 2.96.72.78 1.16 1.78 1.16 3 0 4.29-2.61 5.24-5.1 5.51.4.35.76 1.03.76 2.08v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg>
@@ -857,6 +857,7 @@
         </div>
         <div class="mini-desktop-tools" aria-label="More playback controls">
             <button class="icon-btn mini-desktop-tool" data-action="show-sheet" data-target="volume-sheet" aria-label="Volume" title="Volume"><span class="material-symbols-rounded" id="mini-volume-icon">volume_up</span></button>
+            <input type="range" id="mini-volume-range" class="mini-volume-range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
             <button class="icon-btn mini-desktop-tool" data-action="picture-in-picture" aria-label="Picture in picture" title="Picture in picture"><span class="material-symbols-rounded">picture_in_picture_alt</span></button>
         </div>
         <div class="mini-scrub"><span class="mini-time" id="mini-time-current" aria-hidden="true">0:00</span><div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-progress"></div></div><span class="mini-time" id="mini-time-total" aria-hidden="true">0:00</span></div>
@@ -1088,7 +1089,7 @@
 
     <div class="bottom-sheet glass-surface" id="online-playlist-picker-sheet">
         <div class="sheet-handle"></div>
-        <div class="sheet-header"><div class="sheet-title-area"><div class="sheet-title">Add to Streaming Playlist</div><div class="sheet-subtitle">Streaming playlists stay separate from your local collections.</div></div></div>
+        <div class="sheet-header"><div class="sheet-title-area"><div class="sheet-title">Add to Streaming Playlist</div></div></div>
         <div id="online-playlist-picker-list" class="track-list"></div>
     </div>
 

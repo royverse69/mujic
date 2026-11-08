@@ -100,126 +100,137 @@ button.btn-play-pause { border: 0; padding: 0; appearance: none; -webkit-appeara
   mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
 }
 
-/* ───────────── 8. Mini-player redesign (v13.4) ─────────────
-   Phones keep the compact bar: the wrappers below are `display: contents`, the previous button and
-   the time labels are hidden, so the layout is unchanged.
-   ≥768px becomes a floating three-zone player: now playing | transport + seek bar | tools. */
+/* ───────────── 8. Mini-player (v13.5, Spotify-style on desktop) ─────────────
+   Phones keep the compact bar: the wrappers are `display: contents`, the previous button, time labels and
+   volume slider are hidden. ≥768px is a flush, opaque 30 / 40 / 30 bar:
+   now playing | transport + seek bar | tools + volume. Opaque on purpose: no translucent tint from the page
+   behind it and no backdrop-filter cost. */
 #mini-player .mini-now,
 #mini-player .mini-scrub { display: contents; }
 #mini-player .mini-prev,
-#mini-player .mini-time { display: none; }
+#mini-player .mini-time,
+#mini-player .mini-volume-range { display: none; }
+
+/* The waveform canvas is not part of the mini-player markup, so the progress fill must stay visible. */
+#mini-player.waveform-active .mini-progress-bar { height: 3px; background: color-mix(in srgb, var(--text-primary) 18%, transparent); }
+#mini-player.waveform-active .mini-progress-fill { opacity: 1; }
+
+.online-show-more[hidden], .online-swipe-hint[hidden] { display: none !important; }
 
 @media (min-width: 768px) {
-  body { --mini-inset: 14px; }
-  #mini-player {
-    left: calc(var(--sidebar-width) + 16px);
-    right: 16px;
-    bottom: 16px;
-    width: auto;
-    max-width: none;
-    height: 84px;
-    margin: 0;
-    padding: 0 22px 0 14px;
+  body { --mini-inset: 16px; }
+  body #mini-player,
+  body[data-corner-radius] #mini-player {
+    left: var(--sidebar-width); right: 0; bottom: 0;
+    width: auto; max-width: none; height: 88px; margin: 0;
+    padding: 0 16px;
+    border: 0; border-top: 1px solid var(--sep); border-radius: 0 !important;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 540px) minmax(0, 1fr);
+    grid-template-columns: minmax(180px, 30%) minmax(280px, 40%) minmax(180px, 30%);
     grid-template-rows: auto auto;
     align-content: center;
-    column-gap: 24px;
-    row-gap: 4px;
-    border: 1px solid var(--sep);
-    background: color-mix(in srgb, var(--bg-elevated) 80%, transparent);
-    -webkit-backdrop-filter: blur(30px) saturate(170%);
-    backdrop-filter: blur(30px) saturate(170%);
-    box-shadow: 0 14px 44px rgba(0, 0, 0, .34), 0 1px 0 rgba(255, 255, 255, .04) inset;
+    column-gap: 16px; row-gap: 6px;
+    background: var(--bg-elevated);
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    box-shadow: none;
     overflow: hidden;
   }
-  body.low-end-mode #mini-player { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg-elevated); box-shadow: 0 6px 20px rgba(0, 0, 0, .3); }
-  #main-content { padding-bottom: 132px; }
+  #main-content { padding-bottom: 112px; }
 
   /* Left: artwork + titles */
   #mini-player .mini-now { grid-column: 1; grid-row: 1 / 3; display: flex; align-items: center; gap: 14px; min-width: 0; }
-  #mini-player #mini-art { --mini-art-size: 56px; margin: 0; flex: 0 0 56px; }
+  #mini-player #mini-art { flex: 0 0 56px; width: 56px; height: 56px; margin: 0; border-radius: 6px !important; }
   #mini-player .mini-meta { flex: 1 1 auto; min-width: 0; max-width: none; padding: 0; }
-  #mini-player #mini-title { font-size: 14.5px; font-weight: 620; letter-spacing: -.012em; line-height: 1.25; }
-  #mini-player #mini-artist { font-size: 12.5px; line-height: 1.3; margin-top: 2px; color: var(--text-secondary); }
+  #mini-player #mini-title { font-size: 14px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; }
+  #mini-player #mini-artist { font-size: 12px; line-height: 1.3; margin-top: 2px; color: var(--text-secondary); }
 
   /* Centre: transport */
   #mini-player .mini-controls {
-    grid-column: 2; grid-row: 1;
+    grid-column: 2; grid-row: 1; justify-self: center;
     position: static; width: auto; height: auto; transform: none;
-    display: flex; align-items: center; justify-content: center; gap: 14px;
+    display: flex; align-items: center; justify-content: center; gap: 16px;
   }
   #mini-player .mini-action,
   #mini-player .mini-action[data-action="toggle-play"],
   #mini-player .mini-action[data-action="next-track"] {
     position: static; left: auto; top: auto;
-    flex: 0 0 40px; width: 40px; height: 40px;
-    border-radius: 50%;
-    color: var(--text-primary);
-    transition: transform .2s cubic-bezier(.22, 1, .36, 1), background-color .16s ease, opacity .16s ease;
+    flex: 0 0 36px; width: 36px; height: 36px; border-radius: 50%;
+    color: var(--text-secondary);
+    transition: transform .2s cubic-bezier(.22, 1, .36, 1), color .16s ease, background-color .16s ease;
   }
   #mini-player .mini-prev { display: inline-flex; }
-  #mini-player .mini-action:hover { background: var(--bg-hover); }
-  #mini-player .mini-action:active { transform: scale(.92); }
-  #mini-player .mini-action[data-action="toggle-play"] { flex-basis: 46px; width: 46px; height: 46px; background: var(--text-primary); color: var(--bg-base); }
-  #mini-player .mini-action[data-action="toggle-play"]:hover { background: var(--text-primary); transform: scale(1.07); }
-  #mini-player .mini-action[data-action="toggle-play"]:active { transform: scale(.95); }
-  #mini-player .mini-action[data-action="toggle-play"] .material-symbols-rounded { font-size: 28px; }
+  #mini-player .mini-action:hover { color: var(--text-primary); background: transparent; transform: scale(1.08); }
+  #mini-player .mini-action:active { transform: scale(.94); }
+  #mini-player .mini-action .material-symbols-rounded { font-size: 26px; }
+  #mini-player .mini-action[data-action="toggle-play"] { flex-basis: 40px; width: 40px; height: 40px; background: var(--text-primary); color: var(--bg-base); }
+  #mini-player .mini-action[data-action="toggle-play"]:hover { color: var(--bg-base); background: var(--text-primary); transform: scale(1.06); }
+  #mini-player .mini-action[data-action="toggle-play"] .material-symbols-rounded { font-size: 26px; }
 
   /* Centre: seek bar */
-  #mini-player .mini-scrub { grid-column: 2; grid-row: 2; display: flex; align-items: center; gap: 10px; }
-  #mini-player .mini-time { display: block; flex: 0 0 38px; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-tertiary); }
+  #mini-player .mini-scrub { grid-column: 2; grid-row: 2; display: flex; align-items: center; gap: 10px; width: 100%; max-width: 620px; justify-self: center; }
+  #mini-player .mini-time { display: block; flex: 0 0 40px; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
   #mini-player #mini-time-current { text-align: right; }
-  #mini-player .mini-progress-bar {
+  #mini-player #mini-time-total { text-align: left; }
+  #mini-player .mini-progress-bar,
+  #mini-player.waveform-active .mini-progress-bar {
     position: relative; left: auto; right: auto; bottom: auto;
     flex: 1 1 auto; height: 4px;
     border-radius: 999px;
-    background: var(--fill);
-    overflow: visible;
-    cursor: pointer;
-    pointer-events: auto !important;
-    touch-action: none;
-    transition: height .16s ease;
+    background: color-mix(in srgb, var(--text-primary) 22%, transparent);
+    overflow: visible; cursor: pointer;
+    pointer-events: auto !important; touch-action: none;
   }
-  #mini-player .mini-progress-bar::before { content: ""; position: absolute; inset: -10px 0; } /* generous hit area */
-  #mini-player .mini-progress-fill {
-    position: relative; height: 100%;
-    border-radius: inherit;
-    background: var(--text-primary);
-    transition: width .26s linear, background-color .16s ease;
-  }
+  #mini-player .mini-progress-bar::before { content: ""; position: absolute; inset: -10px 0; }
+  #mini-player .mini-progress-fill { position: relative; height: 100%; border-radius: inherit; background: var(--text-primary); transition: width .26s linear, background-color .16s ease; }
   #mini-player .mini-progress-fill::after {
-    content: ""; position: absolute; right: -6px; top: 50%;
-    width: 12px; height: 12px; margin-top: -6px; border-radius: 50%;
-    background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
-    transform: scale(0); transition: transform .16s cubic-bezier(.22, 1, .36, 1);
+    content: ""; position: absolute; right: -6px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .4); transform: scale(0); transition: transform .16s cubic-bezier(.22, 1, .36, 1);
   }
-  #mini-player .mini-progress-bar:hover { height: 6px; }
   #mini-player .mini-progress-bar:hover .mini-progress-fill,
   #mini-player .mini-progress-bar.scrubbing .mini-progress-fill { background: var(--accent-color); }
   #mini-player .mini-progress-bar:hover .mini-progress-fill::after,
   #mini-player .mini-progress-bar.scrubbing .mini-progress-fill::after { transform: scale(1); }
-  #mini-player .mini-progress-bar.scrubbing { height: 6px; }
   #mini-player .mini-progress-bar.scrubbing .mini-progress-fill { width: var(--scrub, 0%) !important; transition: none; }
 
-  /* Right: tools */
+  /* Right: tools + volume */
   #mini-player .mini-desktop-tools {
-    grid-column: 3; grid-row: 1 / 3;
-    position: static; transform: none; right: auto; top: auto;
-    justify-self: end; height: auto; gap: 4px;
+    grid-column: 3; grid-row: 1 / 3; justify-self: end; align-self: center;
+    position: static; transform: none; right: auto; top: auto; height: auto;
+    display: flex; align-items: center; gap: 4px;
   }
-  #mini-player .mini-desktop-tool { flex: 0 0 40px; width: 40px; height: 40px; min-width: 40px; max-width: 40px; transition: background-color .16s ease, color .16s ease, transform .2s cubic-bezier(.22, 1, .36, 1); }
-  #mini-player .mini-desktop-tool:active { transform: scale(.92); }
+  #mini-player .mini-desktop-tool { flex: 0 0 36px; width: 36px; height: 36px; min-width: 36px; max-width: 36px; }
+  #mini-player .mini-volume-range {
+    display: block; flex: 0 0 96px; width: 96px; height: 4px; margin: 0 8px 0 0;
+    -webkit-appearance: none; appearance: none; border-radius: 999px; cursor: pointer;
+    background: linear-gradient(to right, var(--text-primary) var(--vol, 100%), color-mix(in srgb, var(--text-primary) 22%, transparent) var(--vol, 100%));
+  }
+  #mini-player .mini-volume-range::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .4); transform: scale(0); transition: transform .16s ease; }
+  #mini-player .mini-volume-range:hover::-webkit-slider-thumb,
+  #mini-player .mini-volume-range:focus-visible::-webkit-slider-thumb { transform: scale(1); }
+  #mini-player .mini-volume-range::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: #fff; }
 }
 @media (min-width: 1600px) {
-  #mini-player { height: 92px; grid-template-columns: minmax(0, 1fr) minmax(420px, 680px) minmax(0, 1fr); }
-  #mini-player #mini-art { --mini-art-size: 62px; flex-basis: 62px; }
-  #mini-player #mini-title { font-size: 15.5px; }
+  #mini-player { height: 96px; grid-template-columns: minmax(240px, 30%) minmax(420px, 40%) minmax(240px, 30%); }
+  #mini-player #mini-art { flex-basis: 64px; width: 64px; height: 64px; }
+  #mini-player #mini-title { font-size: 15px; }
   #mini-player #mini-artist { font-size: 13px; }
+  #mini-player .mini-scrub { max-width: 720px; }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
-  #mini-player { column-gap: 14px; grid-template-columns: minmax(0, 1fr) minmax(260px, 380px) auto; }
+  #mini-player { column-gap: 10px; grid-template-columns: minmax(140px, 1fr) minmax(240px, 1.4fr) minmax(100px, 1fr); }
+  #mini-player .mini-volume-range { display: none; }
 }
+
+/* Quick Picks rail: mouse drag-to-scroll and arrows (desktop pointers only). */
+.online-quick-rail { cursor: grab; }
+.online-quick-rail.is-dragging { cursor: grabbing; scroll-snap-type: none !important; user-select: none; -webkit-user-select: none; }
+.online-quick-rail.is-dragging * { pointer-events: none; }
+.online-quick-nav { display: inline-flex; gap: 4px; margin-right: 8px; }
+.online-quick-nav .icon-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--fill); color: var(--text-primary); transition: opacity .16s ease, background-color .16s ease, transform .16s ease; }
+.online-quick-nav .icon-btn:disabled { opacity: .3; cursor: default; }
+.online-quick-nav .icon-btn:not(:disabled):hover { background: var(--bg-hover); }
+.online-quick-nav .icon-btn:active:not(:disabled) { transform: scale(.92); }
+@media (hover: none), (pointer: coarse) { .online-quick-nav { display: none; } .online-quick-rail { cursor: auto; } }
 
 /* ───────────── 9. Lyrics: compositor-friendly motion (v13.4) ─────────────
    `transition: all` animated layout properties (margin, font-size, padding) and forced reflow on each

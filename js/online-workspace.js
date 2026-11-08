@@ -497,6 +497,71 @@
         for(let i=from;i<to;i+=4)columns.push(items.slice(i,Math.min(i+4,to)));
         return columns.map(col=>`<div class="online-quick-col">${col.map(t=>compactRow(t,context,false)).join('')}</div>`).join('');
     };
+    /* Quick Picks rail behaviour: mouse drag-to-scroll, arrow buttons (desktop) and a lifetime swipe counter that
+       retires the "Swipe Right" hint after QUICK_HINT_LIMIT genuine swipes. */
+    const QUICK_HINT_LIMIT = 5, QUICK_SWIPE_KEY = 'mujic-quick-swipes-v1';
+    const quickSwipeCount = () => { try { return parseInt(localStorage.getItem(QUICK_SWIPE_KEY) || '0', 10) || 0; } catch (_) { return 0; } };
+    const syncQuickHint = () => { const hint = document.getElementById('quick-swipe-hint'); if (hint) hint.hidden = quickSwipeCount() >= QUICK_HINT_LIMIT; };
+    const noteQuickSwipe = () => {
+        const count = quickSwipeCount();
+        if (count >= QUICK_HINT_LIMIT) return;
+        try { localStorage.setItem(QUICK_SWIPE_KEY, String(count + 1)); } catch (_) {}
+        syncQuickHint();
+    };
+    const bindQuickRail = node => {
+        if (node._quickRailBound) return;
+        node._quickRailBound = true;
+        syncQuickHint();
+        let gesture = false, startLeft = 0, idle = 0, drag = null, dragged = false, blockClickUntil = 0;
+        const begin = () => { if (!idle) startLeft = node.scrollLeft; gesture = true; };
+        ['touchstart', 'wheel'].forEach(type => node.addEventListener(type, begin, { passive: true }));
+        node.addEventListener('scroll', () => {
+            if (!gesture) return;
+            clearTimeout(idle);
+            idle = setTimeout(() => { idle = 0; gesture = false; if (Math.abs(node.scrollLeft - startLeft) >= 60) noteQuickSwipe(); }, 220);
+        }, { passive: true });
+
+        node.addEventListener('dragstart', event => event.preventDefault());
+        node.addEventListener('pointerdown', event => {
+            if (event.pointerType !== 'mouse' || event.button !== 0) return;
+            begin(); drag = { id: event.pointerId, x: event.clientX, left: node.scrollLeft }; dragged = false;
+        });
+        node.addEventListener('pointermove', event => {
+            if (!drag || event.pointerId !== drag.id) return;
+            const dx = event.clientX - drag.x;
+            if (!dragged && Math.abs(dx) > 6) { dragged = true; node.classList.add('is-dragging'); try { node.setPointerCapture(event.pointerId); } catch (_) {} }
+            if (dragged) node.scrollLeft = drag.left - dx;
+        });
+        const endDrag = event => {
+            if (!drag || event.pointerId !== drag.id) return;
+            drag = null;
+            if (!dragged) return;
+            node.classList.remove('is-dragging');
+            try { node.releasePointerCapture(event.pointerId); } catch (_) {}
+            blockClickUntil = performance.now() + 300;   /* a drag is not a tap */
+        };
+        node.addEventListener('click', event => { if (performance.now() < blockClickUntil) { event.preventDefault(); event.stopPropagation(); } }, true);
+        node.addEventListener('pointerup', endDrag);
+        node.addEventListener('pointercancel', endDrag);
+
+        const heading = node.closest('section, .online-shelf')?.querySelector('.online-shelf-heading');
+        if (heading && !heading.querySelector('.online-quick-nav')) {
+            const nav = document.createElement('div');
+            nav.className = 'online-quick-nav';
+            nav.innerHTML = '<button type="button" class="icon-btn" data-dir="-1" aria-label="Scroll left"><span class="material-symbols-rounded">chevron_left</span></button><button type="button" class="icon-btn" data-dir="1" aria-label="Scroll right"><span class="material-symbols-rounded">chevron_right</span></button>';
+            const [prev, next] = nav.querySelectorAll('button');
+            const sync = () => { prev.disabled = node.scrollLeft < 4; next.disabled = node.scrollLeft + node.clientWidth >= node.scrollWidth - 4 && node._quickShown >= (node._quickItems?.length || 0); };
+            nav.addEventListener('click', event => {
+                const button = event.target.closest('button[data-dir]');
+                if (!button) return;
+                begin();
+                node.scrollBy({ left: Number(button.dataset.dir) * Math.max(240, node.clientWidth * 0.9), behavior: 'smooth' });
+            });
+            node.addEventListener('scroll', sync, { passive: true });
+            heading.querySelector('.online-show-more, .online-swipe-hint')?.before(nav) || heading.append(nav);
+            sync();
+        }
+    };
     const renderQuickPicks = (tracks, context, node) => {
         const items=(tracks||[]).filter(Boolean);
         shelfContexts.set(context,items);
@@ -504,6 +569,7 @@
         const shown=Math.min(items.length,Math.max(QUICK_PAGE,Math.ceil((node?._quickShown||0)/4)*4));
         if(node){
             node._quickShown=shown;node._quickItems=items;node._quickContext=context;
+            bindQuickRail(node);
             if(!node._quickScrollBound){
                 node._quickScrollBound=true;
                 node.addEventListener('scroll',()=>{
@@ -552,6 +618,9 @@
         }).join('');
         return likedCard+cards;
     };
+    /* Suggested for You: "Show more" expands this list in place (it used to run a search for the heading text). */
+    const SUGGESTED_PREVIEW = 8, SUGGESTED_EXPANDED = 40;
+    let suggestedExpanded = false;
     const renderShelfItem = (definition, items) => {
         const wrap=document.getElementById(definition.wrap||`${definition.node}-wrap`);
         const node=document.getElementById(definition.node);
@@ -565,17 +634,25 @@
             list=rankArtistItems(played,'popular').slice(0,14);
         }
         if(wrap)wrap.hidden=!list.length;
-        const signature=`${definition.key}|${list.slice(0,40).map(item=>item.id||item.sourceId||'').join(',')}`;
+        const signature=`${definition.key}${definition.key==='suggested'&&suggestedExpanded?'+':''}|${list.slice(0,40).map(item=>item.id||item.sourceId||'').join(',')}`;
         if(definition.kind!=='wall'){
             if(node.dataset.signature===signature&&node.childElementCount)return;
             node.dataset.signature=signature;
         }
         if(definition.key==='quick'){const keep=node.scrollLeft;node.innerHTML=renderQuickPicks(list,'home:quick',node);node.scrollLeft=keep;}
         else if(definition.kind==='wall')renderArtistMosaic(list,definition.node);
-        else if(definition.layout==='list')node.innerHTML=renderCompactRows(list,`home:${definition.key}`,true,8);
+        else if(definition.layout==='list')node.innerHTML=renderCompactRows(list,`home:${definition.key}`,true,definition.key==='suggested'&&suggestedExpanded?SUGGESTED_EXPANDED:SUGGESTED_PREVIEW);
         else if(definition.kind==='songs')node.innerHTML=renderTrackCards(list,`home:${definition.key}`);
         else node.innerHTML=renderEntityRail(list,definition.kind);
+        if(definition.key==='suggested'){
+            const more=document.getElementById('online-suggested-more');
+            if(more){more.hidden=list.length<=SUGGESTED_PREVIEW;more.textContent=suggestedExpanded?'Show less':'Show more';more.setAttribute('aria-expanded',String(suggestedExpanded));}
+        }
         UI.lazyLoadArtwork();
+    };
+    const toggleSuggested = () => {
+        suggestedExpanded=!suggestedExpanded;
+        renderShelfItem(HOME_DEFS.find(def=>def.key==='suggested'),[]);
     };
     const collectTrackPages = async query => {
         if(!navigator.onLine||State.playbackSourceMode!=='online')return [];
@@ -2224,5 +2301,5 @@
     const backToPlaylists = () => { activePlaylistId=null; renderPlaylists(); };
     const getOnlineHistory = () => onlineHistory.map(trackById).filter(Boolean);
     const getSearchResults = () => searchResults.slice();
-    window.OnlineWorkspace={init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playTrackInContext,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,removeSearchHistory,saveQueueSnapshot,setSearchType,openRemoteEntity,openCurrentArtist,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,openCategory,openRadioDirectory,openRadioStation,startRadio,startArtistRadio,extendRadioQueue,playCategory,loadMoreCategory,isRadioActive:()=>Boolean(activeRadioSession&&State.playbackSourceMode==='online'),getPlaybackLabel,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},playTrackFromShelf:(id,context)=>playTrackInContext(id,context),clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,openLikedFromHome,renderSettings,renderSettingsStats,renderSettingsCache,setCaching,clearAllCaches,resetTaste,exportStreamingLibrary,importStreamingLibrary,getListeningStats,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal,getLanguagePreference};
+    window.OnlineWorkspace={toggleSuggested,init,performSearch,loadMore,renderSearchBlank,renderHome,renderPlaylists,renderHistory,renderQueue,renderLiked,renderConnectivityState,updateWorkspaceUI,onModeChange,beforeModeChange,refreshActiveView,renderActiveView,recordPlay,getPlaybackContext,shiftHomeArtistWall,playSearchResult,playTrackInContext,playPlaylist,showAllArtists:()=>UI.switchView('online-artists'),sortArtists,createPlaylist,addTrackToPlaylist,openPlaylistPicker,getPendingTrackId,openPlaylist,backToPlaylists,clearHistory,clearQueue,shareOfflinePlaylistToOnline,copyOnlinePlaylistToOffline,renamePlaylist,deletePlaylist,setLinked,getPlaylists,getOnlineHistory,getSearchResults,rememberSearch,removeSearchHistory,saveQueueSnapshot,setSearchType,openRemoteEntity,openCurrentArtist,openReference,loadMoreRemote,loadMoreArtistAlbums,playRemoteEntity,getNavView:getNavViewValue,saveRemotePlaylist,loadPublicPlaylists,setLibraryTab,openLibraryTab,toggleFavorite,isFavorite,openCategory,openRadioDirectory,openRadioStation,startRadio,startArtistRadio,extendRadioQueue,playCategory,loadMoreCategory,isRadioActive:()=>Boolean(activeRadioSession&&State.playbackSourceMode==='online'),getPlaybackLabel,filterSearchType:(type)=>{searchType=type;setSearchTypeUI();},playTrackFromShelf:(id,context)=>playTrackInContext(id,context),clearSearch:()=>{searchQuery='';searchPage=0;searchResults=[];entityResults=[];allSearchResults=null;visibleSearchCount=8;searchHasMore=false;const input=document.getElementById('online-search-input');if(input)input.value='';const clear=document.querySelector('.online-search-clear');if(clear)clear.hidden=true;renderSearchBlank();},backFromDetail,openLikedFromHome,renderSettings,renderSettingsStats,renderSettingsCache,setCaching,clearAllCaches,resetTaste,exportStreamingLibrary,importStreamingLibrary,getListeningStats,updateGreeting,jumpTo,handleNavRetap,scrollToTop,schedulePersonal,renderHomePersonal,getLanguagePreference};
 })();

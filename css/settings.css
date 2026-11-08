@@ -90,19 +90,13 @@ body.theme-light #view-settings { --st-track: rgba(120, 120, 128, .28); }
   width: 40px; height: 40px; flex: 0 0 40px;
   display: grid; place-items: center;
   border-radius: 11px;
-  font-size: 23px;
-  color: #fff;
-  background: linear-gradient(145deg, hsl(var(--st-hue, 210) 78% 62%), hsl(var(--st-hue, 210) 78% 46%));
-  box-shadow: 0 2px 8px hsl(var(--st-hue, 210) 70% 40% / .35);
+  font-size: 22px;
+  color: var(--accent-color);
+  background: var(--fill);
 }
-#view-settings .settings-category-card:nth-of-type(1) { --st-hue: 212; }
-#view-settings .settings-category-card:nth-of-type(2) { --st-hue: 350; }
-#view-settings .settings-category-card:nth-of-type(3) { --st-hue: 280; }
-#view-settings .settings-category-card:nth-of-type(4) { --st-hue: 148; }
-#view-settings .settings-category-card:nth-of-type(5) { --st-hue: 28; }
 #view-settings .settings-category-copy { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
 #view-settings .settings-category-copy strong { font-size: 16px; font-weight: 620; letter-spacing: -.015em; }
-#view-settings .settings-category-copy small { font-size: 12.5px; line-height: 1.35; color: var(--text-secondary); }
+#view-settings .settings-category-copy small { font-size: 12.5px; line-height: 1.3; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #view-settings .settings-category-chevron { flex: 0 0 auto; font-size: 22px; color: var(--text-tertiary); }
 
 @media (min-width: 900px) {
@@ -174,8 +168,10 @@ body.low-end-mode #view-settings .settings-subpage-header { -webkit-backdrop-fil
 #view-settings .section-title + .settings-row { border-top: 0; }
 #view-settings .settings-text { flex: 1 1 auto; min-width: 0; }
 #view-settings .settings-label { font-size: 15px; font-weight: 560; line-height: 1.3; letter-spacing: -.01em; color: var(--text-primary); }
-#view-settings .settings-desc { margin-top: 3px; font-size: 12.5px; line-height: 1.42; color: var(--text-secondary); max-width: 60ch; }
-#view-settings .settings-control-group { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+#view-settings .settings-desc { margin-top: 2px; font-size: 12.5px; line-height: 1.35; color: var(--text-secondary); }
+#view-settings .settings-control-group { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; min-height: 40px; }
+#view-settings .settings-row > .settings-text:only-child { padding-block: 2px; }
+#view-settings .settings-label { overflow-wrap: anywhere; }
 
 /* ---- Controls ----------------------------------------------------------------- */
 /* Switch */
@@ -211,7 +207,7 @@ body.low-end-mode #view-settings .settings-subpage-header { -webkit-backdrop-fil
 #view-settings input[type="checkbox"].settings-control:disabled { opacity: .45; cursor: not-allowed; }
 
 /* Select */
-#view-settings .apple-select-wrapper { border: 0; border-radius: 12px; background: var(--fill); }
+#view-settings .apple-select-wrapper { width: 184px; border: 0; border-radius: 12px; background: var(--fill); }
 #view-settings .apple-select-wrapper select.settings-control { min-height: 40px; font-size: 14px; font-weight: 520; }
 
 /* Slider */
@@ -280,3 +276,5 @@ body.reduced-motion #view-settings .settings-subpage.active { animation: none; }
 /* Mode-specific copy must not depend on the lazily loaded online stylesheet. */
 body:not(.online-mode) #view-settings [data-mode="online"],
 body.online-mode #view-settings [data-mode="offline"] { display: none !important; }
+
+#view-settings .settings-overview-intro, #view-settings .settings-subpage-header p { display: none; }

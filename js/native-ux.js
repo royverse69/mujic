@@ -132,11 +132,11 @@
         let key = '', offset = 0, timer = 0;
         const render = () => {
             const track = typeof Player !== 'undefined' ? Player.getCurrentTrack?.() : null;
-            if (!track) { if (document.title !== BASE_TITLE) document.title = BASE_TITLE; key = ''; return; }
+            /* Nothing playing (no track, or paused): show the original Mujic title. */
+            if (!track || !State.isPlaying) { if (document.title !== BASE_TITLE) document.title = BASE_TITLE; key = ''; return; }
             const label = `${track.title || 'Unknown'} — ${track.artist || 'Unknown artist'}`;
-            const playing = Boolean(State.isPlaying);
             if (label !== key) { key = label; offset = 0; }
-            if (!desktop.matches || !playing || reducedMotion() || label.length < 3) { document.title = `${playing ? '▶ ' : ''}${label} · Mujic`; return; }
+            if (!desktop.matches || reducedMotion() || label.length < 3) { document.title = `▶ ${label} · Mujic`; return; }
             const loop = label + GAP;
             offset = (offset + 1) % loop.length;
             document.title = (loop + loop).slice(offset, offset + Math.max(loop.length, 24));
@@ -180,6 +180,24 @@
         bar.addEventListener('pointercancel', end);
     };
 
-    const start = () => { enhance(); initMiniSwipeDismiss(); initTabTitleScroller(); initMiniScrub(); new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true }); };
+    /* 9. Desktop mini-player: inline volume slider that stays in sync with every other volume control. */
+    const initMiniVolume = () => {
+        const range = document.getElementById('mini-volume-range');
+        if (!range) return;
+        const desktop = window.matchMedia('(min-width: 768px)');
+        let shown = -1;
+        const paint = value => range.style.setProperty('--vol', `${value * 100}%`);
+        const sync = () => {
+            const raw = State.muted ? 0 : Number(State.volume);
+            const value = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 1;
+            if (value === shown || document.activeElement === range) return;
+            shown = value; range.value = String(value); paint(value);
+        };
+        range.addEventListener('input', () => { const value = Number(range.value); shown = value; paint(value); AudioAdapter.setVolume(value); });
+        window.setInterval(() => { if (desktop.matches && document.visibilityState === 'visible') sync(); }, 500);
+        sync();
+    };
+
+    const start = () => { enhance(); initMiniSwipeDismiss(); initTabTitleScroller(); initMiniScrub(); initMiniVolume(); new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true }); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();

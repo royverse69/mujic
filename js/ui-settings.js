@@ -40,14 +40,14 @@
                 const footer = Array.from(root.children).find(el => el !== title && !el.classList.contains('settings-section') && el.tagName === 'DIV');
                 const overview = document.createElement('div');
                 overview.id = 'settings-overview'; overview.className = 'settings-overview';
-                overview.innerHTML = `<div class="settings-overview-intro"><div class="settings-overview-kicker">PREFERENCES</div><div class="settings-overview-copy">Personalize your listening experience, playback, lyrics and library.</div></div>`;
+                overview.innerHTML = '';
                 const searchBar=document.createElement('div');searchBar.className='settings-search-bar';searchBar.innerHTML='<input id="settings-search-input" class="settings-search-input" type="search" placeholder="Search settings…" aria-label="Search settings" autocomplete="off">';
                 const defs = [
-                    {id:'appearance', title:'UI & Customization', description:'Themes, accent colours, surfaces, corners and motion', icon:'palette', headings:['Appearance']},
-                    {id:'player', title:'Player & Audio', description:'Waveform, playback, equalizer, audio effects and keyboard shortcuts', icon:'graphic_eq', headings:['Player','Playback','Playback Effects','Keyboard Shortcuts']},
-                    {id:'lyrics', title:'Lyrics', description:'Lyrics providers, position and typography', icon:'lyrics', headings:['Lyrics Providers','Lyrics Display']},
-                    {id:'library', title:'Library & Listening', description:'Sort, listening stats, exports and stored files', online:'Streaming library, listening stats, backups and offline cache', icon:'library_music', headings:['Library','Streaming Library','Your Listening','Streaming Listening','Data Export','Storage','Streaming Cache']},
-                    {id:'app', title:'App & About', description:'Installation, project links, release notes, privacy and app information', icon:'apps', headings:['App','Extras','Privacy','About Mujic','Change & Update Log']}
+                    {id:'appearance', title:'UI & Customization', description:'Theme, accent, corners, motion', icon:'palette', headings:['Appearance']},
+                    {id:'player', title:'Player & Audio', description:'Playback, audio, shortcuts', icon:'graphic_eq', headings:['Player','Playback','Playback Effects','Keyboard Shortcuts']},
+                    {id:'lyrics', title:'Lyrics', description:'Sources and display', icon:'lyrics', headings:['Lyrics Providers','Lyrics Display']},
+                    {id:'library', title:'Library & Listening', description:'Sorting, stats, files', online:'Library, stats, offline cache', icon:'library_music', headings:['Library','Streaming Library','Your Listening','Streaming Listening','Data Export','Storage','Streaming Cache']},
+                    {id:'app', title:'App & About', description:'Install, privacy, about', icon:'apps', headings:['App','Extras','Privacy','About Mujic','Change & Update Log']}
                 ];
                 const pages = document.createElement('div'); pages.id = 'settings-pages';
                 for (const def of defs) {
@@ -57,7 +57,7 @@
                     overview.appendChild(card);
                     const page = document.createElement('div'); page.className='settings-subpage hidden'; page.dataset.settingsGroup=def.id; page.id=`settings-group-${def.id}`;
                     const head=document.createElement('div'); head.className='settings-subpage-header';
-                    head.innerHTML=`<button type="button" class="icon-btn settings-back-btn" data-action="settings-group-back" aria-label="Back to settings"><span class="material-symbols-rounded">arrow_back</span></button><div><h2>${def.title}</h2>${def.online ? `<p data-mode="offline">${def.description}</p><p data-mode="online">${def.online}</p>` : `<p>${def.description}</p>`}</div>`;
+                    head.innerHTML=`<button type="button" class="icon-btn settings-back-btn" data-action="settings-group-back" aria-label="Back to settings"><span class="material-symbols-rounded">arrow_back</span></button><div><h2>${def.title}</h2></div>`;
                     page.appendChild(head);
                     for (const section of sections) {
                         const h=section.querySelector('.section-title');
