@@ -259,12 +259,29 @@
                 if (art) art.classList.toggle('paused', !isPlaying);
             },
             updateProgress: () => {
-                const p = State.duration > 0 ? Math.max(0, Math.min(100, (State.currentTime / State.duration) * 100)) : 0;
-                document.getElementById('mini-progress').style.width = `${p}%`; document.getElementById('full-progress').style.width = `${p}%`;
-                document.getElementById('scrubber-thumb').style.left = `${p}%`; document.getElementById('time-current').innerText = Utils.formatTime(State.currentTime);
-                const miniTime = document.getElementById('mini-time-current'), second = Math.floor(State.currentTime || 0);
-                if (miniTime && miniTime._second !== second) { miniTime._second = second; miniTime.textContent = Utils.formatTime(State.currentTime); }
-                if (!State.isPlaying && State.visualizerMode === 'wave') AudioAdapter.renderScrubberVisualizerFrame();
+                const duration = State.duration, current = State.currentTime || 0;
+                const ratio = duration > 0 ? Math.max(0, Math.min(1, current / duration)) : 0;
+                const second = Math.floor(current);
+                const cache = UI._progressEls || (UI._progressEls = {
+                    miniFill: document.getElementById('mini-progress'), miniBar: document.getElementById('mini-progress-bar'),
+                    miniTime: document.getElementById('mini-time-current'), fullFill: document.getElementById('full-progress'),
+                    thumb: document.getElementById('scrubber-thumb'), fullTime: document.getElementById('time-current')
+                });
+                if (!State.miniScrubbing) {
+                    if (cache.miniFill) cache.miniFill.style.transform = `scaleX(${ratio})`;
+                    if (cache.miniTime && cache.miniTime._second !== second) {
+                        cache.miniTime._second = second; cache.miniTime.textContent = Utils.formatTime(current);
+                        if (cache.miniBar) { cache.miniBar.setAttribute('aria-valuenow', String(Math.round(ratio * 100))); cache.miniBar.setAttribute('aria-valuetext', `${Utils.formatTime(current)} of ${Utils.formatTime(duration)}`); }
+                    }
+                }
+                // The full player is invisible most of the time; only touch its DOM while it is open.
+                if (State.isFullPlayerOpen) {
+                    const percent = ratio * 100;
+                    if (cache.fullFill) cache.fullFill.style.width = `${percent}%`;
+                    if (cache.thumb) cache.thumb.style.left = `${percent}%`;
+                    if (cache.fullTime && cache.fullTime._second !== second) { cache.fullTime._second = second; cache.fullTime.textContent = Utils.formatTime(current); }
+                    if (!State.isPlaying && State.visualizerMode === 'wave') AudioAdapter.renderScrubberVisualizerFrame();
+                }
             },
             updateDuration: () => { document.getElementById('time-total').innerText = Utils.formatTime(State.duration); const miniTotal = document.getElementById('mini-time-total'); if (miniTotal) miniTotal.textContent = Utils.formatTime(State.duration); },
         });

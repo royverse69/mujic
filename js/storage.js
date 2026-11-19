@@ -115,8 +115,23 @@
                 'lyricsStyle','lyricsPosition','lyricsVerticalOffset','lyricsTimingOffset','lyricsWordByWord','lyricsShareEnabled','lyricsShareStyle','lyricsFontSize','lyricsLineSpacing','lyricsWidth','lyricsEmphasis',
                 'playerBackground','playerArtworkMode','visualizerMode','waveDefaultApplied','onboardingSeen','installBannerDismissedAt','resumePlayback','resumePosition','librarySort','librarySortDir','showArtworkLists','playStats',
                 'crossfade','skipSilence','instantSkipSilence','loudnessControl','loudnessLevel','autoSkipOnError','preventDuplicateQueue','preservePitch','varispeed',
-                'progressiveSeek','pauseWhenMuted','stopOnPageHide','swipeDismissMini','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','keyboardShortcutsEnabled','keyBindings'],
+                'progressiveSeek','pauseWhenMuted','stopOnPageHide','swipeDismissMini','pipStyle','waveformStyle','seekStep','keepScreenAwake','lyricsPlusEnabled','lyricsRenderEnabled','keyboardShortcutsEnabled','keyBindings'],
+            /* Coalesce bursts of saves (pause + track change + volume) into one IndexedDB write,
+               and flush synchronously when the page is hidden so nothing is lost. */
             saveSettings: () => {
+                if (!StorageAdapter._pendingSave) {
+                    StorageAdapter._pendingSave = new Promise(resolve => {
+                        StorageAdapter._pendingTimer = setTimeout(() => resolve(StorageAdapter.flushSettings()), 300);
+                    });
+                }
+                return StorageAdapter._pendingSave;
+            },
+            flushSettings: () => {
+                clearTimeout(StorageAdapter._pendingTimer);
+                StorageAdapter._pendingSave = null;
+                return StorageAdapter._writeSettings();
+            },
+            _writeSettings: () => {
                 const s = {};
                 StorageAdapter.SAVED_KEYS.forEach(key => { s[key] = State[key]; });
                 const isRemoteId = (id) => typeof id === 'string' && id.startsWith('machhar:');
@@ -190,6 +205,7 @@
                     if(s.pauseWhenMuted !== undefined) State.pauseWhenMuted = !!s.pauseWhenMuted;
                     if(s.stopOnPageHide !== undefined) State.stopOnPageHide = !!s.stopOnPageHide;
                     if(s.swipeDismissMini !== undefined) State.swipeDismissMini = !!s.swipeDismissMini;
+                    if(['clean','full'].includes(s.pipStyle)) State.pipStyle = s.pipStyle;
                     if(s.waveformStyle !== undefined && ['default','wavy','slim','squiggly'].includes(s.waveformStyle)) State.waveformStyle = s.waveformStyle;
                     if(s.seekStep !== undefined) State.seekStep = [5,10,15,30].includes(Number(s.seekStep)) ? Number(s.seekStep) : 10;
                     if(s.keepScreenAwake !== undefined) State.keepScreenAwake = !!s.keepScreenAwake;

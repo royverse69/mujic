@@ -107,7 +107,7 @@
                     State.isFullPlayerOpen = true; const fp = document.getElementById('full-player'); fp.style.pointerEvents = 'auto'; fp.setAttribute('aria-hidden','false'); fp.classList.add('active'); document.body.classList.add('player-open');
                     if (!fromHistory) UI.pushHistoryState({ mujic:true, view:(document.querySelector('.view.active')?.id || 'view-home').replace('view-',''), player:true, sheet:null }, '#player');
                 }
-                UI.loadPlayerArtworkLarge?.(Player.getCurrentTrack());
+                UI.loadPlayerArtworkLarge?.(Player.getCurrentTrack()); UI.updateProgress(); UI.updateDuration();
                 if (State.isLyricsMode && State.currentLyrics && State.currentLyrics.isSynced) UI.syncLyrics(State.currentTime);
                 AudioAdapter.setWakeLock(State.keepScreenAwake);
                 UI.updateVisualizerUI();
@@ -160,6 +160,8 @@
                 document.getElementById('volume-fill').style.width = `${p}%`; document.getElementById('volume-thumb').style.left = `${p}%`;
                 let icon = 'volume_up'; if(State.muted || State.volume === 0) icon = 'volume_off'; else if(State.volume < 0.5) icon = 'volume_down';
                 document.getElementById('mute-btn').innerHTML = `<span class="material-symbols-rounded">${icon}</span>`;
+                const miniRange = document.getElementById('mini-volume-range');
+                if (miniRange) { if (document.activeElement !== miniRange) miniRange.value = String(State.muted ? 0 : State.volume); miniRange.style.setProperty('--vol', `${p}%`); }
                 const miniVolumeIcon = document.getElementById('mini-volume-icon');
                 if (miniVolumeIcon) miniVolumeIcon.textContent = icon;
                 const miniVolumeButton = miniVolumeIcon?.closest('button');

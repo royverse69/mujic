@@ -6,7 +6,7 @@
    Legacy rules fought each other (blur kept, oversizing removed on phones → hard transparent edges;
    low-end mode swapped the cover for a generic gradient). One consistent definition replaces them.
    JS (UI.setPlayerBackdrop) supplies a tiny pre-blurred image via --bd-img, so no heavy GPU blur is needed. */
-#full-player #full-bg.player-bg {
+#full-player #full-bg.player-bg{
   position: absolute !important; inset: -6% !important; width: auto !important; height: auto !important;
   z-index: 0 !important; pointer-events: none !important; overflow: hidden;
   background-size: cover !important; background-position: center !important; background-repeat: no-repeat !important;
@@ -15,87 +15,82 @@
   filter: blur(16px) !important; -webkit-filter: blur(16px) !important;
   transition: opacity .16s ease !important;
 }
-#full-player #full-bg.player-bg[data-background-mode="artwork"] { background-image: var(--bd-img, none) !important; }
+#full-player #full-bg.player-bg[data-background-mode="artwork"]{ background-image: var(--bd-img, none) !important; }
 #full-player #full-bg.player-bg[data-background-mode="solid"],
-#full-player #full-bg.player-bg[data-background-mode="black"] { background-image: none !important; filter: none !important; -webkit-filter: none !important; opacity: 1 !important; inset: 0 !important; }
+#full-player #full-bg.player-bg[data-background-mode="black"]{ background-image: none !important; filter: none !important; -webkit-filter: none !important; opacity: 1 !important; inset: 0 !important; }
 /* Fallback when the cover could not be downsampled (no CORS): classic blur, kept modest on phones. */
-#full-player #full-bg.player-bg[data-backdrop="full"] { filter: blur(44px) saturate(1.45) brightness(.62) !important; -webkit-filter: blur(44px) saturate(1.45) brightness(.62) !important; opacity: .8 !important; inset: -14% !important; }
-@media (max-width: 767px) {
-  #full-player #full-bg.player-bg[data-backdrop="full"] { filter: blur(30px) saturate(1.4) brightness(.6) !important; -webkit-filter: blur(30px) saturate(1.4) brightness(.6) !important; }
+#full-player #full-bg.player-bg[data-backdrop="full"]{ filter: blur(44px) saturate(1.45) brightness(.62) !important; -webkit-filter: blur(44px) saturate(1.45) brightness(.62) !important; opacity: .8 !important; inset: -14% !important; }
+@media (max-width: 767px){
+  #full-player #full-bg.player-bg[data-backdrop="full"]{ filter: blur(30px) saturate(1.4) brightness(.6) !important; -webkit-filter: blur(30px) saturate(1.4) brightness(.6) !important; }
 }
 /* Low-end / reduced-motion: skip every filter; the pre-shrunk image already looks soft. */
 body.low-end-mode #full-player #full-bg.player-bg[data-backdrop="tiny"],
-body.reduced-motion #full-player #full-bg.player-bg[data-backdrop="tiny"] { filter: none !important; -webkit-filter: none !important; inset: 0 !important; }
-body.low-end-mode #full-player #full-bg.player-bg[data-backdrop="full"] { filter: none !important; -webkit-filter: none !important; opacity: .28 !important; }
-#full-player #full-bg.player-bg.is-swapping { opacity: 0 !important; }
+body.reduced-motion #full-player #full-bg.player-bg[data-backdrop="tiny"]{ filter: none !important; -webkit-filter: none !important; inset: 0 !important; }
+body.low-end-mode #full-player #full-bg.player-bg[data-backdrop="full"]{ filter: none !important; -webkit-filter: none !important; opacity: .28 !important; }
+#full-player #full-bg.player-bg.is-swapping{ opacity: 0 !important; }
 /* readability scrim */
-#full-player #full-bg.player-bg::after { background: linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.22) 38%, rgba(0,0,0,.58)) !important; }
+#full-player #full-bg.player-bg::after{ background: linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.22) 38%, rgba(0,0,0,.58)) !important; }
 /* The accent glow blended with the default (white) accent only produced a grey wash. */
-#full-player #full-bg.player-bg::before { animation: none !important; }
-body.accent-default #full-player #full-bg.player-bg::before { display: none !important; }
-#full-player .player-header, #full-player .player-body, #full-player .player-content { position: relative; z-index: 1; }
+#full-player #full-bg.player-bg::before{ animation: none !important; }
+body.accent-default #full-player #full-bg.player-bg::before{ display: none !important; }
+#full-player .player-header, #full-player .player-body, #full-player .player-content{ position: relative; z-index: 1; }
 
 /* ───────────── 2. Text that should truncate, truncates ───────────── */
-.mini-meta { min-width: 0; flex: 1 1 auto; }
-.mini-meta .item-title, .mini-meta .item-subtitle, .mini-next-up { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-#mini-art { flex: 0 0 auto; object-fit: cover; }
-#full-title { overflow-wrap: anywhere; }
-#full-player #full-artist { text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100%; }
-@media (min-width: 900px) {
+#full-title{ overflow-wrap: anywhere; }
+#full-player #full-artist{ text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100%; }
+@media (min-width: 900px){
   /* big desktop title may wrap to two lines instead of cutting after a few words */
-  #full-player #full-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+  #full-player #full-title{ white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* ───────────── 3. Native-app feel ───────────── */
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavior: none; }
-body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+html{ -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavior: none; }
+body{ overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
 /* no pull-to-refresh / rubber-banding leaking out of inner scrollers */
-#main-content, #app-container, .bottom-sheet, .sheet-content, .dialog-box, #full-player, [class*="-sheet"] .scroll, .player-lyrics-container, .queue-list, #queue-list {
+#main-content, #app-container, .bottom-sheet, .sheet-content, .dialog-box, #full-player, [class*="-sheet"] .scroll, .player-lyrics-container, .queue-list, #queue-list{
   overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
 /* chrome is not selectable text; titles in lists/lyrics/inputs still are */
-button, [role="button"], [data-action], .nav-item, .icon-btn, .btn-play-pause, #mini-player, #bottom-nav, .player-controls, .scrubber-wrap {
+button, [role="button"], [data-action], .nav-item, .icon-btn, .btn-play-pause, #mini-player, #bottom-nav, .player-controls, .scrubber-wrap{
   -webkit-user-select: none; user-select: none; touch-action: manipulation;
 }
-input, textarea, [contenteditable], .selectable, .lyrics-line { -webkit-user-select: text; user-select: text; }
-img { -webkit-user-drag: none; user-drag: none; }
-button { font: inherit; color: inherit; }
-button.btn-play-pause { border: 0; padding: 0; appearance: none; -webkit-appearance: none; cursor: pointer; }
+input, textarea, [contenteditable], .selectable, .lyrics-line{ -webkit-user-select: text; user-select: text; }
+img{ -webkit-user-drag: none; user-drag: none; }
+button{ font: inherit; color: inherit; }
+button.btn-play-pause{ border: 0; padding: 0; appearance: none; -webkit-appearance: none; cursor: pointer; }
 /* sliders must own their horizontal drag */
-.scrubber-wrap, #scrubber-bar, .volume-bar, input[type="range"] { touch-action: none; }
+.scrubber-wrap, #scrubber-bar, .volume-bar, input[type="range"]{ touch-action: none; }
 /* pressed feedback instead of hover feedback on touch */
-@media (hover: none) { .nav-item:active, .icon-btn:active, .mini-action:active { transform: scale(.92); transition: transform 90ms ease; } }
+@media (hover: none){ .nav-item:active, .icon-btn:active, .mini-action:active{ transform: scale(.92); transition: transform 90ms ease; } }
 
 /* ───────────── 4. Touch targets (≥44px hit area, visuals unchanged) ───────────── */
-@media (pointer: coarse) {
+@media (pointer: coarse){
   :where(.icon-btn, .mini-action, .nav-item, .chip, .pill, .toggle, [role="button"]:not(#mini-player)) { position: relative; }
-  .workspace-toggle-mini { position: relative; }
-  .icon-btn::after, .mini-action::after, .chip::after, .workspace-toggle-mini::after {
+  .workspace-toggle-mini{ position: relative; }
+  .icon-btn::after, .mini-action::after, .chip::after, .workspace-toggle-mini::after{
     content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%);
   }
-  .nav-item { min-height: 48px; }
-  .btn, .ob-btn { min-height: 44px; }
-  .ob-skip { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
-  #full-player .scrubber-wrap { min-height: 44px; padding-block: 14px; box-sizing: content-box; }
-  .mini-progress-bar { pointer-events: none; }
+  .nav-item{ min-height: 48px; }
+  .btn, .ob-btn{ min-height: 44px; }
+  .ob-skip{ min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  #full-player .scrubber-wrap{ min-height: 44px; padding-block: 14px; box-sizing: content-box; }
   /* artist links are 22px tall text; padding grows the tap area without moving anything (negative margin cancels it) */
-  #full-player #full-artist { padding-block: 11px; margin-block: -11px; }
+  #full-player #full-artist{ padding-block: 11px; margin-block: -11px; }
 }
 
 /* ───────────── 5. Keyboard / screen-reader affordances ───────────── */
-:focus { outline: none; }
-:focus-visible { outline: 2px solid var(--accent-color, #0a84ff); outline-offset: 2px; border-radius: 8px; }
-#full-player :focus-visible { outline-color: #fff; }
-.mini-meta:focus-visible { outline-offset: -2px; }
+:focus{ outline: none; }
+:focus-visible{ outline: 2px solid var(--accent-color, #0a84ff); outline-offset: 2px; border-radius: 8px; }
+#full-player :focus-visible{ outline-color: #fff; }
 
 /* ───────────── 6. Safe areas, dynamic viewport, standalone ───────────── */
-@supports (height: 100dvh) { #full-player { height: 100dvh; } }
-#full-player { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
-@media (display-mode: standalone) { body { user-select: none; -webkit-user-select: none; } input, textarea, .selectable, .lyrics-line { user-select: text; -webkit-user-select: text; } }
-@media (prefers-reduced-motion: reduce) { #full-player #full-bg.player-bg { transition: none !important; } }
+@supports (height: 100dvh){ #full-player{ height: 100dvh; } }
+#full-player{ padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+@media (display-mode: standalone){ body{ user-select: none; -webkit-user-select: none; } input, textarea, .selectable, .lyrics-line{ user-select: text; -webkit-user-select: text; } }
+@media (prefers-reduced-motion: reduce){ #full-player #full-bg.player-bg{ transition: none !important; } }
 
 /* ───────────── 7. Artist marquee: never hard-clip a letter ───────────── */
-#full-player #full-artist:has(.player-artist-marquee) {
+#full-player #full-artist:has(.player-artist-marquee){
   -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
   mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
 }
@@ -105,218 +100,90 @@ button.btn-play-pause { border: 0; padding: 0; appearance: none; -webkit-appeara
    volume slider are hidden. ≥768px is a flush, opaque 30 / 40 / 30 bar:
    now playing | transport + seek bar | tools + volume. Opaque on purpose: no translucent tint from the page
    behind it and no backdrop-filter cost. */
-#mini-player .mini-now,
-#mini-player .mini-scrub { display: contents; }
-#mini-player .mini-prev,
-#mini-player .mini-time,
-#mini-player .mini-volume-range { display: none; }
 
 /* The waveform canvas is not part of the mini-player markup, so the progress fill must stay visible. */
-#mini-player.waveform-active .mini-progress-bar { height: 3px; background: color-mix(in srgb, var(--text-primary) 18%, transparent); }
-#mini-player.waveform-active .mini-progress-fill { opacity: 1; }
 
-.online-show-more[hidden], .online-swipe-hint[hidden] { display: none !important; }
+.online-show-more[hidden], .online-swipe-hint[hidden]{ display: none !important; }
 
-@media (min-width: 768px) {
-  body { --mini-inset: 16px; }
-  body #mini-player,
-  body[data-corner-radius] #mini-player {
-    left: var(--sidebar-width); right: 0; bottom: 0;
-    width: auto; max-width: none; height: 88px; margin: 0;
-    padding: 0 16px;
-    border: 0; border-top: 1px solid var(--sep); border-radius: 0 !important;
-    display: grid;
-    grid-template-columns: minmax(180px, 30%) minmax(280px, 40%) minmax(180px, 30%);
-    grid-template-rows: auto auto;
-    align-content: center;
-    column-gap: 16px; row-gap: 6px;
-    background: var(--bg-elevated);
-    -webkit-backdrop-filter: none; backdrop-filter: none;
-    box-shadow: none;
-    overflow: hidden;
-  }
-  #main-content { padding-bottom: 112px; }
+@media (min-width: 768px){
+  body{ --mini-inset: 16px; }
+  #main-content{ padding-bottom: 112px; }
 
   /* Left: artwork + titles */
-  #mini-player .mini-now { grid-column: 1; grid-row: 1 / 3; display: flex; align-items: center; gap: 14px; min-width: 0; }
-  #mini-player #mini-art { flex: 0 0 56px; width: 56px; height: 56px; margin: 0; border-radius: 6px !important; }
-  #mini-player .mini-meta { flex: 1 1 auto; min-width: 0; max-width: none; padding: 0; }
-  #mini-player #mini-title { font-size: 14px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; }
-  #mini-player #mini-artist { font-size: 12px; line-height: 1.3; margin-top: 2px; color: var(--text-secondary); }
 
   /* Centre: transport */
-  #mini-player .mini-controls {
-    grid-column: 2; grid-row: 1; justify-self: center;
-    position: static; width: auto; height: auto; transform: none;
-    display: flex; align-items: center; justify-content: center; gap: 16px;
-  }
-  #mini-player .mini-action,
-  #mini-player .mini-action[data-action="toggle-play"],
-  #mini-player .mini-action[data-action="next-track"] {
-    position: static; left: auto; top: auto;
-    flex: 0 0 36px; width: 36px; height: 36px; border-radius: 50%;
-    color: var(--text-secondary);
-    transition: transform .2s cubic-bezier(.22, 1, .36, 1), color .16s ease, background-color .16s ease;
-  }
-  #mini-player .mini-prev { display: inline-flex; }
-  #mini-player .mini-action:hover { color: var(--text-primary); background: transparent; transform: scale(1.08); }
-  #mini-player .mini-action:active { transform: scale(.94); }
-  #mini-player .mini-action .material-symbols-rounded { font-size: 26px; }
-  #mini-player .mini-action[data-action="toggle-play"] { flex-basis: 40px; width: 40px; height: 40px; background: var(--text-primary); color: var(--bg-base); }
-  #mini-player .mini-action[data-action="toggle-play"]:hover { color: var(--bg-base); background: var(--text-primary); transform: scale(1.06); }
-  #mini-player .mini-action[data-action="toggle-play"] .material-symbols-rounded { font-size: 26px; }
 
   /* Centre: seek bar */
-  #mini-player .mini-scrub { grid-column: 2; grid-row: 2; display: flex; align-items: center; gap: 10px; width: 100%; max-width: 620px; justify-self: center; }
-  #mini-player .mini-time { display: block; flex: 0 0 40px; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
-  #mini-player #mini-time-current { text-align: right; }
-  #mini-player #mini-time-total { text-align: left; }
-  #mini-player .mini-progress-bar,
-  #mini-player.waveform-active .mini-progress-bar {
-    position: relative; left: auto; right: auto; bottom: auto;
-    flex: 1 1 auto; height: 4px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--text-primary) 22%, transparent);
-    overflow: visible; cursor: pointer;
-    pointer-events: auto !important; touch-action: none;
-  }
-  #mini-player .mini-progress-bar::before { content: ""; position: absolute; inset: -10px 0; }
-  #mini-player .mini-progress-fill { position: relative; height: 100%; border-radius: inherit; background: var(--text-primary); transition: width .26s linear, background-color .16s ease; }
-  #mini-player .mini-progress-fill::after {
-    content: ""; position: absolute; right: -6px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%;
-    background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .4); transform: scale(0); transition: transform .16s cubic-bezier(.22, 1, .36, 1);
-  }
-  #mini-player .mini-progress-bar:hover .mini-progress-fill,
-  #mini-player .mini-progress-bar.scrubbing .mini-progress-fill { background: var(--accent-color); }
-  #mini-player .mini-progress-bar:hover .mini-progress-fill::after,
-  #mini-player .mini-progress-bar.scrubbing .mini-progress-fill::after { transform: scale(1); }
-  #mini-player .mini-progress-bar.scrubbing .mini-progress-fill { width: var(--scrub, 0%) !important; transition: none; }
 
   /* Right: tools + volume */
-  #mini-player .mini-desktop-tools {
-    grid-column: 3; grid-row: 1 / 3; justify-self: end; align-self: center;
-    position: static; transform: none; right: auto; top: auto; height: auto;
-    display: flex; align-items: center; gap: 4px;
-  }
-  #mini-player .mini-desktop-tool { flex: 0 0 36px; width: 36px; height: 36px; min-width: 36px; max-width: 36px; }
-  #mini-player .mini-volume-range {
-    display: block; flex: 0 0 96px; width: 96px; height: 4px; margin: 0 8px 0 0;
-    -webkit-appearance: none; appearance: none; border-radius: 999px; cursor: pointer;
-    background: linear-gradient(to right, var(--text-primary) var(--vol, 100%), color-mix(in srgb, var(--text-primary) 22%, transparent) var(--vol, 100%));
-  }
-  #mini-player .mini-volume-range::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .4); transform: scale(0); transition: transform .16s ease; }
-  #mini-player .mini-volume-range:hover::-webkit-slider-thumb,
-  #mini-player .mini-volume-range:focus-visible::-webkit-slider-thumb { transform: scale(1); }
-  #mini-player .mini-volume-range::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: #fff; }
-}
-@media (min-width: 1600px) {
-  #mini-player { height: 96px; grid-template-columns: minmax(240px, 30%) minmax(420px, 40%) minmax(240px, 30%); }
-  #mini-player #mini-art { flex-basis: 64px; width: 64px; height: 64px; }
-  #mini-player #mini-title { font-size: 15px; }
-  #mini-player #mini-artist { font-size: 13px; }
-  #mini-player .mini-scrub { max-width: 720px; }
-}
-@media (min-width: 768px) and (max-width: 1023px) {
-  #mini-player { column-gap: 10px; grid-template-columns: minmax(140px, 1fr) minmax(240px, 1.4fr) minmax(100px, 1fr); }
-  #mini-player .mini-volume-range { display: none; }
 }
 
 /* Quick Picks rail: mouse drag-to-scroll and arrows (desktop pointers only). */
-.online-quick-rail { cursor: grab; }
-.online-quick-rail.is-dragging { cursor: grabbing; scroll-snap-type: none !important; user-select: none; -webkit-user-select: none; }
-.online-quick-rail.is-dragging * { pointer-events: none; }
-.online-quick-nav { display: inline-flex; gap: 4px; margin-right: 8px; }
-.online-quick-nav .icon-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--fill); color: var(--text-primary); transition: opacity .16s ease, background-color .16s ease, transform .16s ease; }
-.online-quick-nav .icon-btn:disabled { opacity: .3; cursor: default; }
-.online-quick-nav .icon-btn:not(:disabled):hover { background: var(--bg-hover); }
-.online-quick-nav .icon-btn:active:not(:disabled) { transform: scale(.92); }
-@media (hover: none), (pointer: coarse) { .online-quick-nav { display: none; } .online-quick-rail { cursor: auto; } }
+.online-quick-rail{ cursor: grab; }
+.online-quick-rail.is-dragging{ cursor: grabbing; scroll-snap-type: none !important; user-select: none; -webkit-user-select: none; }
+.online-quick-rail.is-dragging *{ pointer-events: none; }
+.online-quick-nav{ display: inline-flex; gap: 4px; margin-right: 8px; }
+.online-quick-nav .icon-btn{ width: 34px; height: 34px; border-radius: 50%; background: var(--fill); color: var(--text-primary); transition: opacity .16s ease, background-color .16s ease, transform .16s ease; }
+.online-quick-nav .icon-btn:disabled{ opacity: .3; cursor: default; }
+.online-quick-nav .icon-btn:not(:disabled):hover{ background: var(--bg-hover); }
+.online-quick-nav .icon-btn:active:not(:disabled){ transform: scale(.92); }
+@media (hover: none), (pointer: coarse){ .online-quick-nav{ display: none; } .online-quick-rail{ cursor: auto; } }
 
 /* ───────────── 9. Lyrics: compositor-friendly motion (v13.4) ─────────────
    `transition: all` animated layout properties (margin, font-size, padding) and forced reflow on each
    line change. Only opacity / transform / filter / colour are animated now, and the follow-scroll is
    driven from JS (see lyricFollow in ui-lyrics.js), so native smooth-scroll must be off. */
-.player-lyrics-container { scroll-behavior: auto !important; transition: opacity .35s ease, visibility .35s ease; overflow-anchor: none; }
-.lyric-line {
+.player-lyrics-container{ scroll-behavior: auto !important; transition: opacity .35s ease, visibility .35s ease; overflow-anchor: none; }
+.lyric-line{
   transition: opacity .4s ease, transform .55s cubic-bezier(.22, 1, .36, 1), filter .4s ease, color .3s ease;
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
 }
-.lyrics-style-spotify .lyric-line { transition: opacity .3s ease, color .3s ease; }
-.lyrics-style-neon .lyric-line { transition: opacity .35s ease, transform .5s cubic-bezier(.22, 1, .36, 1), background-color .3s ease, color .3s ease, box-shadow .3s ease; }
-.lyrics-style-apple .lyric-line.active { will-change: transform, opacity, filter; }
-body.low-end-mode .lyrics-style-apple .lyric-line { filter: none; }
-@media (prefers-reduced-motion: reduce) { .lyric-line, .player-lyrics-container { transition: none !important; } }
+.lyrics-style-spotify .lyric-line{ transition: opacity .3s ease, color .3s ease; }
+.lyrics-style-neon .lyric-line{ transition: opacity .35s ease, transform .5s cubic-bezier(.22, 1, .36, 1), background-color .3s ease, color .3s ease, box-shadow .3s ease; }
+.lyrics-style-apple .lyric-line.active{ will-change: transform, opacity, filter; }
+body.low-end-mode .lyrics-style-apple .lyric-line{ filter: none; }
+@media (prefers-reduced-motion: reduce){ .lyric-line, .player-lyrics-container{ transition: none !important; } }
 
 /* ───────────── 10. Motion + rendering hygiene (v13.4) ─────────────
    `transition: all` also animated width/padding/margin, forcing layout on every frame. These rules keep
    the same timing and easing but animate compositor-friendly properties only. */
-.btn { transition: background-color .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease, opacity .2s ease; }
-.nav-item { transition: background-color .2s ease, color .2s ease, transform .2s ease, opacity .2s ease; }
-.player-body, .player-art-container, .player-controls-section { transition: opacity .4s cubic-bezier(.2, .8, .2, 1), transform .4s cubic-bezier(.2, .8, .2, 1), filter .4s ease; }
-.dialog-box { transition: opacity .3s cubic-bezier(.2, .8, .2, 1), transform .3s cubic-bezier(.2, .8, .2, 1), visibility .3s linear; }
+.btn{ transition: background-color .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease, opacity .2s ease; }
+.nav-item{ transition: background-color .2s ease, color .2s ease, transform .2s ease, opacity .2s ease; }
+.player-body, .player-art-container, .player-controls-section{ transition: opacity .4s cubic-bezier(.2, .8, .2, 1), transform .4s cubic-bezier(.2, .8, .2, 1), filter .4s ease; }
+.dialog-box{ transition: opacity .3s cubic-bezier(.2, .8, .2, 1), transform .3s cubic-bezier(.2, .8, .2, 1), visibility .3s linear; }
 
 /* Skip rendering work for list rows and Quick Picks columns that are off-screen. `auto` remembers the real
    size after first render, so long lists (Quick Picks can now grow to hundreds) scroll without hitching. */
-.online-compact-row { content-visibility: auto; contain-intrinsic-size: auto 64px; }
-.online-quick-col { content-visibility: auto; contain-intrinsic-size: auto min(88vw, 430px) auto 280px; }
+.online-compact-row{ content-visibility: auto; contain-intrinsic-size: auto 64px; }
+.online-quick-col{ content-visibility: auto; contain-intrinsic-size: auto min(88vw, 430px) auto 280px; }
 
 /* Layers that move get their own compositor layer only while they need it. */
-#mini-player.visible { will-change: transform; }
-#full-player.active .player-art-container img { will-change: transform; }
+#full-player.active .player-art-container img{ will-change: transform; }
 
 /* Smoother touch scrolling and no scroll chaining out of inner scrollers. */
-.online-quick-rail, .online-rail, .player-lyrics-container, .settings-subpage { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.online-quick-rail, .online-rail, .player-lyrics-container, .settings-subpage{ -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
 
-@media (prefers-reduced-motion: reduce) {
-  .btn, .nav-item, .player-body, .player-art-container, .player-controls-section, .dialog-box { transition-duration: .01ms !important; }
+@media (prefers-reduced-motion: reduce){
+  .btn, .nav-item, .player-body, .player-art-container, .player-controls-section, .dialog-box{ transition-duration: .01ms !important; }
 }
 
 
 /* Quick Picks: refresh has an explicit loading state; next remains available at the end
    so it can request another recommendation batch instead of becoming a dead arrow. */
-.online-quick-nav { align-items:center; gap:5px; margin-right:8px; }
-.online-quick-nav .icon-btn { width:36px; height:36px; min-width:36px; }
-.online-quick-nav .icon-btn:disabled { opacity:.45; cursor:wait; }
-.online-quick-nav .online-quick-refresh.is-loading .material-symbols-rounded {
+.online-quick-nav{ align-items:center; gap:5px; margin-right:8px; }
+.online-quick-nav .icon-btn{ width:36px; height:36px; min-width:36px; }
+.online-quick-nav .icon-btn:disabled{ opacity:.45; cursor:wait; }
+.online-quick-nav .online-quick-refresh.is-loading .material-symbols-rounded{
     animation:mujic-quick-refresh-spin .8s linear infinite;
 }
-.online-quick-nav .online-quick-next.is-loading .material-symbols-rounded {
+.online-quick-nav .online-quick-next.is-loading .material-symbols-rounded{
     opacity:.5;
 }
-@keyframes mujic-quick-refresh-spin { to { transform:rotate(360deg); } }
-@media (prefers-reduced-motion:reduce) {
-    .online-quick-nav .online-quick-refresh.is-loading .material-symbols-rounded { animation:none !important; }
+@keyframes mujic-quick-refresh-spin{ to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce){
+    .online-quick-nav .online-quick-refresh.is-loading .material-symbols-rounded{ animation:none !important; }
 }
 
 /* Dedicated desktop control dock. Its padded hit area is separate from the track-title
    tap target, so volume adjustments do not accidentally open the full-screen player. */
-@media (min-width:768px) {
-    #mini-player .mini-desktop-tools {
-        position:relative;
-        z-index:7;
-        flex:0 0 auto;
-        gap:7px;
-        margin-left:auto;
-        padding:0 5px 0 17px;
-        border-left:1px solid var(--sep);
-        border-radius:12px;
-        background:color-mix(in srgb, var(--bg-surface) 34%, transparent);
-    }
-    #mini-player .mini-desktop-tool {
-        width:42px;
-        min-width:42px;
-        height:42px;
-        border-radius:11px;
-    }
-    #mini-player .mini-volume-range {
-        width:92px;
-        min-width:72px;
-        margin:0 5px;
-        cursor:pointer;
-    }
-}
-@media (min-width:768px) and (max-width:980px) {
-    #mini-player .mini-volume-range { width:68px; min-width:56px; }
-    #mini-player .mini-desktop-tools { padding-left:12px; gap:4px; }
-}

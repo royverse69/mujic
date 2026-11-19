@@ -21,10 +21,11 @@
                         UI.syncLyrics(State.currentTime);
                     }
                 });
-                AudioAdapter.audio.addEventListener('waiting', () => { UI.setMiniPlayerBuffering?.(State.playbackSourceMode === 'online', Player.getCurrentTrack()); });
-                AudioAdapter.audio.addEventListener('stalled', () => { UI.setMiniPlayerBuffering?.(State.playbackSourceMode === 'online', Player.getCurrentTrack()); });
-                AudioAdapter.audio.addEventListener('playing', () => { UI.setMiniPlayerBuffering?.(false); });
-                AudioAdapter.audio.addEventListener('error', () => { UI.setMiniPlayerBuffering?.(false); });
+                AudioAdapter.audio.addEventListener('waiting', () => { UI.setMiniPlayerBuffering?.(State.playbackSourceMode === 'online', Player.getCurrentTrack()); AudioAdapter.armStallWatchdog(); });
+                AudioAdapter.audio.addEventListener('stalled', () => { UI.setMiniPlayerBuffering?.(State.playbackSourceMode === 'online', Player.getCurrentTrack()); AudioAdapter.armStallWatchdog(); });
+                AudioAdapter.audio.addEventListener('playing', () => { UI.setMiniPlayerBuffering?.(false); AudioAdapter.clearStallWatchdog(); AudioAdapter.endTransition(); });
+                AudioAdapter.audio.addEventListener('canplay', () => AudioAdapter.clearStallWatchdog());
+                AudioAdapter.audio.addEventListener('error', () => { UI.setMiniPlayerBuffering?.(false); AudioAdapter.clearStallWatchdog(); });
                 AudioAdapter.audio.addEventListener('loadedmetadata', () => {
                     State.duration = AudioAdapter.audio.duration;
                     const t = Player.getCurrentTrack();
@@ -35,7 +36,7 @@
                         State.currentTime = resume;
                         if (switchingResume) State.modeResumePendingTrackId = null;
                     }
-                    UI.updateDuration(); UI.updateProgress(); AudioAdapter.updateMediaSessionPosition(); window.MujicPiP?.sync?.();
+                    UI.updateDuration(); UI.updateProgress(); AudioAdapter.updateMediaSessionPosition(true); window.MujicPiP?.sync?.();
                     if(t && (!t.duration || Math.abs(t.duration - State.duration) > 2)) {
                         t.duration = State.duration;
                         if (t.source !== 'machhar-online') StorageAdapter.saveTrackMeta(t);
@@ -43,7 +44,7 @@
                 });
                 AudioAdapter.audio.addEventListener('ended', () => {
                     if (State.sleepTimer.active && State.sleepTimer.endOfSong) {
-                        Player.pause(); Player.setSleepTimer('off'); UI.showToast("Sleep timer ended playback", "bedtime"); return;
+                        Player.pause(); AudioAdapter.settlePaused(); Player.setSleepTimer('off'); UI.showToast("Sleep timer ended playback", "bedtime"); return;
                     }
                     Player.handleTrackEnded();
                 });
@@ -52,19 +53,12 @@
                     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
                     Player.syncNowPlaying?.(); window.MujicPiP?.sync?.();
                 });
-                AudioAdapter.audio.addEventListener('pause', () => { 
-                    State.isPlaying = false;
-                    const pausedTime=Number(AudioAdapter.audio.currentTime);
-                    if(Number.isFinite(pausedTime)&&pausedTime>=0)State.currentTime=pausedTime;
-                    State.resumePosition = State.currentTime;
-                    UI.updatePlayPause(); AudioAdapter.stopVisualizerLoop(); window.MujicPiP?.sync?.();
-                    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
-                    Stats.flush();
-                    if (State.resumePlayback && State.currentTrackId) { State.lastPositionSave = Date.now(); StorageAdapter.saveSettings(); }
-                    if(window.OnlineWorkspace&&State.currentTrackId){
-                        const current=Player.getCurrentTrack();
-                        OnlineWorkspace.saveQueueSnapshot(current?.source==='machhar-online'?'online':'offline');
-                    }
+                AudioAdapter.audio.addEventListener('pause', () => {
+                    // Pauses that are only part of a track change, or the natural end of a song that has a successor,
+                    // must not flip the UI / OS media session to "paused".
+                    if (AudioAdapter.transitioning) return;
+                    if (AudioAdapter.audio.ended && (State.repeat > 0 || State.queueIndex < State.playbackOrder.length - 1 || State.playbackSourceMode === 'online')) return;
+                    AudioAdapter.settlePaused();
                 });
                 AudioAdapter.audio.addEventListener('error', (e) => {
                     const track = Player.getCurrentTrack();
@@ -114,8 +108,21 @@
                 window.screen?.orientation?.addEventListener?.('change', refreshScreenWakeLock);
                 window.addEventListener('resize', refreshScreenWakeLock, {passive:true});
                 window.addEventListener('focus', () => Player.syncNowPlaying?.());
-                document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Player.syncNowPlaying?.(); });
-                window.addEventListener('pagehide', () => { if (State.stopOnPageHide) AudioAdapter.pause(); });
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
+                        Player.syncNowPlaying?.();
+                        if (State.isPlaying) AudioAdapter.resumeContext();
+                        AudioAdapter.setupMediaSession();
+                    } else {
+                        // The page may be frozen or killed next: persist position and queue now.
+                        try { StorageAdapter.flushSettings(); } catch (_) {}
+                    }
+                });
+                window.addEventListener('online', () => { if (State.isPlaying || AudioAdapter.audio.readyState < 3) AudioAdapter.armStallWatchdog(); });
+                window.addEventListener('pagehide', () => {
+                    try { StorageAdapter.flushSettings(); } catch (_) {}
+                    if (State.stopOnPageHide) AudioAdapter.pause();
+                });
                 AudioAdapter.setWakeLock(State.keepScreenAwake);
             },
             /* Once createMediaElementSource() has run the element is routed through Web Audio for good. From then on the
@@ -125,6 +132,50 @@
                 State.visualizerMode !== 'off' || State.loudnessControl || State.crossfade ||
                 (Array.isArray(State.eqBands) && State.eqBands.some(value => Math.abs(Number(value) || 0) > 0))
             ),
+            /* Never await this: on iOS a resume() of an interrupted context can stay pending for a long time,
+               and awaiting it before audio.play() both delays playback and spends the user gesture. */
+            resumeContext: () => {
+                const ctx = AudioAdapter.ctx;
+                if (!ctx || ctx.state === 'running' || ctx.state === 'closed') return;
+                try { ctx.resume().catch(() => {}); } catch (_) {}
+            },
+            /* Track changes keep the element "playing" in the eyes of the OS: pausing between songs makes Android and iOS
+               demote or drop the media notification, after which lock-screen buttons stop responding. */
+            holdForTransition: () => {
+                AudioAdapter.transitioning = true;
+                clearTimeout(AudioAdapter._transitionTimer);
+                AudioAdapter._transitionTimer = setTimeout(() => { if (AudioAdapter.transitioning) AudioAdapter.settlePaused(); }, 20000);
+                try { AudioAdapter.audio.pause(); } catch (_) {}
+            },
+            endTransition: () => { AudioAdapter.transitioning = false; clearTimeout(AudioAdapter._transitionTimer); },
+            /* Single place that reconciles state when playback really is paused. */
+            settlePaused: () => {
+                AudioAdapter.endTransition();
+                const audio = AudioAdapter.audio;
+                State.isPlaying = false;
+                const pausedTime = Number(audio.currentTime);
+                if (Number.isFinite(pausedTime) && pausedTime >= 0) State.currentTime = pausedTime;
+                State.resumePosition = State.currentTime;
+                UI.updatePlayPause(); AudioAdapter.stopVisualizerLoop(); window.MujicPiP?.sync?.();
+                try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; } catch (_) {}
+                Stats.flush();
+                if (State.resumePlayback && State.currentTrackId) { State.lastPositionSave = Date.now(); StorageAdapter.saveSettings(); }
+                if (window.OnlineWorkspace && State.currentTrackId) OnlineWorkspace.saveQueueSnapshot(Player.getCurrentTrack()?.source === 'machhar-online' ? 'online' : 'offline');
+            },
+            /* A stream that stays in "waiting" (expired signed URL, dropped connection) is reloaded once at the same position. */
+            armStallWatchdog: () => {
+                clearTimeout(AudioAdapter._stallTimer);
+                const audio = AudioAdapter.audio;
+                if (audio.paused || State.playbackSourceMode !== 'online') return;
+                AudioAdapter._stallTimer = setTimeout(() => {
+                    const track = Player.getCurrentTrack();
+                    if (!track || audio.paused || audio.readyState >= 3 || AudioAdapter.remoteAttemptInProgress) return;
+                    if (AudioAdapter._stallTrackId === track.id && Date.now() - AudioAdapter._stallAt < 30000) return;
+                    AudioAdapter._stallTrackId = track.id; AudioAdapter._stallAt = Date.now();
+                    Player.startCurrentTrack({ recovery: true, refreshStream: true, preserveTime: true });
+                }, 9000);
+            },
+            clearStallWatchdog: () => clearTimeout(AudioAdapter._stallTimer),
             applySettings: () => {
                 AudioAdapter.audio.volume = State.muted ? 0 : State.volume;
                 AudioAdapter.audio.playbackRate = State.playbackRate;
@@ -137,9 +188,10 @@
                 }
             },
             initWebAudio: async () => {
-                if(AudioAdapter.ctx) { if(AudioAdapter.ctx.state === 'suspended') await AudioAdapter.ctx.resume(); return; }
+                if(AudioAdapter.ctx) { AudioAdapter.resumeContext(); return; }
                 try {
-                    AudioAdapter.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    AudioAdapter.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback' });
+                    AudioAdapter.ctx.addEventListener('statechange', () => { if (State.isPlaying && AudioAdapter.ctx.state !== 'running') AudioAdapter.resumeContext(); });
                     AudioAdapter.source = AudioAdapter.ctx.createMediaElementSource(AudioAdapter.audio);
                     const defs = [
                         { type: 'lowshelf', frequency: 60, Q: 0.7 },
@@ -163,6 +215,7 @@
                     AudioAdapter.compressor.connect(AudioAdapter.masterGain);
                     AudioAdapter.masterGain.connect(AudioAdapter.ctx.destination);
                     AudioAdapter.applyEQ(); AudioAdapter.applyAudioEffects(); AudioAdapter.resizeVisualizer(); AudioAdapter.drawVisualizerFrame();
+                    AudioAdapter.resumeContext();
                 } catch(e) { console.warn("Web Audio API failed/unsupported", e); }
             },
             applyAudioEffects: () => {
@@ -345,8 +398,26 @@
                     if (attemptToken === AudioAdapter.remoteAttemptToken) AudioAdapter.remoteAttemptInProgress = false;
                 }
             },
-            pause: () => { AudioAdapter.audio.pause(); },
-            play: async () => { try { if (AudioAdapter.requiresWebAudio()) await AudioAdapter.initWebAudio(); if (AudioAdapter.masterGain) { const p=AudioAdapter.masterGain.gain; p.cancelScheduledValues(AudioAdapter.ctx.currentTime); p.setTargetAtTime(1,AudioAdapter.ctx.currentTime,.025); } await AudioAdapter.audio.play(); } catch(e) { console.error("Play resume failed", e); } },
+            play: async () => {
+                try {
+                    if (AudioAdapter.requiresWebAudio() && !AudioAdapter.ctx) AudioAdapter.initWebAudio();
+                    AudioAdapter.resumeContext();
+                    if (AudioAdapter.masterGain && AudioAdapter.ctx) { const p = AudioAdapter.masterGain.gain; p.cancelScheduledValues(AudioAdapter.ctx.currentTime); p.setTargetAtTime(1, AudioAdapter.ctx.currentTime, .025); }
+                    await AudioAdapter.audio.play();
+                } catch (e) {
+                    if (e?.name === 'AbortError') return; // superseded by a newer load()
+                    console.warn('Play resume failed', e);
+                    // The element lost its source (OS reclaimed it) or the stream died: rebuild the current track at the same position.
+                    if (e?.name === 'NotSupportedError' || e?.name === 'NetworkError' || AudioAdapter.audio.error) Player.startCurrentTrack({ recovery: true, refreshStream: true, preserveTime: true });
+                    else if (e?.name === 'NotAllowedError') UI.showToast('Tap play again to allow audio.', 'info');
+                }
+            },
+            pause: () => {
+                AudioAdapter.endTransition(); AudioAdapter.clearStallWatchdog();
+                // An already-paused element fires no 'pause' event, so reconcile state ourselves (e.g. the next track failed to load).
+                if (AudioAdapter.audio.paused) { if (State.isPlaying) AudioAdapter.settlePaused(); }
+                else AudioAdapter.audio.pause();
+            },
             seek: (time) => {
                 const target = Number(time);
                 if (!Number.isFinite(target)) return;
@@ -358,12 +429,14 @@
                 try { audio.currentTime = clamped; } catch (_) { return; }
                 State.currentTime = Number(audio.currentTime) || clamped;
                 State.resumePosition = State.currentTime;
-                AudioAdapter.updateMediaSessionPosition();
+                AudioAdapter.updateMediaSessionPosition(true);
                 window.MujicPiP?.sync?.();
             },
-            setVolume: (v) => { 
+            setVolume: (v, { persist = true } = {}) => {
+                v = Math.max(0, Math.min(1, Number(v) || 0));
                 State.volume = v; if (v > 0) State.previousVolume = v; State.muted = v === 0;
-                AudioAdapter.audio.volume = v; StorageAdapter.saveSettings(); UI.updateVolumeUI();
+                AudioAdapter.audio.volume = v; UI.updateVolumeUI();
+                if (persist) { clearTimeout(AudioAdapter._volumeSaveTimer); AudioAdapter._volumeSaveTimer = setTimeout(() => StorageAdapter.saveSettings().catch?.(() => {}), 250); }
                 if (v === 0 && State.pauseWhenMuted) AudioAdapter.pause();
             },
             toggleMute: () => { 
@@ -589,8 +662,11 @@
                 } catch(e) { UI.showToast("Failed to list/change devices", "error"); }
                 UI.closeSheets();
             },
-            updateMediaSessionPosition: () => {
+            updateMediaSessionPosition: (force = false) => {
                 if (!('mediaSession' in navigator) || typeof navigator.mediaSession.setPositionState !== 'function') return;
+                const nowMs = Date.now();
+                if (!force && nowMs - (AudioAdapter._lastPositionPush || 0) < 1000) return;
+                AudioAdapter._lastPositionPush = nowMs;
                 const audio = AudioAdapter.audio;
                 const rawDuration = Number(audio.duration);
                 const duration = Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : Number(State.duration);
@@ -607,18 +683,10 @@
                     const current = Number(AudioAdapter.audio.currentTime) || 0;
                     AudioAdapter.seek(current + offset);
                     State.currentTime = Number(AudioAdapter.audio.currentTime) || 0;
-                    AudioAdapter.updateMediaSessionPosition(); UI.updateProgress(); window.MujicPiP?.sync?.();
+                    AudioAdapter.updateMediaSessionPosition(true); UI.updateProgress(); window.MujicPiP?.sync?.();
                 };
-                bind('play', () => {
-                    const pip = window.MujicNativePiP;
-                    if (pip?.requestPlay) return pip.requestPlay();
-                    if (AudioAdapter.audio.paused || AudioAdapter.audio.ended) return Player.togglePlay();
-                });
-                bind('pause', () => {
-                    const pip = window.MujicNativePiP;
-                    if (pip?.requestPause) return pip.requestPause();
-                    return Player.pause();
-                });
+                bind('play', () => { if (AudioAdapter.audio.paused || AudioAdapter.audio.ended) return Player.togglePlay(); });
+                bind('pause', () => Player.pause());
                 bind('stop', () => Player.pause());
                 bind('previoustrack', () => Promise.resolve(Player.previous()).finally(() => window.MujicPiP?.sync?.()));
                 bind('nexttrack', () => Promise.resolve(Player.next()).finally(() => window.MujicPiP?.sync?.()));
@@ -694,6 +762,7 @@
                 // Clear the prior audio binding until this request successfully attaches the new track.
                 // This also prevents a stale same-track retry from leaving an old row highlighted.
                 delete AudioAdapter.audio.dataset.mujicTrackId;
+                if (!AudioAdapter.audio.paused) AudioAdapter.holdForTransition();
                 UI.syncNowPlayingIndicators?.();
                 const shouldRememberOnlineTrack = track.source === 'machhar-online' && State.currentTrackId !== track.id;
                 
@@ -715,6 +784,7 @@
                 const restorePosition=restored?Math.max(0,Number(restored.position)||0):0;
                 State.currentTime = restorePosition; State.duration = restored?Math.max(0,Number(restored.duration)||0):0; State.resumePosition = restorePosition; State.statsLastAudioTime = null; AudioAdapter._wf = null;
                 UI.updateProgress(); UI.updateDuration(); AudioAdapter.updateMediaSessionMeta(track); window.MujicPiP?.sync?.();
+                try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'; } catch (_) {}
                 
                 const isOnline = track.source === 'machhar-online';
                 // Render the mini-player before stream resolution or IndexedDB reads complete.
@@ -730,7 +800,7 @@
                     UI.showToast('Switch to streaming playback to play catalogue tracks.', 'info');
                     return;
                 }
-                if (isOnline) AudioAdapter.pause();
+                if (isOnline) AudioAdapter.holdForTransition();
                 let blob = null;
                 if (!isOnline) {
                     try { blob = await StorageAdapter.getAudioBlob(track.id); }
@@ -815,6 +885,7 @@
                     if (requestId === State.playbackRequestId) {
                         State.isPlaying = false;
                         UI.setMiniPlayerBuffering?.(false);
+                        AudioAdapter.endTransition();
                         try { AudioAdapter.audio.pause(); } catch (_) {}
                         UI.updatePlayPause(); UI.updateProgress(); UI.updateDuration();
                         try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; } catch (_) {}
@@ -867,7 +938,7 @@
                 const canFade = !!(State.crossfade && !options.skipTransition && !options.ended && !AudioAdapter.audio.paused && AudioAdapter.masterGain);
                 if (canFade) await AudioAdapter.fadeMaster(0, 200);
                 if (ticket !== State.playbackRequestId) return;
-                AudioAdapter.pause();
+                AudioAdapter.holdForTransition();
                 State.transitionFadePending = canFade;
                 if (shouldAutoplayRadio) {
                     try {
@@ -901,7 +972,7 @@
                 State.queueIndex++;
                 if (State.queueIndex >= State.playbackOrder.length) {
                     if (State.repeat === 1) { State.queueIndex = 0; }
-                    else { State.queueIndex = skippedEquivalentTracks ? originalQueueIndex : State.playbackOrder.length - 1; State.transitionFadePending=false; AudioAdapter.pause(); AudioAdapter.seek(0); return; }
+                    else { State.queueIndex = skippedEquivalentTracks ? originalQueueIndex : State.playbackOrder.length - 1; State.transitionFadePending=false; AudioAdapter.pause(); AudioAdapter.seek(0); AudioAdapter.settlePaused(); return; }
                 }
                 Player.startCurrentTrack();
             },
@@ -912,7 +983,7 @@
                 const canFade = !!(State.crossfade && !AudioAdapter.audio.paused && AudioAdapter.masterGain);
                 if (canFade) await AudioAdapter.fadeMaster(0, 160);
                 if (ticket !== State.playbackRequestId) return;
-                AudioAdapter.pause(); State.transitionFadePending = canFade;
+                AudioAdapter.holdForTransition(); State.transitionFadePending = canFade;
                 State.queueIndex--;
                 if (State.queueIndex < 0) {
                     if (State.repeat === 1) State.queueIndex = State.playbackOrder.length - 1;
