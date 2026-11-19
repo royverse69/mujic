@@ -1,34 +1,45 @@
 # Mujic
 
-Offline-first music player PWA with optional streaming, synced lyrics and artwork-led lyric cards.
+Free, installable music player: play your own library offline or stream songs, with synced lyrics, a 10-band equalizer, queue, playlists, sleep timer and Picture-in-Picture. Static PWA — no build step.
 
-## Architecture (v13.2.6)
-
-Every network request the app makes — catalogue search, artist/album/playlist details, recommendations,
-lyrics and audio/artwork media — goes to **one origin: the Cloudflare Worker at `https://mujic.calverse.online`**
-(source in [`worker/`](worker/)). There is no Render service and no direct browser-to-upstream traffic.
-
-Caching, from the outside in:
-
-1. **In memory** (`online-provider.js`): finished catalogue answers are reused instantly (stale-while-revalidate),
-   identical in-flight requests share one network call, and abandoned requests still finish to warm the cache.
-2. **Service worker** (`sw.js`): JSON from the Worker is cached with stale-while-revalidate (search fresh 5 min,
-   usable stale for 1 h); artwork and the first 256 KiB of the next track are cached separately.
-3. **Cloudflare edge** (`worker/index.js`): the Cache API stores every JSON route with per-route TTLs and
-   stale-while-revalidate; `/media` is cached by Cloudflare (including byte ranges). The upstream catalogue is
-   contacted only on a miss.
-
-## Deploying the Worker
-
-```bash
-cd worker
-npx wrangler deploy      # serves mujic.calverse.online (see wrangler.toml)
-```
-
-Check it: `/health`, `/api/search/songs?query=Billie%20Eilish&limit=5`, `/trending`, `/lyrics/search?q=...`.
-Routes: `/api/*`, `/media`, `/search`, `/trending`, `/queue/:id`, `/stream/:id`, `/song/:id`, `/suggest`,
-`/lyrics`, `/lyrics/get`, `/lyrics/search`, `/lyrics/ovh`, `/lyricsplus/v2/lyrics/get`.
+**Live:** https://royverse69.github.io/mujic/
 
 ## Run locally
 
-`npm start` serves the static app on port 3000. `npm run check` runs the syntax and regression checks.
+```bash
+npm start          # python3 -m http.server 3000  →  http://localhost:3000
+npm run check      # syntax, missing-file, asset-size, manifest and SEO checks (no dependencies)
+```
+
+Run `npm run check` before every deploy. It fails if a script has a syntax error, `index.html` or `sw.js` points at a missing file, a script isn't precached, or an oversized asset sneaks in.
+
+## Deploy (GitHub Pages)
+
+Push the repository contents to the `main` branch of a Pages-enabled repo. Everything is relative-pathed, so it works from `/mujic/` or any other sub-path. When you change JS/CSS, bump `CACHE_NAME` in `sw.js` and `VERSION`.
+
+Streaming/lyrics requests go through the Cloudflare Worker in `worker/` (see `docs/api-integration.md`).
+
+## Layout
+
+| Path | Purpose |
+|---|---|
+| `index.html` | App shell, SEO tags, structured data |
+| `css/app.css`, `css/settings.css`, `css/native-ux.css`, `css/online-workspace.css` | Styles |
+| `css/mini-player.css` | The only place mini-player styles live |
+| `js/core.js`, `storage.js`, `player.js` | State, IndexedDB persistence, audio engine + Media Session |
+| `js/ui*.js`, `library.js`, `lyrics.js`, `online-*.js` | Interface, library, lyrics, streaming |
+| `js/pip.js` | Picture-in-Picture (clean video mode + full Document PiP mode) |
+| `js/mini-player.js` | Mini-player seek bar, volume, swipe-to-dismiss |
+| `sw.js` | Offline cache (app code is network-first so a deploy never mixes versions) |
+| `sitemap.xml`, `robots.txt`, `404.html` | SEO / hosting |
+
+## Picture-in-Picture
+
+Settings → Playback → *Picture-in-Picture style*:
+
+- **Clean** (default): browser video PiP. No address/site bar. Previous / play / next come from the OS media controls.
+- **Full controls**: Document PiP with queue, lyrics, volume, shuffle, repeat, favourite. Chrome always prints the site name in this window's title bar; web pages cannot hide it.
+
+## Licence
+
+MIT — see `LICENSE`. Security policy: `SECURITY.md`.

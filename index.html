@@ -4,9 +4,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Mujic — Music Player</title>
-    <meta name="application-version" content="13.5.0">
+    <title>Mujic — Free Offline & Streaming Music Player with Synced Lyrics</title>
+    <meta name="application-version" content="13.6.1">
     <meta name="theme-color" content="#000000">
+    <meta name="description" content="Mujic is a free, installable music player: play your own library offline or stream songs, with synced lyrics, equalizer, queue, playlists and Picture-in-Picture. No account needed.">
+    <meta name="keywords" content="music player, offline music player, streaming, synced lyrics, equalizer, PWA, Picture-in-Picture, lyrics player, Mujic">
+    <meta name="author" content="Ashutosh Roy (royverse69)">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+    <link rel="canonical" href="https://royverse69.github.io/mujic/">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Mujic">
+    <meta property="og:title" content="Mujic — Free Offline &amp; Streaming Music Player">
+    <meta property="og:description" content="Play your library offline or stream songs with synced lyrics, equalizer, queue and Picture-in-Picture. Installable, no account needed.">
+    <meta property="og:url" content="https://royverse69.github.io/mujic/">
+    <meta property="og:image" content="https://royverse69.github.io/mujic/icons/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Mujic music player logo">
+    <meta property="og:locale" content="en_US">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Mujic — Free Offline &amp; Streaming Music Player">
+    <meta name="twitter:description" content="Offline library + streaming, synced lyrics, equalizer, Picture-in-Picture. Installable and free.">
+    <meta name="twitter:image" content="https://royverse69.github.io/mujic/icons/og-image.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Mujic","url":"https://royverse69.github.io/mujic/","applicationCategory":"MultimediaApplication","applicationSubCategory":"Music Player","operatingSystem":"Any (Web, Android, iOS, Windows, macOS, Linux)","browserRequirements":"Requires a modern browser with JavaScript","inLanguage":"en","isAccessibleForFree":true,"description":"Free installable music player with offline library playback, online streaming, synced lyrics, equalizer, queue, playlists and Picture-in-Picture.","featureList":["Offline library playback","Online streaming","Synced lyrics","10-band equalizer","Queue and playlists","Picture-in-Picture mini player","Installable PWA"],"image":"https://royverse69.github.io/mujic/icons/og-image.png","screenshot":"https://royverse69.github.io/mujic/icons/og-image.png","softwareVersion":"13.6.1","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Ashutosh Roy","alternateName":"royverse69"}}</script>
+
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -64,12 +87,16 @@
 
     <link rel="stylesheet" href="./css/app.css">
     <link rel="stylesheet" href="./css/native-ux.css">
+    <link rel="stylesheet" href="./css/mini-player.css">
     <link rel="stylesheet" href="./css/settings.css">
 </head>
 <body>
+    <h1 class="seo-hidden">Mujic — free offline and streaming music player</h1>
+    <p class="seo-hidden">Mujic plays the music on your device offline and streams songs online, with synced lyrics, a 10-band equalizer, queue, playlists, sleep timer and Picture-in-Picture mini player. Install it like an app on Android, iOS, Windows, macOS or Linux. No account required.</p>
+    <noscript><div style="max-width:640px;margin:48px auto;padding:0 20px;font-family:system-ui,sans-serif;color:#eee;background:#000;line-height:1.6"><h2>Mujic needs JavaScript</h2><p>Mujic is a free music player that runs in your browser. Please enable JavaScript to play your library offline, stream songs and view synced lyrics.</p></div></noscript>
     <div id="app-layout">
         <nav id="bottom-nav" class="glass-surface">
-            <div class="brand-header"><img class="brand-header-animation" src="./icons/diwaliicon.webp" width="160" height="54" alt="Mujic" fetchpriority="high" decoding="async"></div>
+            <div class="brand-header"><picture><source media="(prefers-reduced-motion: reduce)" srcset="./icons/mujic-wordmark-static.webp"><img class="brand-header-animation" id="brand-wordmark" src="./icons/mujic-wordmark.webp" data-static="./icons/mujic-wordmark-static.webp" width="400" height="129" alt="Mujic" fetchpriority="high" decoding="async"></picture></div>
             <div class="nav-item active" data-workspace="offline" data-view="home" data-action="switch-view"><span class="material-symbols-rounded">home</span><span>Home</span></div>
             <div class="nav-item" data-workspace="offline" data-view="library" data-action="switch-view"><span class="material-symbols-rounded">library_music</span><span>Library</span></div>
             <div class="nav-item" data-workspace="offline" data-view="search" data-action="switch-view"><span class="material-symbols-rounded">search</span><span>Search</span></div>
@@ -136,7 +163,7 @@
                     </div>
                 </div>
                 <section class="online-panel online-linked-panel" id="home-linked-online" hidden></section>
-                <footer class="online-brand-footer" aria-label="Mujic"><div class="online-brand-wordmark" aria-hidden="true">Mujic</div><img class="online-brand-animation" src="./icons/diwaliicon.webp" width="480" height="160" alt="" loading="lazy" decoding="async"></footer>
+                <footer class="online-brand-footer" aria-label="Mujic"><div class="online-brand-wordmark" aria-hidden="true">Mujic</div><img class="online-brand-animation" src="./icons/mujic-wordmark-static.webp" width="400" height="129" alt="" loading="lazy" decoding="async"></footer>
             </section>
 
             <section id="view-library" class="view">
@@ -289,7 +316,7 @@
                     <div class="online-shelf-heading"><h2>Recently Played</h2><button class="text-action online-show-more" data-action="switch-view" data-view="online-history">History</button></div>
                     <div class="online-card-rail" id="online-home-recent"></div>
                 </section>
-                <footer class="online-brand-footer" aria-label="Mujic"><div class="online-brand-wordmark" aria-hidden="true">Mujic</div><img class="online-brand-animation" src="./icons/diwaliicon.webp" width="480" height="160" alt="" loading="lazy" decoding="async"></footer>
+                <footer class="online-brand-footer" aria-label="Mujic"><div class="online-brand-wordmark" aria-hidden="true">Mujic</div><img class="online-brand-animation" src="./icons/mujic-wordmark-static.webp" width="400" height="129" alt="" loading="lazy" decoding="async"></footer>
             </section>
 
             <section id="view-online-artists" class="view online-workspace-view online-artists-page" data-workspace-root="online">
@@ -489,6 +516,10 @@
                     <div class="settings-row clickable" data-action="show-sheet" data-target="waveform-style-sheet">
                         <div class="settings-text"><div class="settings-label">Audio Waveform</div><div class="settings-desc">Choose Off, Default, Wavy, Slim or Squiggly for the played section of the seek bar</div></div>
                         <div class="settings-control-group"><span class="setting-inline-value" id="visualizer-settings-summary">Off</span><span class="material-symbols-rounded settings-chevron">chevron_right</span></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-text"><div class="settings-label">Picture-in-Picture style</div><div class="settings-desc">Clean uses the browser's video window (no site address bar). Full controls adds queue, lyrics and volume, but Chrome always shows the site name on that window.</div></div>
+                        <div class="settings-control-group"><div class="apple-select-wrapper"><select class="settings-control" data-setting="pipStyle" aria-label="Picture-in-Picture style"><option value="clean">Clean (no address bar)</option><option value="full">Full controls</option></select></div></div>
                     </div>
                     <div class="settings-row">
                         <div class="settings-text"><div class="settings-label">Swipe mini-player down to stop</div></div>
@@ -842,25 +873,26 @@
 
     <div id="mini-player" class="glass-surface" role="group" aria-label="Now playing" data-action="open-full-player">
         <div class="mini-now">
-        <img id="mini-art" src="" width="54" height="54" alt="" onerror="this.onerror=null; if(window.Utils && window.Utils.defaultArt){this.src=window.Utils.defaultArt;}">
-        <div class="mini-meta" role="button" tabindex="0" title="Open full screen player">
-            <div class="item-title" id="mini-title">Not Playing</div>
-            <div class="item-subtitle" id="mini-artist">--</div>
-            <div class="mini-next-up" id="mini-next-up" hidden></div>
-            <span class="mini-buffering-status" id="mini-buffering-status" role="status" aria-live="polite"></span>
-        </div>
+            <img id="mini-art" src="" width="56" height="56" alt="" decoding="async" onerror="this.onerror=null; if(window.Utils && window.Utils.defaultArt){this.src=window.Utils.defaultArt;}">
+            <div class="mini-meta" role="button" tabindex="0" title="Open full screen player">
+                <div class="item-title" id="mini-title">Not Playing</div>
+                <div class="item-subtitle" id="mini-artist">--</div>
+                <div class="mini-next-up" id="mini-next-up" hidden></div>
+                <span class="mini-buffering-status" id="mini-buffering-status" role="status" aria-live="polite"></span>
+            </div>
         </div>
         <div class="mini-controls" aria-label="Playback controls">
-            <button class="icon-btn mini-action mini-prev" data-action="prev-track" aria-label="Previous track" title="Previous track" type="button"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_previous</span></button>
-            <button class="icon-btn mini-action" data-action="toggle-play" aria-label="Play" title="Play or pause"><span class="material-symbols-rounded" id="mini-play-btn" style="font-variation-settings: 'FILL' 1;">play_arrow</span></button>
-            <button class="icon-btn mini-action" data-action="next-track" aria-label="Next track" title="Next track" type="button"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_next</span></button>
+            <button class="mini-action mini-prev" data-action="prev-track" aria-label="Previous track" title="Previous track" type="button"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_previous</span></button>
+            <button class="mini-action mini-play" data-action="toggle-play" aria-label="Play" title="Play or pause" type="button"><span class="material-symbols-rounded" id="mini-play-btn" style="font-variation-settings: 'FILL' 1;">play_arrow</span></button>
+            <button class="mini-action mini-next" data-action="next-track" aria-label="Next track" title="Next track" type="button"><span class="material-symbols-rounded" style="font-variation-settings: 'FILL' 1;">skip_next</span></button>
         </div>
-        <div class="mini-desktop-tools" aria-label="More playback controls">
-            <button class="icon-btn mini-desktop-tool" data-action="show-sheet" data-target="volume-sheet" aria-label="Volume" title="Volume"><span class="material-symbols-rounded" id="mini-volume-icon">volume_up</span></button>
-            <input type="range" id="mini-volume-range" class="mini-volume-range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
-            <button class="icon-btn mini-desktop-tool" data-action="picture-in-picture" aria-label="Picture in picture" title="Picture in picture"><span class="material-symbols-rounded">picture_in_picture_alt</span></button>
+        <div class="mini-tools" aria-label="More playback controls">
+            <button class="mini-tool mini-queue" data-action="show-sheet" data-target="queue-sheet" aria-label="Queue" title="Queue" type="button"><span class="material-symbols-rounded">queue_music</span></button>
+            <button class="mini-tool mini-desktop-only" data-action="toggle-mute" aria-label="Mute or unmute" title="Mute or unmute" type="button"><span class="material-symbols-rounded" id="mini-volume-icon">volume_up</span></button>
+            <input type="range" id="mini-volume-range" class="mini-volume-range mini-desktop-only" min="0" max="1" step="0.01" value="1" aria-label="Volume">
+            <button class="mini-tool mini-desktop-only" data-action="picture-in-picture" aria-label="Picture in picture" title="Picture in picture" type="button"><span class="material-symbols-rounded">picture_in_picture_alt</span></button>
         </div>
-        <div class="mini-scrub"><span class="mini-time" id="mini-time-current" aria-hidden="true">0:00</span><div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-progress"></div></div><span class="mini-time" id="mini-time-total" aria-hidden="true">0:00</span></div>
+        <div class="mini-scrub"><span class="mini-time" id="mini-time-current" aria-hidden="true">0:00</span><div class="mini-progress-bar" id="mini-progress-bar" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="-1"><div class="mini-progress-fill" id="mini-progress"></div></div><span class="mini-time" id="mini-time-total" aria-hidden="true">0:00</span></div>
     </div>
 
     <div id="full-player" aria-hidden="true">
@@ -914,6 +946,7 @@
                 
                 <div class="secondary-playback-controls">
                     <button class="icon-btn" id="lyrics-btn" data-action="toggle-lyrics" aria-label="Lyrics" title="Lyrics"><span class="material-symbols-rounded">lyrics</span></button>
+                    <button class="icon-btn" id="queue-btn" data-action="show-sheet" data-target="queue-sheet" aria-label="Queue" title="Queue"><span class="material-symbols-rounded">queue_music</span></button>
                     <button class="icon-btn" id="mute-btn" data-action="toggle-mute" aria-label="Mute" title="Mute or unmute"><span class="material-symbols-rounded">volume_up</span></button>
                     <button class="icon-btn" data-action="show-sheet" data-target="player-more-sheet" aria-label="More Options" title="More options"><span class="material-symbols-rounded">more_horiz</span></button>
                 </div>
@@ -1144,7 +1177,9 @@
     <script defer src="./js/ui-history.js"></script>
     <script defer src="./js/ui-player.js"></script>
     <script defer src="./js/track-actions.js"></script>
+    <script defer src="./js/pip.js"></script>
     <script defer src="./js/ui-events.js"></script>
+    <script defer src="./js/mini-player.js"></script>
     <script defer src="./js/keyboard.js"></script>
     <script defer src="./js/onboarding.js"></script>
     <script defer src="./js/native-ux.js"></script>

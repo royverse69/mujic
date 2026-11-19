@@ -1,8 +1,8 @@
 {
   "name": "Mujic",
   "short_name": "Mujic",
-  "description": "Mujic offline-first music player with artwork-led lyric sharing and online streaming.",
-  "start_url": "./index.html?source=pwa",
+  "description": "Free music player: play your library offline or stream songs with synced lyrics, equalizer, queue and Picture-in-Picture.",
+  "start_url": "./?source=pwa",
   "scope": "./",
   "display": "standalone",
   "display_override": [
@@ -17,13 +17,52 @@
       "src": "./icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "./icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "./",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": [
+    "music",
+    "entertainment",
+    "multimedia"
+  ],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Search",
+      "short_name": "Search",
+      "url": "./?source=shortcut#search",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Library",
+      "short_name": "Library",
+      "url": "./?source=shortcut#library",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

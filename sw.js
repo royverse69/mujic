@@ -1,5 +1,5 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.5.0-cloudflare-edge';
+const CACHE_NAME = 'mujic-pwa-v13.6.1';
 const API_CACHE = 'mujic-api-v3';
 const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';
@@ -19,9 +19,18 @@ const MAX_MEDIA_CHUNK_BYTES = 262144;
 const MAX_MEDIA_IMAGE_ENTRIES = 1200;
 const MAX_MEDIA_IMAGE_BYTES = 160 * 1024 * 1024;
 const APP_SHELL = [
-  './', './index.html', './VERSION', './manifest.webmanifest', './css/app.css', './css/native-ux.css', './css/settings.css', './js/native-ux.js',
-  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/backend-config.js', './js/module-loader.js', './js/online-provider.js', './js/lyrics.js', './js/dialogs.js', './js/player.js', './js/library.js', './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/lyrics-share.js', './js/ui-history.js', './js/ui-player.js', './js/track-actions.js', './js/ui-events.js', './js/keyboard.js', './js/onboarding.js', './js/app.js',
-  './data/discovery-catalog.json', './icons/icon-192.png', './icons/icon-512.png', './icons/diwaliicon.webp', './icons/Spotify%20Logo%20-%20Black.png', './icons/Spotify%20Logo%20-%20White.png'
+  './', './index.html', './VERSION', './manifest.webmanifest',
+  './css/app.css', './css/native-ux.css', './css/settings.css', './css/online-workspace.css', './css/mini-player.css',
+  './js/vendor-loader.js', './js/core.js', './js/storage.js', './js/backend-config.js', './js/module-loader.js',
+  './js/lyrics.js', './js/online-provider.js', './js/dialogs.js', './js/player.js', './js/library.js',
+  './js/ui.js', './js/ui-settings.js', './js/ui-library.js', './js/ui-search.js', './js/ui-lyrics.js', './js/ui-history.js',
+  './js/ui-player.js', './js/track-actions.js', './js/pip.js', './js/ui-events.js', './js/mini-player.js', './js/keyboard.js', './js/onboarding.js',
+  './js/native-ux.js', './js/app.js',
+  './js/online-cache.js', './js/online-lyrics.js', './js/online-recommendations.js', './js/online-downloader.js',
+  './js/discovery-catalog-data.js', './js/online-workspace.js', './js/lyrics-share.js',
+  './data/discovery-catalog.json',
+  './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
+  './icons/mujic-wordmark-static.webp', './icons/mujic-wordmark.webp'
 ];
 const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('install', event => {
@@ -296,6 +305,19 @@ self.addEventListener('fetch', event => {
         if (res && res.ok) cache.put('./index.html', res.clone()).catch(()=>{});
         return res;
       } catch (e) { return shell || Response.error(); }
+      finally { if (timer) clearTimeout(timer); }
+    }
+    /* App code must stay consistent with index.html, so same-origin scripts, styles and data go network-first
+       (short timeout, cache fallback). Only static media and fonts are served cache-first. */
+    const isCode = same && /\.(?:js|css|json|webmanifest)$/.test(url.pathname) || same && url.pathname.endsWith('/VERSION');
+    if (isCode) {
+      const controller = new AbortController();
+      const timer = cached ? setTimeout(() => controller.abort(), NAVIGATION_TIMEOUT_MS) : null;
+      try {
+        const res = await fetch(req, { signal: controller.signal, cache: 'no-cache' });
+        if (res && res.ok) cache.put(req, res.clone()).catch(() => {});
+        return res;
+      } catch (_) { return cached || Response.error(); }
       finally { if (timer) clearTimeout(timer); }
     }
     if ((same || isFontCss || isFontFile) && cached) return cached;

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /dloader.html
+
+Sitemap: https://royverse69.github.io/mujic/sitemap.xml
