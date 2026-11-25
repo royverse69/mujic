@@ -42,8 +42,10 @@
     const ensureOnline = () => {
         if (onlinePromise)
             return onlinePromise;
-        onlinePromise = (async () => { await loadOnlineStyles(); for (const src of onlineScripts)
-            await loadScript(src); return true; })().catch(error => { onlinePromise = null; throw error; });
+        /* Download the stylesheet and all scripts in parallel. Scripts are injected with async=false, so they still
+           EXECUTE in this exact order; only the downloads overlap (six sequential round trips became one). */
+        onlinePromise = Promise.all([loadOnlineStyles(), ...onlineScripts.map(loadScript)]).then(() => true)
+            .catch(error => { onlinePromise = null; throw error; });
         return onlinePromise;
     };
     const ensureLyricsShare = () => {

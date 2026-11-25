@@ -1,5 +1,19 @@
 # Changelog
 
+## 13.6.2
+
+**Startup and "loading screen"**
+- The service worker no longer waits on the network to open the app. 13.6.1 revalidated every file on every launch, which on weak mobile data meant 7–30 s on a blank shell. The shell is now cache-first and always comes from one installed version, so `index.html` and its scripts can never disagree. On a stalled connection the app opens in ~0.2 s (was ~7 s).
+- The install step is all-or-nothing (`cache.addAll`), so a half-downloaded update can never be activated.
+- Streaming-mode modules (six scripts + stylesheet) now download in parallel; they still execute in the same order.
+- The 950 KB animated logo is no longer requested during startup; the 20 KB static logo shows first and the animation swaps in after the page has loaded (skipped on Data Saver, 2G and low-end mode).
+
+**Stability**
+- The queue list is only built while the queue sheet is open. It used to be rebuilt on every track change (≈160 ms and 7,000 DOM nodes for 500 songs), which froze phones during long streaming sessions.
+- Opaque (no-CORS) artwork is no longer stored in the cache; browsers bill each one ~7 MB against the storage quota, which can trigger eviction of offline data.
+- Cache-busting update probes (`VERSION?check=…`) are no longer stored.
+- `npm run check` now also fails if `sw.js` `CACHE_NAME` does not match `VERSION`.
+
 ## 13.6.1
 
 **Fixes**

@@ -133,7 +133,7 @@
             },
             showSheet: (id, fromHistory = false) => { 
                 UI.closeSheets(true); document.getElementById('sheet-overlay').classList.add('active'); 
-                const sheet = document.getElementById(id); if (sheet) { sheet.classList.add('active'); UI.updatePlayerSettingsLabels(); UI.updateVisualizerUI(); if (id === 'eq-sheet') UI.updateEQUI(); }
+                const sheet = document.getElementById(id); if (sheet) { sheet.classList.add('active'); UI.updatePlayerSettingsLabels(); UI.updateVisualizerUI(); if (id === 'eq-sheet') UI.updateEQUI(); if (id === 'queue-sheet' && UI._queueDirty !== false) UI._renderQueueNow(); }
                 if (!fromHistory) {
                     const view = (document.querySelector('.view.active')?.id || 'view-home').replace('view-','');
                     UI.pushHistoryState({ mujic:true, view, player:State.isFullPlayerOpen, sheet:id }, `#sheet-${id}`);

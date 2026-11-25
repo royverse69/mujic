@@ -351,7 +351,8 @@
                 document.body.classList.toggle('low-end-mode', lowEndActive);
                 const wordmark = document.getElementById('brand-wordmark');
                 if (wordmark) { // the animated logo is skipped entirely on low-end profiles
-                    const wanted = lowEndActive ? wordmark.dataset.static : './icons/mujic-wordmark.webp';
+                    // The 950 KB animation is only requested after the app has loaded (see app.js), never during startup.
+                    const wanted = (!lowEndActive && wordmark.dataset.animatedReady) ? wordmark.dataset.animated : wordmark.dataset.static;
                     if (!wordmark.src.endsWith(wanted.replace('./', ''))) wordmark.src = wanted;
                 }
                 document.body.classList.remove('theme-light');

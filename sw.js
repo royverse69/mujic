@@ -1,5 +1,5 @@
 /* Copyright mujic@royverse69 */
-const CACHE_NAME = 'mujic-pwa-v13.6.1';
+const CACHE_NAME = 'mujic-pwa-v13.6.2';
 const API_CACHE = 'mujic-api-v3';
 const ART_CACHE = 'mujic-art-v3';
 const CONFIG_CACHE = 'mujic-config-v1';
@@ -8,7 +8,6 @@ const API_FRESH_MS = 30 * 60 * 1000;
 const API_SONG_FRESH_MS = 4 * 60 * 1000; // stream URLs expire server-side; keep short
 const API_SEARCH_FRESH_MS = 20 * 60 * 1000;
 const API_SEARCH_STALE_MS = 24 * 60 * 60 * 1000;
-const NAVIGATION_TIMEOUT_MS = 3500;
 const API_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_API_ENTRIES = 1500;
 const MAX_ART_ENTRIES = 2500;
@@ -36,7 +35,8 @@ const RUNTIME_HOSTS = ['fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await Promise.all(APP_SHELL.map(async path => { try { await cache.add(path); } catch(e) { } }));
+    /* All-or-nothing: a version is either fully cached (and consistent) or not installed at all. */
+    await cache.addAll(APP_SHELL.map(path => new Request(path, { cache: 'reload' })));
     await self.skipWaiting();
   })());
 });
@@ -221,8 +221,7 @@ const handleArt = async request => {
   } catch (error) {
     try {
       const opaque = await fetch(request.url, {mode:'no-cors', credentials:'omit'});
-      if (opaque.type === 'opaque') cache.put(key, opaque.clone()).then(() => trimEntries(cache, MAX_ART_ENTRIES)).catch(() => {});
-      return opaque;
+      return opaque; // shown, but not stored: an opaque entry counts ~7 MB toward the storage quota
     } catch (_) {
       const fallback = await cache.match(key);
       if (fallback) return fallback;
@@ -295,35 +294,20 @@ self.addEventListener('fetch', event => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(req);
+    /* The app shell is cache-first: it opens instantly, even on a stalled connection, and every file comes from the
+       same installed version so index.html and its scripts can never disagree. Deploys arrive through the service
+       worker update (a changed sw.js installs the new set in the background). */
     if (req.mode === 'navigate') {
-      /* Network first, but never hang: a stalled connection falls back to the cached shell after a short wait. */
-      const shell = cached || await cache.match('./index.html');
-      const controller = new AbortController();
-      const timer = shell ? setTimeout(() => controller.abort(), NAVIGATION_TIMEOUT_MS) : null;
-      try {
-        const res = await fetch(req, shell ? { signal: controller.signal } : undefined);
-        if (res && res.ok) cache.put('./index.html', res.clone()).catch(()=>{});
-        return res;
-      } catch (e) { return shell || Response.error(); }
-      finally { if (timer) clearTimeout(timer); }
-    }
-    /* App code must stay consistent with index.html, so same-origin scripts, styles and data go network-first
-       (short timeout, cache fallback). Only static media and fonts are served cache-first. */
-    const isCode = same && /\.(?:js|css|json|webmanifest)$/.test(url.pathname) || same && url.pathname.endsWith('/VERSION');
-    if (isCode) {
-      const controller = new AbortController();
-      const timer = cached ? setTimeout(() => controller.abort(), NAVIGATION_TIMEOUT_MS) : null;
-      try {
-        const res = await fetch(req, { signal: controller.signal, cache: 'no-cache' });
-        if (res && res.ok) cache.put(req, res.clone()).catch(() => {});
-        return res;
-      } catch (_) { return cached || Response.error(); }
-      finally { if (timer) clearTimeout(timer); }
+      const shell = await cache.match('./index.html');
+      if (shell) return shell;
+      try { return await fetch(req); } catch (e) { return Response.error(); }
     }
     if ((same || isFontCss || isFontFile) && cached) return cached;
     try {
       const res = await fetch(req);
-      if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone()).catch(()=>{});
+      const storable = same ? (res && res.ok && !url.search) // same-origin: never store cache-busting probes like VERSION?check=…
+                             : (res && (res.ok || res.type === 'opaque')); // font hosts (their CSS is a no-cors, query-string URL)
+      if (storable) cache.put(req, res.clone()).catch(()=>{});
       return res;
     } catch(e) {
       if (cached) return cached;

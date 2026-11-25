@@ -88,6 +88,13 @@
             if (document.readyState !== 'loading' && UI.updateInstallUI) UI.updateInstallUI();
         });
         window.addEventListener('resize', () => AudioAdapter.resizeVisualizer());
+        // Swap the static logo for the animated one once everything else has loaded, so it never competes with startup.
+        window.addEventListener('load', () => setTimeout(() => {
+            const wordmark = document.getElementById('brand-wordmark');
+            const link = navigator.connection;
+            if (!wordmark || document.body.classList.contains('low-end-mode') || link?.saveData || /(^|-)2g$/.test(link?.effectiveType || '')) return;
+            wordmark.dataset.animatedReady = '1'; wordmark.src = wordmark.dataset.animated;
+        }, 1500));
         window.addEventListener('DOMContentLoaded', async () => { await App.init(); setTimeout(() => UI.checkForUpdates(false), 1800); });
 
         if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {

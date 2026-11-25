@@ -51,5 +51,9 @@ if (/\.icon-btn::after/.test(ux) && !/:where\(\.icon-btn[\s\S]*?\)\s*\{\s*positi
 const appCss = read('css/app.css');
 if ((appCss.match(/data-corner-radius="[a-z]+"\]\s*:is\(/g) || []).length < 10) fail('app.css: corner-radius setting rules are missing (expected 10)');
 
+const swSource = read('sw.js');
+const versionFile = read('VERSION').trim();
+if (!swSource.includes(`mujic-pwa-v${versionFile}`)) fail(`sw.js CACHE_NAME must contain mujic-pwa-v${versionFile} (bump it with VERSION, or installed apps never update)`);
+
 if (problems.length) { console.error('✖ Check failed:\n  - ' + problems.join('\n  - ')); process.exit(1); }
 console.log(`✔ Mujic check passed (${files.length} files, ${files.filter(f => f.endsWith('.js')).length} scripts parsed)`);

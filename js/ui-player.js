@@ -17,8 +17,17 @@
                 if(active)mini.setAttribute('aria-label',`Loading ${track.title||'track'} by ${track.artist||'unknown artist'}`);
                 else mini.setAttribute('aria-label','Now playing');
             },
+            /* The queue list can hold hundreds of rows (thousands of DOM nodes in streaming mode). Building it on every
+               track change froze phones, so it is only built while the sheet is open and refreshed when it opens. */
             renderQueue: () => {
                 Player.syncNowPlaying?.();
+                UI.updateMiniNextUp?.();
+                const sheet = document.getElementById('queue-sheet');
+                if (!sheet || !sheet.classList.contains('active')) { UI._queueDirty = true; return; }
+                UI._renderQueueNow();
+            },
+            _renderQueueNow: () => {
+                UI._queueDirty = false;
                 document.getElementById('queue-list').innerHTML = State.playbackOrder.map((id, i) => {
                     const t = Player.getTrackById(id); if(!t) return '';
                     const isP = i === State.queueIndex;
@@ -40,7 +49,7 @@
                         </div>
                     </div>`;
                 }).join('');
-                UI.lazyLoadArtwork(); UI.setupQueueDragAndDrop(); UI.updateMiniNextUp?.();
+                UI.lazyLoadArtwork(); UI.setupQueueDragAndDrop();
             },
             setupQueueDragAndDrop: () => {
                 const list = document.getElementById('queue-list');
